@@ -58,17 +58,21 @@ export default function FindUs() {
             </div>
           </div>
           
-          {/* Instagram Grid Placeholder */}
+          {/* Instagram feed placeholder — reserves the layout until the real feed is wired up */}
           <div className="grid grid-cols-3 gap-3">
             {[1,2,3,4,5,6].map((i) => (
-              <a key={i} href="#" className="aspect-square bg-cream-dark relative rounded-xl overflow-hidden group border border-navy/[0.07]">
-                <div className={`absolute inset-0 bg-gradient-to-br from-cream to-cream-dark opacity-80`} />
-                <div className="absolute inset-0 bg-sin-red/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 21.593c-.521-.464-10-8.894-10-13.093C2 5.045 4.478 3 7.5 3c1.922 0 3.743 1.042 4.5 2.5C12.757 4.042 14.578 3 16.5 3 19.522 3 22 5.045 22 8.5c0 4.199-9.479 12.629-10 13.093z"/>
-                  </svg>
-                  <span className="text-white text-xs font-medium mt-1">{(i * 123) % 400 + 50}</span>
-                </div>
+              <a
+                key={i}
+                href="https://instagram.com"
+                target="_blank"
+                rel="noreferrer"
+                className="aspect-square bg-cream-dark relative rounded-xl overflow-hidden group border border-navy/[0.07] flex items-center justify-center hover:border-sin-red/30 transition-colors"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-navy/25 group-hover:text-sin-red/60 transition-colors">
+                  <rect x="2" y="2" width="20" height="20" rx="5" />
+                  <circle cx="12" cy="12" r="4.5" />
+                  <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                </svg>
               </a>
             ))}
           </div>
