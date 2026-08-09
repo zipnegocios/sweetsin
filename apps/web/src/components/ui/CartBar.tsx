@@ -2,9 +2,10 @@ import { useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { useCart } from '@/lib/cart';
 import { products } from '@/lib/data';
+import { getLineTotal } from '@/lib/pricing';
 
 export default function CartBar() {
-  const { items, add, remove, clear, totalQty, totalPrice, openCheckout } = useCart();
+  const { items, add, remove, clear, totalQty, totalPrice, totalSavings, openCheckout } = useCart();
   const [open, setOpen] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -80,7 +81,7 @@ export default function CartBar() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-serif font-semibold text-navy text-[14px] truncate">{product.name}</p>
-                  <p className="font-mono text-[12px] text-sin-red">${(product.price * item.qty).toFixed(2)}</p>
+                  <p className="font-mono text-[12px] text-sin-red">${getLineTotal(product.price, item.qty).toFixed(2)}</p>
                 </div>
                 {/* Qty controls */}
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -102,6 +103,12 @@ export default function CartBar() {
             ))}
           </div>
 
+          {totalSavings > 0 && (
+            <div className="flex justify-between items-center mb-1 text-sin-red">
+              <span className="font-mono text-[10px] uppercase tracking-wider">Volume savings</span>
+              <span className="font-mono text-[12px] font-semibold">-${totalSavings.toFixed(2)}</span>
+            </div>
+          )}
           <div className="border-t border-navy/10 pt-4 flex justify-between items-center mb-6">
             <span className="font-mono text-[11px] uppercase tracking-wider text-navy/40">Total</span>
             <span className="font-serif font-bold text-navy text-xl">${totalPrice.toFixed(2)}</span>
