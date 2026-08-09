@@ -3,10 +3,20 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { products, Product } from '@/lib/data';
 import { useCart } from '@/lib/cart';
+import { getDiscountForQty, VOLUME_TIERS } from '@/lib/pricing';
 import { isMotionOk } from '@/lib/animations';
 
+type Filter = 'all' | 'sin' | 'virtue' | 'coffee';
+
+const FILTER_LABELS: Record<Filter, string> = {
+  all: 'All',
+  sin: 'Sins',
+  virtue: 'Virtues',
+  coffee: 'Coffee',
+};
+
 export default function Menu() {
-  const [filter, setFilter] = useState<'all' | 'sin' | 'virtue'>('all');
+  const [filter, setFilter] = useState<Filter>('all');
   const containerRef = useRef<HTMLElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -58,15 +68,15 @@ export default function Menu() {
           </div>
 
           <div className="flex bg-navy/[0.06] p-1 rounded-full w-max">
-            {['all', 'sin', 'virtue'].map((f) => (
+            {(Object.keys(FILTER_LABELS) as Filter[]).map((f) => (
               <button
                 key={f}
-                onClick={() => setFilter(f as 'all' | 'sin' | 'virtue')}
+                onClick={() => setFilter(f)}
                 className={`px-5 py-2 rounded-full font-mono text-[10px] uppercase tracking-wider transition-all duration-300 ${
                   filter === f ? 'bg-sin-red text-white shadow-lg' : 'text-navy/40 hover:text-navy'
                 }`}
               >
-                {f === 'all' ? 'All' : f === 'sin' ? 'Sins' : 'Virtues'}
+                {FILTER_LABELS[f]}
               </button>
             ))}
           </div>
@@ -87,8 +97,11 @@ export default function Menu() {
 }
 
 function MenuCard({ product }: { product: Product }) {
-  const { add, items } = useCart();
+  const { add, setQty, items } = useCart();
   const inCart = items.find(i => i.productId === product.id);
+  const tier = inCart ? getDiscountForQty(inCart.qty) : null;
+  const nextTierIndex = (tier ? VOLUME_TIERS.indexOf(tier) : VOLUME_TIERS.length) - 1;
+  const nextTier = nextTierIndex >= 0 ? VOLUME_TIERS[nextTierIndex] : null;
 
   return (
     <div className="menu-card bg-white border border-navy/[0.07] rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-sin-red/30 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(230,57,70,0.10)] flex flex-col">
@@ -132,16 +145,45 @@ function MenuCard({ product }: { product: Product }) {
 
         <div className="flex items-center justify-between mt-auto pt-2">
           <span className="font-mono text-[13px] md:text-[16px] text-sin-red font-semibold">${product.price}</span>
-          <button
-            onClick={() => add(product.id)}
-            aria-label={`Add ${product.name} to order`}
-            className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light active:scale-95 transition-all shadow-[0_2px_8px_rgba(230,57,70,0.30)]"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </button>
+          {inCart ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={0}
+                value={inCart.qty}
+                onChange={(e) => setQty(product.id, Math.max(0, Math.floor(Number(e.target.value)) || 0))}
+                aria-label={`${product.name} quantity`}
+                className="w-12 text-center font-mono text-[12px] text-navy border border-navy/15 rounded-full py-1 focus:border-sin-red outline-none"
+              />
+              <button
+                onClick={() => add(product.id)}
+                aria-label={`Add another ${product.name} to order`}
+                className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light active:scale-95 transition-all shadow-[0_2px_8px_rgba(230,57,70,0.30)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => add(product.id)}
+              aria-label={`Add ${product.name} to order`}
+              className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light active:scale-95 transition-all shadow-[0_2px_8px_rgba(230,57,70,0.30)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+          )}
         </div>
+        {inCart && (tier || nextTier) && (
+          <p className="text-[10px] font-mono text-sin-red/80 leading-tight">
+            {tier
+              ? `${Math.round(tier.discountPct * 100)}% off applied${nextTier ? ` — ${Math.round(nextTier.discountPct * 100)}% off at ${nextTier.minQty}+` : ''}`
+              : `${Math.round((nextTier as NonNullable<typeof nextTier>).discountPct * 100)}% off at ${(nextTier as NonNullable<typeof nextTier>).minQty}+`}
+          </p>
+        )}
       </div>
     </div>
   );
