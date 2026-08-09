@@ -2,9 +2,19 @@ import { useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { isMotionOk } from '@/lib/animations';
+import { useCart } from '@/lib/cart';
 
 export default function Preorder() {
   const containerRef = useRef<HTMLElement>(null);
+  const { totalQty, openCheckout } = useCart();
+
+  function handleStartOrder() {
+    if (totalQty === 0) {
+      document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    openCheckout();
+  }
 
   useLayoutEffect(() => {
     if (!isMotionOk()) return;
@@ -88,8 +98,8 @@ export default function Preorder() {
           </div>
         </div>
         
-        <button 
-          onClick={() => window.alert('Order flow would open here')}
+        <button
+          onClick={handleStartOrder}
           className="bg-sin-red text-white px-10 py-5 rounded-full font-bold text-[15px] tracking-wide hover:bg-sin-red-light transition-all shadow-[0_8px_32px_rgba(230,57,70,0.25)] hover:shadow-[0_12px_40px_rgba(230,57,70,0.35)] hover:-translate-y-1 inline-flex items-center gap-3"
         >
           Start your order

@@ -6,6 +6,13 @@ export interface CartItem {
   qty: number;
 }
 
+export interface CheckoutDetails {
+  fulfillment: 'pickup' | 'self-delivery' | 'courier';
+  fulfillmentFee: number;
+  address?: { line1: string; suburb: string };
+  contact: { name: string; phone: string; email: string };
+}
+
 interface CartContextValue {
   items: CartItem[];
   add: (productId: string) => void;
@@ -13,13 +20,23 @@ interface CartContextValue {
   clear: () => void;
   totalQty: number;
   totalPrice: number;
-  sendToWhatsApp: () => void;
+  sendToWhatsApp: (details: CheckoutDetails) => void;
+  checkoutOpen: boolean;
+  openCheckout: () => void;
+  closeCheckout: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
+const FULFILLMENT_LABEL: Record<CheckoutDetails['fulfillment'], string> = {
+  pickup: 'Pickup at the trailer',
+  'self-delivery': 'Delivery by Sweet Sin',
+  courier: 'Courier delivery',
+};
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const add = (productId: string) => {
     setItems(prev => {
@@ -49,18 +66,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return sum + (product?.price ?? 0) * i.qty;
   }, 0);
 
-  const sendToWhatsApp = () => {
+  const sendToWhatsApp = (details: CheckoutDetails) => {
     const lines = items.map(i => {
       const product = products.find(p => p.id === i.productId);
       return `• ${i.qty}x ${product?.name} — $${((product?.price ?? 0) * i.qty).toFixed(2)}`;
     });
-    const total = `Total: $${totalPrice.toFixed(2)}`;
-    const text = `Hi! I'd like to place an order with Sweet Sin 🍮\n\n${lines.join('\n')}\n\n${total}\n\nWhen can I pick it up?`;
+    const grandTotal = totalPrice + details.fulfillmentFee;
+    const fulfillmentLine = `Fulfillment: ${FULFILLMENT_LABEL[details.fulfillment]}${
+      details.fulfillmentFee > 0 ? ` (+$${details.fulfillmentFee.toFixed(2)})` : ''
+    }`;
+    const addressLine = details.address
+      ? `Address: ${details.address.line1}, ${details.address.suburb}`
+      : null;
+    const text = [
+      `Hi! I'd like to place an order with Sweet Sin 🍮`,
+      '',
+      ...lines,
+      '',
+      fulfillmentLine,
+      addressLine,
+      `Total: $${grandTotal.toFixed(2)}`,
+      '',
+      `Name: ${details.contact.name}`,
+      `Phone: ${details.contact.phone}`,
+      `Email: ${details.contact.email}`,
+    ]
+      .filter((line): line is string => line !== null)
+      .join('\n');
     window.open(`${WHATSAPP_URL}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  const openCheckout = () => setCheckoutOpen(true);
+  const closeCheckout = () => setCheckoutOpen(false);
+
   return (
-    <CartContext.Provider value={{ items, add, remove, clear, totalQty, totalPrice, sendToWhatsApp }}>
+    <CartContext.Provider
+      value={{
+        items,
+        add,
+        remove,
+        clear,
+        totalQty,
+        totalPrice,
+        sendToWhatsApp,
+        checkoutOpen,
+        openCheckout,
+        closeCheckout,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

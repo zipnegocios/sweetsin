@@ -10,6 +10,7 @@ import CustomCursor from './components/ui/CustomCursor';
 import Navbar from './components/layout/Navbar';
 import MobileNav from './components/layout/MobileNav';
 import CartBar from './components/ui/CartBar';
+import CheckoutModal from './components/ui/CheckoutModal';
 import { CartProvider } from './lib/cart';
 
 import Hero from './components/sections/Hero';
@@ -43,6 +44,7 @@ function Home() {
 
         <MobileNav />
         <CartBar />
+        <CheckoutModal />
       </main>
     </CartProvider>
   );
