@@ -38,13 +38,17 @@ export interface ScheduleEntry {
   location: string;
   timeRange: string;
   isActive: boolean;
+  lat: number;
+  lng: number;
 }
 
+// Coordinates are approximate (city-block precision) — verify against the
+// exact market stall/trailer spot before relying on them for navigation.
 export const schedule: ScheduleEntry[] = [
-  { id: 's1', day: 'Friday',    location: 'Central Market, Adelaide CBD', timeRange: '4–8 pm',    isActive: true  },
-  { id: 's2', day: 'Saturday',  location: 'Rundle Park, Adelaide',        timeRange: '10 am–3 pm', isActive: true  },
-  { id: 's3', day: 'Sunday',    location: 'Prospect Farmers Market',      timeRange: '9 am–1 pm',  isActive: true  },
-  { id: 's4', day: 'Wednesday', location: 'Gouger St Night Market',       timeRange: '5–9 pm',     isActive: false },
+  { id: 's1', day: 'Friday',    location: 'Central Market, Adelaide CBD', timeRange: '4–8 pm',    isActive: true,  lat: -34.9289, lng: 138.5999 },
+  { id: 's2', day: 'Saturday',  location: 'Rundle Park, Adelaide',        timeRange: '10 am–3 pm', isActive: true,  lat: -34.9235, lng: 138.6087 },
+  { id: 's3', day: 'Sunday',    location: 'Prospect Farmers Market',      timeRange: '9 am–1 pm',  isActive: true,  lat: -34.8814, lng: 138.5931 },
+  { id: 's4', day: 'Wednesday', location: 'Gouger St Night Market',       timeRange: '5–9 pm',     isActive: false, lat: -34.9295, lng: 138.5987 },
 ];
 
 export const WHATSAPP_NUMBER = '+61433508831';

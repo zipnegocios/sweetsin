@@ -1,8 +1,9 @@
 import { schedule } from '@/lib/data';
 import { useRef, useState } from 'react';
 import gsap from 'gsap';
+import LocationMap from '@/components/ui/LocationMap';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+const activeStop = schedule.find((slot) => slot.isActive) ?? schedule[0];
 
 export default function FindUs() {
   return (
@@ -43,25 +44,17 @@ export default function FindUs() {
         
         {/* Right Col: Map & IG */}
         <div className="flex flex-col gap-6">
-          <div className="w-full h-[300px] md:h-[400px] bg-cream rounded-2xl relative overflow-hidden flex items-center justify-center border border-navy/[0.08]">
-            {/* Google Maps placeholder */}
-            {MAPBOX_TOKEN && (
-              <div
-                className="absolute inset-0 bg-cover bg-center opacity-40 grayscale sepia brightness-75"
-                style={{
-                  backgroundImage: `url('https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/138.5995,-34.9285,13,0/600x400?access_token=${MAPBOX_TOKEN}')`,
-                }}
-              />
-            )}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center flex flex-col items-center">
-              <span className="drop-shadow-xl animate-bounce">
-                <svg width="36" height="44" viewBox="0 0 36 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 0C8.059 0 0 8.059 0 18c0 13.5 18 26 18 26S36 31.5 36 18C36 8.059 27.941 0 18 0Z" fill="#E63946"/>
-                  <circle cx="18" cy="18" r="7" fill="white" fillOpacity="0.9"/>
-                  <circle cx="18" cy="18" r="4" fill="#E63946"/>
-                </svg>
+          <div className="w-full h-[300px] md:h-[400px] bg-cream rounded-2xl relative overflow-hidden border border-navy/[0.08]">
+            <LocationMap
+              lat={activeStop.lat}
+              lng={activeStop.lng}
+              label={activeStop.location}
+              className="absolute inset-0 grayscale sepia brightness-75"
+            />
+            <div className="absolute bottom-4 left-4 pointer-events-none">
+              <span className="font-mono text-[9px] tracking-widest text-white px-2 py-1 bg-black/50 rounded backdrop-blur-sm uppercase">
+                {activeStop.location}
               </span>
-              <span className="font-mono text-[9px] tracking-widest text-white mt-2 px-2 py-1 bg-black/50 rounded backdrop-blur-sm uppercase">Adelaide, SA</span>
             </div>
           </div>
           
