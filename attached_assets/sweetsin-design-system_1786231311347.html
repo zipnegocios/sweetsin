@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sweet Sin — Web Design System & Section Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red: #E63946;
+    --red-dark: #B82B36;
+    --red-light: #FF5C6A;
+    --navy: #0F1B3D;
+    --navy-mid: #1A2F5F;
+    --navy-light: #253D78;
+    --gold: #C9943A;
+    --gold-light: #F5D06B;
+    --cream: #F7F3EE;
+    --cream-dark: #EDE7DC;
+    --white: #FDFAF7;
+    --dark: #080D1A;
+
+    --font-display: 'Fraunces', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+
+    --section-pad: 120px 5vw;
+    --section-pad-mobile: 80px 6vw;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: #0a0d17;
+    color: var(--cream);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ─── COVER ─────────────────────────────────────────────── */
+  .doc-cover {
+    min-height: 100vh;
+    background: var(--navy);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 5vw;
+    position: relative;
+    overflow: hidden;
+  }
+  .doc-cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(230,57,70,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .cover-title {
+    font-family: var(--font-display);
+    font-size: clamp(52px, 10vw, 110px);
+    font-weight: 900;
+    line-height: 0.9;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .cover-title span { color: var(--red); font-style: italic; }
+  .cover-subtitle {
+    font-family: var(--font-display);
+    font-size: clamp(16px, 2.5vw, 22px);
+    font-weight: 300;
+    color: rgba(247,243,238,0.5);
+    font-style: italic;
+    margin-bottom: 60px;
+    letter-spacing: 0.02em;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 12px;
+    color: rgba(247,243,238,0.4);
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .cover-meta span { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .cover-meta strong { color: var(--cream); font-family: var(--font-body); font-size: 14px; letter-spacing: 0; }
+
+  /* ─── SECTION DIVIDERS ───────────────────────────────────── */
+  .doc-section {
+    padding: 80px 5vw;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    background: #0a0d17;
+  }
+  .doc-section.light {
+    background: var(--cream);
+    color: var(--navy);
+    border-top-color: rgba(15,27,61,0.08);
+  }
+  .doc-section.navy {
+    background: var(--navy);
+    border-top-color: rgba(255,255,255,0.06);
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 40px;
+  }
+  .light .section-title { color: var(--navy); }
+
+  /* ─── DESIGN TOKENS ─────────────────────────────────────── */
+  .token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  .color-swatch {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .swatch-color {
+    height: 80px;
+    width: 100%;
+  }
+  .swatch-info {
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+  }
+  .swatch-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--cream);
+    display: block;
+  }
+  .swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(247,243,238,0.4);
+  }
+  .light .swatch-info { background: rgba(15,27,61,0.05); }
+  .light .swatch-name { color: var(--navy); }
+  .light .swatch-hex { color: rgba(15,27,61,0.4); }
+
+  .type-scale {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .type-sample {
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .type-meta {
+    min-width: 140px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(247,243,238,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    flex-shrink: 0;
+  }
+
+  /* ─── SECTION PREVIEWS ───────────────────────────────────── */
+  .section-preview {
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 60px;
+    position: relative;
+  }
+
+  /* HERO PREVIEW */
+  .preview-hero {
+    background: var(--navy);
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview-hero::before {
+    content: '';
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(230,57,70,0.2) 0%, transparent 65%);
+    top: 50%; left: 50%; transform: translate(-50%, -55%);
+    pointer-events: none;
+  }
+  .hero-nav {
+    position: absolute;
+    top: 24px; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 32px;
+    align-items: center;
+  }
+  .hero-logo {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--white);
+    letter-spacing: 0.02em;
+  }
+  .hero-logo span { color: var(--red); }
+  .hero-nav-links {
+    display: flex;
+    gap: 28px;
+    font-size: 12px;
+    color: rgba(247,243,238,0.5);
+    letter-spacing: 0.05em;
+    list-style: none;
+  }
+  .hero-nav-cta {
+    background: var(--red);
+    color: white;
+    font-size: 11px;
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .hero-headline {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 7vw, 88px);
+    font-weight: 900;
+    line-height: 0.92;
+    color: var(--white);
+    margin-bottom: 20px;
+    position: relative;
+    max-width: 720px;
+  }
+  .hero-headline em {
+    font-style: italic;
+    color: var(--red);
+  }
+  .hero-subhead {
+    font-size: 15px;
+    color: rgba(247,243,238,0.55);
+    max-width: 420px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .hero-ctas {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    position: relative;
+  }
+  .btn-primary {
+    background: var(--red);
+    color: white;
+    padding: 14px 32px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .btn-ghost {
+    color: rgba(247,243,238,0.6);
+    padding: 14px 24px;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-ghost::after { content: '↓'; font-size: 11px; }
+  .hero-scroll {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: rgba(247,243,238,0.25);
+    text-transform: uppercase;
+  }
+  .webgl-badge {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: rgba(230,57,70,0.15);
+    border: 1px solid rgba(230,57,70,0.3);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--red);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* MARQUEE PREVIEW */
+  .preview-marquee {
+    background: var(--red);
+    padding: 14px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.85);
+  }
+  .marquee-track {
+    display: inline-block;
+    animation: marquee 18s linear infinite;
+  }
+  .marquee-dot { margin: 0 20px; color: rgba(255,255,255,0.4); }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* BRAND STORY PREVIEW */
+  .preview-story {
+    background: var(--cream);
+    color: var(--navy);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 400px;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .story-text {
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+  }
+  .story-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--red);
+  }
+  .story-headline {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--navy);
+  }
+  .story-headline em { font-style: italic; color: var(--red); }
+  .story-body {
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(15,27,61,0.65);
+    max-width: 380px;
+  }
+  .story-img {
+    background: var(--navy-mid);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+  }
+  .story-img::after {
+    content: 'FOTO FOOD TRAILER';
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.2);
+    text-align: center;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* MENU SINS PREVIEW */
+  .preview-sins {
+    background: var(--dark);
+    padding: 56px 40px;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .sins-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 40px;
+  }
+  .sins-headline {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 0.95;
+    color: var(--white);
+  }
+  .sins-headline em { font-style: italic; color: var(--red); }
+  .sins-view-all {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: rgba(247,243,238,0.35);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .menu-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .menu-card:hover {
+    background: rgba(230,57,70,0.08);
+    border-color: rgba(230,57,70,0.25);
+    transform: translateY(-3px);
+  }
+  .card-img {
+    height: 120px;
+    background: var(--navy-mid);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.1);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    position: relative;
+  }
+  .card-sin-badge {
+    position: absolute;
+    top: 10px; left: 10px;
+    background: rgba(230,57,70,0.9);
+    color: white;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+  .card-body {
+    padding: 14px;
+  }
+  .card-name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 3px;
+  }
+  .card-desc {
+    font-size: 11px;
+    color: rgba(247,243,238,0.4);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .card-price {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--red);
+  }
+
+  /* REPOLLA SPOTLIGHT */
+  .preview-spotlight {
+    background: var(--cream);
+    color: var(--navy);
+    border-radius: 20px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 420px;
+  }
+  .spotlight-img {
+    background: var(--navy);
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .spotlight-img::after {
+    content: 'FOTO LA REPOLLA';
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.2);
+  }
+  .spotlight-img::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 60%, rgba(201,148,58,0.25) 0%, transparent 65%);
+  }
+  .spotlight-content {
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+  }
+  .spotlight-tag {
+    display: inline-block;
+    background: rgba(230,57,70,0.1);
+    border: 1px solid rgba(230,57,70,0.25);
+    color: var(--red);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+    width: fit-content;
+  }
+  .spotlight-headline {
+    font-family: var(--font-display);
+    font-size: 38px;
+    font-weight: 900;
+    line-height: 1.0;
+    color: var(--navy);
+  }
+  .spotlight-headline em { font-style: italic; color: var(--red); }
+  .spotlight-body {
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(15,27,61,0.6);
+    max-width: 320px;
+  }
+
+  /* EVENTS PREVIEW */
+  .preview-events {
+    background: var(--navy);
+    padding: 56px 40px;
+    border-radius: 20px;
+  }
+  .events-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+  .events-headline {
+    font-family: var(--font-display);
+    font-size: 40px;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1.0;
+    margin-bottom: 8px;
+  }
+  .events-sub {
+    font-size: 14px;
+    color: rgba(247,243,238,0.45);
+    margin-bottom: 40px;
+  }
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+  .event-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .event-icon {
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+  .event-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+  .event-desc {
+    font-size: 12px;
+    color: rgba(247,243,238,0.4);
+    line-height: 1.6;
+  }
+  .events-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--gold);
+    color: var(--navy);
+    padding: 14px 32px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* PREORDER PREVIEW */
+  .preview-preorder {
+    background: var(--red);
+    padding: 56px 40px;
+    border-radius: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview-preorder::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% 20%, rgba(255,255,255,0.1) 0%, transparent 60%);
+  }
+  .preorder-headline {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 900;
+    line-height: 0.95;
+    color: white;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .preorder-sub {
+    font-size: 15px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 40px;
+    position: relative;
+  }
+  .steps-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 40px;
+    position: relative;
+  }
+  .step {
+    flex: 1;
+    max-width: 180px;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px; right: -20px;
+    width: 40px; height: 1px;
+    background: rgba(255,255,255,0.25);
+  }
+  .step-num {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 16px;
+    color: white;
+    margin: 0 auto 12px;
+  }
+  .step-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 500;
+  }
+  .step-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 4px;
+  }
+  .btn-white {
+    background: white;
+    color: var(--red);
+    padding: 16px 40px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    position: relative;
+  }
+
+  /* FIND US PREVIEW */
+  .preview-findus {
+    background: var(--dark);
+    padding: 56px 40px;
+    border-radius: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .findus-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--red); margin-bottom: 12px; }
+  .findus-headline {
+    font-family: var(--font-display);
+    font-size: 38px;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1.0;
+    margin-bottom: 12px;
+  }
+  .findus-body { font-size: 14px; color: rgba(247,243,238,0.5); line-height: 1.7; margin-bottom: 28px; }
+  .schedule-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+  }
+  .schedule-day { color: rgba(247,243,238,0.5); }
+  .schedule-location { color: var(--cream); font-weight: 500; }
+  .map-placeholder {
+    background: var(--navy-mid);
+    border-radius: 14px;
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* FOOTER PREVIEW */
+  .preview-footer {
+    background: var(--navy);
+    padding: 48px 40px 32px;
+    border-radius: 20px;
+  }
+  .footer-top {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 40px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer-brand {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--white);
+    margin-bottom: 10px;
+  }
+  .footer-brand span { color: var(--red); }
+  .footer-tagline {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-style: italic;
+    color: rgba(247,243,238,0.35);
+    line-height: 1.5;
+  }
+  .footer-col-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(247,243,238,0.3);
+    margin-bottom: 16px;
+  }
+  .footer-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .footer-links a {
+    font-size: 13px;
+    color: rgba(247,243,238,0.55);
+    text-decoration: none;
+  }
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(247,243,238,0.2);
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── ANIMATION SPECS ────────────────────────────────────── */
+  .anim-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .anim-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .anim-card.navy-bg { background: rgba(15,27,61,0.5); }
+  .anim-tag {
+    display: inline-block;
+    background: rgba(230,57,70,0.15);
+    border: 1px solid rgba(230,57,70,0.25);
+    color: var(--red);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+  }
+  .anim-tag.gsap { background: rgba(201,148,58,0.15); border-color: rgba(201,148,58,0.3); color: var(--gold); }
+  .anim-tag.webgl { background: rgba(53,125,255,0.12); border-color: rgba(53,125,255,0.25); color: #7AB0FF; }
+  .anim-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+  .anim-desc {
+    font-size: 12px;
+    color: rgba(247,243,238,0.45);
+    line-height: 1.6;
+  }
+  .anim-code {
+    margin-top: 12px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(247,243,238,0.5);
+    line-height: 1.6;
+  }
+
+  /* ─── MOBILE SPECS ───────────────────────────────────────── */
+  .mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+  .mobile-frame {
+    background: var(--navy);
+    border-radius: 28px;
+    border: 6px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    aspect-ratio: 9/18;
+    position: relative;
+  }
+  .mobile-screen {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-size: 9px;
+  }
+  .mobile-status {
+    height: 20px;
+    background: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 12px;
+    gap: 4px;
+  }
+  .mobile-hero-content {
+    flex: 1;
+    background: var(--navy);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    text-align: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mobile-hero-content::before {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(230,57,70,0.2) 0%, transparent 65%);
+    top: 30%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .m-eyebrow { font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--red); }
+  .m-headline { font-family: var(--font-display); font-size: 22px; font-weight: 900; line-height: 0.95; color: white; }
+  .m-headline em { color: var(--red); font-style: italic; }
+  .m-sub { font-size: 8px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+  .m-btn { background: var(--red); color: white; padding: 7px 18px; border-radius: 100px; font-size: 8px; font-weight: 500; }
+  .mobile-label {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(247,243,238,0.35);
+    text-transform: uppercase;
+    margin-top: 14px;
+  }
+
+  /* ─── UX NOTES ───────────────────────────────────────────── */
+  .ux-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .ux-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+  }
+  .ux-icon {
+    width: 36px; height: 36px;
+    background: rgba(230,57,70,0.12);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .ux-text-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cream);
+    margin-bottom: 5px;
+  }
+  .ux-text-desc {
+    font-size: 12px;
+    color: rgba(247,243,238,0.45);
+    line-height: 1.6;
+  }
+
+  /* ─── PAGE FLOW MAP ──────────────────────────────────────── */
+  .page-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 32px;
+  }
+  .page-flow::before {
+    content: '';
+    position: absolute;
+    left: 10px; top: 12px; bottom: 12px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--red), rgba(230,57,70,0.1));
+  }
+  .flow-item {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+    align-items: flex-start;
+  }
+  .flow-item:last-child { border-bottom: none; }
+  .flow-dot {
+    width: 20px; height: 20px;
+    background: var(--red);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: -32px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+    font-family: var(--font-mono);
+  }
+  .flow-content { flex: 1; }
+  .flow-name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+  .flow-copy {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-style: italic;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+  .flow-desc {
+    font-size: 12px;
+    color: rgba(247,243,238,0.45);
+    line-height: 1.6;
+  }
+  .flow-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .flow-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(247,243,238,0.4);
+  }
+  .flow-tag.red { background: rgba(230,57,70,0.15); color: rgba(230,57,70,0.8); }
+  .flow-tag.gold { background: rgba(201,148,58,0.15); color: rgba(201,148,58,0.8); }
+  .flow-tag.blue { background: rgba(90,150,255,0.12); color: rgba(150,190,255,0.8); }
+
+  /* ─── TECH STACK ─────────────────────────────────────────── */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .tech-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .tech-icon-box {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .tech-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--cream);
+    margin-bottom: 3px;
+  }
+  .tech-desc {
+    font-size: 11px;
+    color: rgba(247,243,238,0.35);
+    line-height: 1.5;
+  }
+
+  /* ─── RESPONSIVE ─────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .preview-story,
+    .preview-spotlight,
+    .preview-findus { grid-template-columns: 1fr; }
+    .menu-grid { grid-template-columns: repeat(2, 1fr); }
+    .events-grid { grid-template-columns: 1fr; }
+    .footer-top { grid-template-columns: 1fr 1fr; }
+    .mobile-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     COVER
+══════════════════════════════════════════════════════════ -->
+<div class="doc-cover">
+  <div class="cover-label">Design System & Website Architecture — v1.0</div>
+  <h1 class="cover-title">Sweet <span>Sin</span></h1>
+  <p class="cover-subtitle">Awwwards-level web design. Colombian soul. Adelaide address.</p>
+  <div class="cover-meta">
+    <span><strong>Approach</strong>Mobile-first</span>
+    <span><strong>Stack</strong>Next.js + GSAP + WebGL</span>
+    <span><strong>Sections</strong>9 sections</span>
+    <span><strong>Palette</strong>#E63946 · #0F1B3D</span>
+    <span><strong>Client</strong>Sweet Sin — Oscar</span>
+    <span><strong>Agency</strong>Maistro</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     1. DESIGN TOKENS
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section">
+  <div class="section-label">01 — Design Tokens</div>
+  <h2 class="section-title">La identidad visual</h2>
+
+  <!-- COLORS -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:16px;">Color palette</p>
+  <div class="token-grid">
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#E63946;"></div>
+      <div class="swatch-info"><span class="swatch-name">Sin Red</span><span class="swatch-hex">#E63946 — Primary</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#0F1B3D;"></div>
+      <div class="swatch-info"><span class="swatch-name">Midnight Navy</span><span class="swatch-hex">#0F1B3D — Secondary</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#C9943A;"></div>
+      <div class="swatch-info"><span class="swatch-name">Arequipe Gold</span><span class="swatch-hex">#C9943A — Accent</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#F7F3EE;"></div>
+      <div class="swatch-info"><span class="swatch-name">Cream</span><span class="swatch-hex">#F7F3EE — Light BG</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#080D1A;"></div>
+      <div class="swatch-info"><span class="swatch-name">Abyss</span><span class="swatch-hex">#080D1A — Dark BG</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-color" style="background:#FDFAF7;"></div>
+      <div class="swatch-info"><span class="swatch-name">Vanilla</span><span class="swatch-hex">#FDFAF7 — White</span></div>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:20px;margin-top:48px;">Typography scale</p>
+  <div class="type-scale">
+    <div class="type-sample">
+      <div class="type-meta">Display / Hero<br>Fraunces 900<br>clamp(64–120px)</div>
+      <div style="font-family:var(--font-display);font-size:clamp(40px,6vw,80px);font-weight:900;color:var(--white);line-height:0.92;">Forgive <em style="color:var(--red);font-style:italic;">yourself.</em></div>
+    </div>
+    <div class="type-sample">
+      <div class="type-meta">Heading / Section<br>Fraunces 700<br>clamp(28–48px)</div>
+      <div style="font-family:var(--font-display);font-size:clamp(24px,4vw,42px);font-weight:700;color:var(--white);line-height:1.05;">The Seven <em style="color:var(--red);font-style:italic;">Sins</em></div>
+    </div>
+    <div class="type-sample">
+      <div class="type-meta">Subheading<br>Fraunces 300i<br>18–24px</div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:300;font-style:italic;color:rgba(247,243,238,0.65);">Colombian desserts. Adelaide-made. Unapologetically indulgent.</div>
+    </div>
+    <div class="type-sample">
+      <div class="type-meta">Body<br>DM Sans 400<br>14–16px</div>
+      <div style="font-family:var(--font-body);font-size:15px;color:rgba(247,243,238,0.6);line-height:1.7;max-width:480px;">Every bite carries the weight of a recipe handed down through generations. Sweet Sin was born in Colombia, raised in memory, and now calling Adelaide home. One trailer. Seven sins. Zero regrets.</div>
+    </div>
+    <div class="type-sample">
+      <div class="type-meta">Label / Eyebrow<br>DM Mono 400<br>9–11px · +0.2em</div>
+      <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);">Artisan Colombian Desserts · Adelaide, SA</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     2. PAGE MAP
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section navy">
+  <div class="section-label">02 — Page Architecture</div>
+  <h2 class="section-title">Mapa de secciones</h2>
+
+  <div class="page-flow">
+    <div class="flow-item">
+      <div class="flow-dot">01</div>
+      <div class="flow-content">
+        <div class="flow-name">Hero — "The Temptation"</div>
+        <div class="flow-copy">"Your sins were always worth it."</div>
+        <div class="flow-desc">Full viewport. Devil mascot central, WebGL particle field que forma la silueta y se dispersa on load. Headline split-text con stagger GSAP. Fondo navy profundo con halo rojo. Dos CTAs: "Explore the menu" y "Order now".</div>
+        <div class="flow-tags">
+          <span class="flow-tag blue">WebGL Particles</span>
+          <span class="flow-tag red">GSAP SplitText</span>
+          <span class="flow-tag">Nav transparente</span>
+          <span class="flow-tag">Video Loop opcional</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">02</div>
+      <div class="flow-content">
+        <div class="flow-name">Marquee — "The Confession"</div>
+        <div class="flow-copy">Obleas · Fresas con Crema · La Repolla · Arequipe · Wrath · Gluttony · Envy →</div>
+        <div class="flow-desc">Banda roja full-width con productos en tipografía italic scrolling infinito. Transición visual entre Hero y brand story. Velocidad lenta, sensual.</div>
+        <div class="flow-tags">
+          <span class="flow-tag red">GSAP Marquee</span>
+          <span class="flow-tag">Fondo #E63946</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">03</div>
+      <div class="flow-content">
+        <div class="flow-name">Brand Story — "Born in Colombia"</div>
+        <div class="flow-copy">"What started as a family recipe became Adelaide's sweetest obsession."</div>
+        <div class="flow-desc">Split layout: texto izquierda, fotografía del food trailer derecha. Scroll-triggered line reveal (cada línea entra con clipPath). Fondo crema cálido. Counter animado: Años de receta / Productos / Eventos.</div>
+        <div class="flow-tags">
+          <span class="flow-tag red">GSAP ScrollTrigger</span>
+          <span class="flow-tag">ClipPath reveal</span>
+          <span class="flow-tag">Counter animado</span>
+          <span class="flow-tag">Fondo Cream</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">04</div>
+      <div class="flow-content">
+        <div class="flow-name">Menú — "The Seven Sins"</div>
+        <div class="flow-copy">"Indulgence, classified."</div>
+        <div class="flow-desc">Grid de productos con fotos. Cada card aparece con stagger al entrar en viewport. Hover: elevación sutil + glow rojo. Filtros por categoría (mobile: scroll horizontal). Tag "SIN" o "VIRTUE" visible en cada card. Precio en tipografía display.</div>
+        <div class="flow-tags">
+          <span class="flow-tag red">GSAP Stagger</span>
+          <span class="flow-tag">Filtros interactivos</span>
+          <span class="flow-tag">Lazy load fotos</span>
+          <span class="flow-tag">Fondo Dark</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">05</div>
+      <div class="flow-content">
+        <div class="flow-name">Spotlight — "La Repolla"</div>
+        <div class="flow-copy">"Adelaide hasn't tasted anything like it."</div>
+        <div class="flow-desc">Sección featured para el profiterole con arequipe artesanal. Foto hero full-bleed, partículas WebGL de caramelo flotando. El producto más subutilizado actualmente — acá se vuelve protagonista. CTA directo a preorder.</div>
+        <div class="flow-tags">
+          <span class="flow-tag blue">WebGL caramel particles</span>
+          <span class="flow-tag red">Parallax foto</span>
+          <span class="flow-tag gold">CTA arequipe-gold</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">06</div>
+      <div class="flow-content">
+        <div class="flow-name">Events & Catering — "Make it sinful"</div>
+        <div class="flow-copy">"Your event deserves a temptation people won't forget."</div>
+        <div class="flow-desc">Sección B2B. Tres tipos de evento: Corporate · Weddings · Festivals. Cards con íconos y descripción breve. Configurador de paquete (opcional Pro tier). CTA dorado "Get a quote" que abre formulario modal o dirige a contacto.</div>
+        <div class="flow-tags">
+          <span class="flow-tag gold">CTA Arequipe Gold</span>
+          <span class="flow-tag">Modal form</span>
+          <span class="flow-tag">Fondo Navy</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">07</div>
+      <div class="flow-content">
+        <div class="flow-name">Preorder — "Ready to sin?"</div>
+        <div class="flow-copy">"Pick your poison. We'll have it ready."</div>
+        <div class="flow-desc">Sección de conversión principal. Fondo rojo full-bleed. Proceso 3 pasos visuales: Choose → Pay → Pickup. CTA principal "Start your order" con Stripe checkout. Stripe fee notice sutil al pie.</div>
+        <div class="flow-tags">
+          <span class="flow-tag red">CTA principal</span>
+          <span class="flow-tag">Stripe checkout</span>
+          <span class="flow-tag">Fondo Sin Red</span>
+          <span class="flow-tag">3-step visual</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">08</div>
+      <div class="flow-content">
+        <div class="flow-name">Find Us — "We show up where the cravings are"</div>
+        <div class="flow-copy">"Check where we'll be this week."</div>
+        <div class="flow-desc">Horario semanal del food trailer + mapa interactivo. Feed Instagram embedded (últimas 6 fotos). Suscripción a notificaciones de ubicación (email/WhatsApp). Dark moody, pero friendly.</div>
+        <div class="flow-tags">
+          <span class="flow-tag">Schedule grid</span>
+          <span class="flow-tag">Google Maps embed</span>
+          <span class="flow-tag">IG Feed</span>
+          <span class="flow-tag">Fondo Dark</span>
+        </div>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">09</div>
+      <div class="flow-content">
+        <div class="flow-name">Footer</div>
+        <div class="flow-copy">"Born in Colombia. Made for Adelaide."</div>
+        <div class="flow-desc">Logo, nav links, redes sociales, política de privacidad. Copyright. Tagline "Forgive yourself" como firma visual. Fondo navy profundo.</div>
+        <div class="flow-tags">
+          <span class="flow-tag">Fondo Navy</span>
+          <span class="flow-tag">Social links</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     3. SECTION MOCKUPS
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section">
+  <div class="section-label">03 — Section Mockups</div>
+  <h2 class="section-title">Visualización por sección</h2>
+
+  <!-- HERO -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">01 · Hero</p>
+  <div class="section-preview">
+    <div class="preview-hero">
+      <div class="webgl-badge">WebGL Particles</div>
+      <nav class="hero-nav">
+        <div class="hero-logo">Sweet <span>Sin</span></div>
+        <ul class="hero-nav-links">
+          <li>Menu</li><li>Events</li><li>Our Story</li><li>Find Us</li>
+        </ul>
+        <div class="hero-nav-cta">Order Now</div>
+      </nav>
+      <p class="hero-eyebrow">Artisan Colombian Desserts · Adelaide SA</p>
+      <h1 class="hero-headline">Your sins were always <em>worth it.</em></h1>
+      <p class="hero-subhead">Colombian desserts crafted with memory, made with love, served from a trailer that knows no shame.</p>
+      <div class="hero-ctas">
+        <a class="btn-primary" href="#">Explore the menu</a>
+        <a class="btn-ghost" href="#">Our story</a>
+      </div>
+      <div class="hero-scroll">scroll to discover</div>
+    </div>
+  </div>
+
+  <!-- MARQUEE -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">02 · Marquee</p>
+  <div style="border-radius:14px;overflow:hidden;margin-bottom:60px;">
+    <div class="preview-marquee">
+      <span class="marquee-track">
+        Obleas con Arequipe <span class="marquee-dot">·</span> Fresas con Crema <span class="marquee-dot">·</span> La Repolla <span class="marquee-dot">·</span> Arequipe Artesanal <span class="marquee-dot">·</span> Gluttony <span class="marquee-dot">·</span> Envy <span class="marquee-dot">·</span> Lust <span class="marquee-dot">·</span> Wrath <span class="marquee-dot">·</span> &nbsp;&nbsp;&nbsp;&nbsp;Obleas con Arequipe <span class="marquee-dot">·</span> Fresas con Crema <span class="marquee-dot">·</span> La Repolla <span class="marquee-dot">·</span> Arequipe Artesanal <span class="marquee-dot">·</span> Gluttony <span class="marquee-dot">·</span> Envy <span class="marquee-dot">·</span> Lust <span class="marquee-dot">·</span> Wrath <span class="marquee-dot">·</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- BRAND STORY -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">03 · Brand Story</p>
+  <div class="section-preview preview-story" style="margin-bottom:60px;">
+    <div class="story-text">
+      <p class="story-label">Our Origin</p>
+      <h2 class="story-headline">Born in Colombia.<br>Raised in <em>memory.</em><br>Made for Adelaide.</h2>
+      <p class="story-body">Oscar grew up watching his family turn flour, arequipe, and patience into something extraordinary. When he brought that knowledge to Australia, he brought everything with it — the recipes, the care, and the understanding that great food isn't just nourishment. It's permission to enjoy yourself without apology.</p>
+      <div style="display:flex;gap:32px;margin-top:8px;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--navy);">7+</div>
+          <div style="font-size:11px;color:rgba(15,27,61,0.45);font-family:var(--font-mono);letter-spacing:0.1em;text-transform:uppercase;">Products</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--navy);">100%</div>
+          <div style="font-size:11px;color:rgba(15,27,61,0.45);font-family:var(--font-mono);letter-spacing:0.1em;text-transform:uppercase;">Homemade</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--navy);">0</div>
+          <div style="font-size:11px;color:rgba(15,27,61,0.45);font-family:var(--font-mono);letter-spacing:0.1em;text-transform:uppercase;">Regrets</div>
+        </div>
+      </div>
+    </div>
+    <div class="story-img"></div>
+  </div>
+
+  <!-- MENU SINS -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">04 · Menú — The Seven Sins</p>
+  <div class="section-preview preview-sins" style="margin-bottom:60px;">
+    <div class="sins-header">
+      <div>
+        <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:8px;">Indulgence, classified</p>
+        <h2 class="sins-headline">The Seven <em>Sins</em></h2>
+      </div>
+      <a class="sins-view-all" href="#">View full menu →</a>
+    </div>
+    <div class="menu-grid">
+      <div class="menu-card">
+        <div class="card-img"><span class="card-sin-badge">Sin</span>FOTO</div>
+        <div class="card-body">
+          <div class="card-name">Gluttony</div>
+          <div class="card-desc">Obleas with homemade arequipe & condensed milk</div>
+          <div class="card-price">$13</div>
+        </div>
+      </div>
+      <div class="menu-card">
+        <div class="card-img"><span class="card-sin-badge">Sin</span>FOTO</div>
+        <div class="card-body">
+          <div class="card-name">Lust</div>
+          <div class="card-desc">Fresas con crema — strawberries, fresh cream</div>
+          <div class="card-price">$13</div>
+        </div>
+      </div>
+      <div class="menu-card">
+        <div class="card-img"><span class="card-sin-badge">Sin</span>FOTO</div>
+        <div class="card-body">
+          <div class="card-name">Envy</div>
+          <div class="card-desc">La Repolla — profiterole with arequipe artesanal</div>
+          <div class="card-price">$13</div>
+        </div>
+      </div>
+      <div class="menu-card">
+        <div class="card-img" style="background:rgba(201,148,58,0.08);"><span style="position:absolute;top:10px;left:10px;background:rgba(201,148,58,0.9);color:#1a0a00;font-size:9px;font-family:var(--font-mono);letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:100px;">Virtue</span>FOTO</div>
+        <div class="card-body">
+          <div class="card-name">Prudence</div>
+          <div class="card-desc">Lighter option with seasonal fruits & honey</div>
+          <div class="card-price" style="color:var(--gold);">$11</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPOTLIGHT -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">05 · Spotlight — La Repolla</p>
+  <div class="section-preview preview-spotlight" style="margin-bottom:60px;">
+    <div class="spotlight-img"></div>
+    <div class="spotlight-content">
+      <span class="spotlight-tag">Featured Product</span>
+      <h2 class="spotlight-headline">Adelaide hasn't tasted anything <em>like it.</em></h2>
+      <p class="spotlight-body" style="color:rgba(15,27,61,0.6);">La Repolla is our profiterole — filled with homemade arequipe, dusted with something you didn't know you were missing. It converts. Every. Single. Time.</p>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:8px;">
+        <a class="btn-primary" href="#" style="font-size:12px;padding:12px 28px;">Try it first</a>
+        <span style="font-family:var(--font-display);font-size:22px;font-weight:900;color:var(--navy);">$13</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENTS -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">06 · Events & Catering</p>
+  <div class="section-preview preview-events" style="margin-bottom:60px;">
+    <p class="events-label">For businesses & celebrations</p>
+    <h2 class="events-headline">Make it sinful.</h2>
+    <p class="events-sub">Your event deserves a temptation people won't stop talking about.</p>
+    <div class="events-grid">
+      <div class="event-card">
+        <div class="event-icon">🏢</div>
+        <div class="event-name">Corporate Events</div>
+        <div class="event-desc">Branded catering packages for offices, launches & team days. Minimum 20 pax.</div>
+      </div>
+      <div class="event-card">
+        <div class="event-icon">💍</div>
+        <div class="event-name">Weddings</div>
+        <div class="event-desc">Dessert stations & custom obleas towers. Unforgettable, guaranteed.</div>
+      </div>
+      <div class="event-card">
+        <div class="event-icon">🎪</div>
+        <div class="event-name">Festivals & Markets</div>
+        <div class="event-desc">Full trailer setup for outdoor events across SA. Subject to availability.</div>
+      </div>
+    </div>
+    <a class="events-cta" href="#">Get a quote →</a>
+  </div>
+
+  <!-- PREORDER -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">07 · Preorder</p>
+  <div class="section-preview preview-preorder" style="margin-bottom:60px;">
+    <h2 class="preorder-headline">Ready to<br><em style="font-style:italic;">sin?</em></h2>
+    <p class="preorder-sub">Preorder for pickup. No queue, no waiting — just the good stuff.</p>
+    <div class="steps-row">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-label">Choose your sins</div>
+        <div class="step-sub">Pick items from the menu</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-label">Pay securely</div>
+        <div class="step-sub">Stripe checkout, 2 min</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-label">Pick up & enjoy</div>
+        <div class="step-sub">Fresh, ready at the trailer</div>
+      </div>
+    </div>
+    <div class="btn-white">Start your order →</div>
+  </div>
+
+  <!-- FIND US -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">08 · Find Us</p>
+  <div class="section-preview preview-findus" style="margin-bottom:60px;">
+    <div>
+      <p class="findus-label">This week's schedule</p>
+      <h2 class="findus-headline">We show up where the cravings are.</h2>
+      <p class="findus-body">The trailer moves. Follow us on Instagram or sign up for weekly location drops straight to your inbox.</p>
+      <div style="margin-bottom:20px;">
+        <div class="schedule-item"><span class="schedule-day">Friday</span><span class="schedule-location">Central Market, Adelaide CBD · 4–8 pm</span></div>
+        <div class="schedule-item"><span class="schedule-day">Saturday</span><span class="schedule-location">Glenelg Foreshore · 10 am–3 pm</span></div>
+        <div class="schedule-item"><span class="schedule-day">Sunday</span><span class="schedule-location">Unley Farmers Market · 9 am–1 pm</span></div>
+      </div>
+      <a class="btn-primary" href="#" style="font-size:12px;padding:12px 24px;">Get location updates</a>
+    </div>
+    <div class="map-placeholder">MAP GOES HERE</div>
+  </div>
+
+  <!-- FOOTER -->
+  <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:14px;">09 · Footer</p>
+  <div class="section-preview preview-footer">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">Sweet <span>Sin</span></div>
+        <div class="footer-tagline">Born in Colombia.<br>Made for Adelaide.<br><em>Forgive yourself.</em></div>
+        <div style="display:flex;gap:14px;margin-top:20px;">
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.07);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;">📸</div>
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.07);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;">🎵</div>
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.07);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;">💬</div>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title">Menu</div>
+        <ul class="footer-links">
+          <li><a href="#">The Seven Sins</a></li>
+          <li><a href="#">The Seven Virtues</a></li>
+          <li><a href="#">La Repolla</a></li>
+          <li><a href="#">Seasonal Specials</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Services</div>
+        <ul class="footer-links">
+          <li><a href="#">Online Preorder</a></li>
+          <li><a href="#">Event Catering</a></li>
+          <li><a href="#">Corporate Packages</a></li>
+          <li><a href="#">Weddings</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Info</div>
+        <ul class="footer-links">
+          <li><a href="#">Our Story</a></li>
+          <li><a href="#">Find Us</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Sweet Sin · Adelaide SA · ABN 00 000 000 000</span>
+      <span>Built by Maistro</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     4. ANIMATION SPEC
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section navy">
+  <div class="section-label">04 — Motion Design</div>
+  <h2 class="section-title">Animation choreography</h2>
+
+  <div class="anim-grid">
+    <div class="anim-card">
+      <div class="anim-tag webgl">WebGL</div>
+      <div class="anim-name">Hero Particle Field</div>
+      <div class="anim-desc">Three.js / custom shader. Partículas forman la silueta del devil mascot al cargar la página, luego se dispersan suavemente en loop. On hover: aceleran y cambian a rojo más intenso.</div>
+      <div class="anim-code">THREE.Points + custom vertex shader<br>Noise-based displacement<br>~2000 particles, 60fps target</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag gsap">GSAP</div>
+      <div class="anim-name">Hero Headline SplitText</div>
+      <div class="anim-desc">Cada letra del headline entra con clipPath + y offset con stagger 0.03s. Duración 1.2s, ease power4.out. Se activa después de 0.4s del page load.</div>
+      <div class="anim-code">gsap.from(chars, {<br>&nbsp;&nbsp;yPercent: 100,<br>&nbsp;&nbsp;clipPath: 'inset(0 0 100% 0)',<br>&nbsp;&nbsp;stagger: 0.03,<br>&nbsp;&nbsp;duration: 1.2,<br>&nbsp;&nbsp;ease: 'power4.out'<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag red">ScrollTrigger</div>
+      <div class="anim-name">Section Line Reveal</div>
+      <div class="anim-desc">Cada línea de texto en brand story y spotlight entra con clipPath top → bottom al scrollear. El efecto "wiping" sugiere que el texto emerge del papel. Scrub: false, una vez.</div>
+      <div class="anim-code">gsap.from(lines, {<br>&nbsp;&nbsp;clipPath: 'inset(0 0 100% 0)',<br>&nbsp;&nbsp;y: 20,<br>&nbsp;&nbsp;stagger: 0.08,<br>&nbsp;&nbsp;scrollTrigger: { trigger, start: 'top 75%' }<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag gsap">GSAP</div>
+      <div class="anim-name">Menu Cards Stagger</div>
+      <div class="anim-desc">Al entrar el grid en viewport, las cards entran desde abajo con stagger 0.06s. Combinado con fade in opacity 0 → 1. Hover: translateY(-4px) + box-shadow red glow.</div>
+      <div class="anim-code">gsap.from('.menu-card', {<br>&nbsp;&nbsp;y: 40, opacity: 0,<br>&nbsp;&nbsp;stagger: 0.06,<br>&nbsp;&nbsp;duration: 0.7,<br>&nbsp;&nbsp;ease: 'power2.out',<br>&nbsp;&nbsp;scrollTrigger: {…}<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag webgl">WebGL</div>
+      <div class="anim-name">Repolla Particle Effect</div>
+      <div class="anim-desc">Partículas de color arequipe-gold flotando alrededor de la foto del producto. Movimiento lento, orgánico. Reacciona al cursor del usuario (mouse parallax leve).</div>
+      <div class="anim-code">WebGL canvas overlay<br>HSL: #C9943A particles<br>Mouse: lerp(target, mouse, 0.05)</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag red">UX</div>
+      <div class="anim-name">Custom Cursor</div>
+      <div class="anim-desc">Cursor personalizado: círculo rojo pequeño que sigue al mouse con lag suave. Al hacer hover sobre links/buttons, se expande y cambia a fill completo. Desktop only.</div>
+      <div class="anim-code">gsap.to(cursor, {<br>&nbsp;&nbsp;x: mouseX, y: mouseY,<br>&nbsp;&nbsp;duration: 0.3,<br>&nbsp;&nbsp;ease: 'power2.out'<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag gsap">GSAP</div>
+      <div class="anim-name">Navbar Transformation</div>
+      <div class="anim-desc">Nav transparente en hero → sólido navy con blur backdrop al scrollear 80px. Transición suave 0.4s. Logo y links cambian de opacidad al trigger. Sticky top.</div>
+      <div class="anim-code">ScrollTrigger.create({<br>&nbsp;&nbsp;start: '80px top',<br>&nbsp;&nbsp;onEnter: () => nav.classList.add('scrolled'),<br>&nbsp;&nbsp;onLeaveBack: () => nav.classList.remove('scrolled')<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag gsap">GSAP</div>
+      <div class="anim-name">Counter Animation</div>
+      <div class="anim-desc">Los números estadísticos en Brand Story (7+ productos, 100% homemade, 0 regrets) cuentan animados al entrar en viewport. Ease power1.inOut, 1.5s.</div>
+      <div class="anim-code">gsap.to(counter, {<br>&nbsp;&nbsp;innerText: targetValue,<br>&nbsp;&nbsp;snap: { innerText: 1 },<br>&nbsp;&nbsp;duration: 1.5,<br>&nbsp;&nbsp;ease: 'power1.inOut'<br>})</div>
+    </div>
+    <div class="anim-card">
+      <div class="anim-tag red">Page</div>
+      <div class="anim-name">Page Transition</div>
+      <div class="anim-desc">Entre páginas internas (menu detail, checkout): overlay rojo full-screen que entra, página siguiente carga, overlay sale. 0.5s in, 0.5s out. Evita flash blanco.</div>
+      <div class="anim-code">// Enter<br>gsap.to(overlay, { scaleY: 1, transformOrigin: 'top', duration: 0.5 })<br>// Exit<br>gsap.to(overlay, { scaleY: 0, transformOrigin: 'bottom', duration: 0.5 })</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     5. MOBILE SPECS
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section">
+  <div class="section-label">05 — Mobile-First</div>
+  <h2 class="section-title">Comportamiento en mobile</h2>
+
+  <div class="mobile-grid">
+    <div>
+      <div class="mobile-frame">
+        <div class="mobile-screen">
+          <div class="mobile-status">
+            <div style="width:6px;height:6px;background:rgba(255,255,255,0.3);border-radius:50%;"></div>
+            <div style="width:6px;height:6px;background:rgba(255,255,255,0.3);border-radius:50%;"></div>
+          </div>
+          <div class="mobile-hero-content">
+            <p class="m-eyebrow">Colombian Desserts · Adelaide</p>
+            <h2 class="m-headline">Your sins<br>were always<br><em>worth it.</em></h2>
+            <p class="m-sub">Colombian desserts made with memory, served from a trailer that knows no shame.</p>
+            <div class="m-btn">Explore the menu</div>
+            <div style="position:absolute;bottom:14px;font-family:var(--font-mono);font-size:6px;letter-spacing:0.15em;color:rgba(255,255,255,0.2);text-transform:uppercase;">scroll ↓</div>
+          </div>
+          <div style="height:36px;background:var(--red);display:flex;align-items:center;justify-content:center;">
+            <div style="font-family:var(--font-display);font-size:7px;font-weight:700;font-style:italic;color:rgba(255,255,255,0.8);letter-spacing:0.05em;">Obleas · La Repolla · Fresas con Crema · Arequipe →</div>
+          </div>
+        </div>
+      </div>
+      <div class="mobile-label">Hero + Marquee</div>
+    </div>
+
+    <div>
+      <div class="mobile-frame">
+        <div class="mobile-screen">
+          <div class="mobile-status"></div>
+          <div style="flex:1;background:var(--cream);padding:16px 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+            <p style="font-family:var(--font-mono);font-size:7px;letter-spacing:0.15em;text-transform:uppercase;color:var(--red);">The Seven Sins</p>
+            <h2 style="font-family:var(--font-display);font-size:20px;font-weight:900;color:var(--navy);line-height:1.0;">Indulgence, <em style="color:var(--red);font-style:italic;">classified.</em></h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="background:var(--navy);border-radius:10px;overflow:hidden;">
+                <div style="height:50px;background:var(--navy-mid);display:flex;align-items:center;justify-content:center;font-size:7px;font-family:var(--font-mono);color:rgba(255,255,255,0.2);">FOTO</div>
+                <div style="padding:8px;">
+                  <div style="font-family:var(--font-display);font-size:9px;font-weight:700;color:white;">Gluttony</div>
+                  <div style="font-family:var(--font-display);font-size:11px;font-weight:900;color:var(--red);">$13</div>
+                </div>
+              </div>
+              <div style="background:var(--navy);border-radius:10px;overflow:hidden;">
+                <div style="height:50px;background:var(--navy-mid);display:flex;align-items:center;justify-content:center;font-size:7px;font-family:var(--font-mono);color:rgba(255,255,255,0.2);">FOTO</div>
+                <div style="padding:8px;">
+                  <div style="font-family:var(--font-display);font-size:9px;font-weight:700;color:white;">Lust</div>
+                  <div style="font-family:var(--font-display);font-size:11px;font-weight:900;color:var(--red);">$13</div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;padding-top:4px;">
+              <a href="#" style="font-family:var(--font-mono);font-size:7px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);">View full menu →</a>
+            </div>
+          </div>
+          <div style="height:40px;background:var(--dark);display:flex;align-items:center;justify-content:space-around;padding:0 16px;">
+            <span style="font-size:8px;color:rgba(255,255,255,0.4);font-family:var(--font-mono);">Menu</span>
+            <span style="font-size:8px;color:rgba(255,255,255,0.4);font-family:var(--font-mono);">Events</span>
+            <span style="font-size:8px;color:var(--red);font-family:var(--font-mono);">Order</span>
+            <span style="font-size:8px;color:rgba(255,255,255,0.4);font-family:var(--font-mono);">Find Us</span>
+          </div>
+        </div>
+      </div>
+      <div class="mobile-label">Menú + Bottom Nav</div>
+    </div>
+
+    <div>
+      <div class="mobile-frame">
+        <div class="mobile-screen">
+          <div class="mobile-status" style="background:var(--red);"></div>
+          <div style="flex:1;background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px;text-align:center;gap:12px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 60%);pointer-events:none;"></div>
+            <h2 style="font-family:var(--font-display);font-size:26px;font-weight:900;color:white;line-height:0.95;position:relative;">Ready to <em style="font-style:italic;">sin?</em></h2>
+            <p style="font-size:9px;color:rgba(255,255,255,0.65);position:relative;">Preorder for pickup. No queue, no wait.</p>
+            <div style="display:flex;flex-direction:column;gap:8px;width:100%;position:relative;">
+              <div style="background:rgba(255,255,255,0.15);border-radius:100px;padding:6px 14px;display:flex;align-items:center;gap:8px;">
+                <div style="width:18px;height:18px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;">1</div>
+                <span style="font-size:8px;color:white;">Choose your sins</span>
+              </div>
+              <div style="background:rgba(255,255,255,0.15);border-radius:100px;padding:6px 14px;display:flex;align-items:center;gap:8px;">
+                <div style="width:18px;height:18px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;">2</div>
+                <span style="font-size:8px;color:white;">Pay securely with Stripe</span>
+              </div>
+              <div style="background:rgba(255,255,255,0.15);border-radius:100px;padding:6px 14px;display:flex;align-items:center;gap:8px;">
+                <div style="width:18px;height:18px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;">3</div>
+                <span style="font-size:8px;color:white;">Pick up & enjoy</span>
+              </div>
+            </div>
+            <div style="background:white;color:var(--red);padding:10px 28px;border-radius:100px;font-size:9px;font-weight:600;position:relative;">Start your order →</div>
+          </div>
+        </div>
+      </div>
+      <div class="mobile-label">Preorder CTA</div>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;">
+    <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-bottom:20px;">Mobile-specific behaviors</p>
+    <div class="ux-grid">
+      <div class="ux-card">
+        <div class="ux-icon">🧭</div>
+        <div>
+          <div class="ux-text-title">Bottom Navigation Bar</div>
+          <div class="ux-text-desc">Mobile tiene una sticky bottom nav con 4 tabs: Menu, Events, Order, Find Us. Thumb-friendly, siempre visible. Desaparece al scrollear down, reaparece al subir.</div>
+        </div>
+      </div>
+      <div class="ux-card">
+        <div class="ux-icon">👈</div>
+        <div>
+          <div class="ux-text-title">Horizontal Scroll en Menú</div>
+          <div class="ux-text-desc">En mobile, el grid de productos se convierte en scroll horizontal con snap points. Las cards miden 80% del ancho de pantalla para sugerir que hay más.</div>
+        </div>
+      </div>
+      <div class="ux-card">
+        <div class="ux-icon">⚡</div>
+        <div>
+          <div class="ux-text-title">WebGL Desactivado en Mobile</div>
+          <div class="ux-text-desc">En dispositivos con < 4GB RAM o conexión lenta, el WebGL particle effect se reemplaza con una imagen SVG del mascot animada con CSS. Fallback automático.</div>
+        </div>
+      </div>
+      <div class="ux-card">
+        <div class="ux-icon">📞</div>
+        <div>
+          <div class="ux-text-title">Tap to WhatsApp</div>
+          <div class="ux-text-desc">En mobile, el CTA de eventos abre un mensaje de WhatsApp pre-llenado a Oscar. Friction mínima para consultas B2B desde teléfono.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     6. COPY SYSTEM
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section light">
+  <div class="section-label" style="color:var(--red);">06 — Copy System</div>
+  <h2 class="section-title">Voice & Tone</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:40px;">
+    <div style="background:rgba(15,27,61,0.05);border-radius:14px;padding:28px;">
+      <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px;">Voz de marca</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
+        <li style="font-size:14px;color:var(--navy);display:flex;gap:10px;align-items:baseline;"><span style="color:var(--red);font-weight:700;">→</span> Sensual, no explicativo. Sugiere, no informa.</li>
+        <li style="font-size:14px;color:var(--navy);display:flex;gap:10px;align-items:baseline;"><span style="color:var(--red);font-weight:700;">→</span> Usa el "pecado" con ligereza y humor sutil.</li>
+        <li style="font-size:14px;color:var(--navy);display:flex;gap:10px;align-items:baseline;"><span style="color:var(--red);font-weight:700;">→</span> Confident, nunca arrogante. Cálida, nunca informal.</li>
+        <li style="font-size:14px;color:var(--navy);display:flex;gap:10px;align-items:baseline;"><span style="color:var(--red);font-weight:700;">→</span> El "perdóname" siempre va implícito en los CTAs.</li>
+        <li style="font-size:14px;color:var(--navy);display:flex;gap:10px;align-items:baseline;"><span style="color:var(--red);font-weight:700;">→</span> Colombiano en el alma, internacional en el tono.</li>
+      </ul>
+    </div>
+    <div style="background:rgba(15,27,61,0.05);border-radius:14px;padding:28px;">
+      <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px;">Headlines por sección</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Hero:</strong> "Your sins were always worth it."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Story:</strong> "Born in Colombia. Raised in memory. Made for Adelaide."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Menú:</strong> "Indulgence, classified."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Repolla:</strong> "Adelaide hasn't tasted anything like it."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Events:</strong> "Make it sinful."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Preorder:</strong> "Ready to sin?"</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Find Us:</strong> "We show up where the cravings are."</li>
+        <li style="font-size:13px;color:var(--navy);line-height:1.5;"><strong>Footer:</strong> "Forgive yourself."</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px;">CTAs del sitio</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px;">
+    <div class="btn-primary">Explore the menu</div>
+    <div class="btn-primary" style="background:var(--navy);">Start your order →</div>
+    <div class="btn-primary" style="background:var(--gold);color:var(--navy);">Get a quote →</div>
+    <div style="background:rgba(230,57,70,0.08);border:1px solid rgba(230,57,70,0.2);color:var(--red);padding:14px 32px;border-radius:100px;font-size:13px;font-weight:500;">Try it first</div>
+    <div style="background:rgba(15,27,61,0.08);border:1px solid rgba(15,27,61,0.15);color:var(--navy);padding:14px 32px;border-radius:100px;font-size:13px;font-weight:500;">Get location updates</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     7. TECH STACK
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section">
+  <div class="section-label">07 — Tech Stack</div>
+  <h2 class="section-title">Recomendación técnica</h2>
+
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(0,0,0,0.3);">▲</div>
+      <div>
+        <div class="tech-name">Next.js 14 (App Router)</div>
+        <div class="tech-desc">SSG para velocidad + SSR para checkout. Routing, Image optimization, Fonts incluidos.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(130,90,255,0.15);">G</div>
+      <div>
+        <div class="tech-name">GSAP + ScrollTrigger</div>
+        <div class="tech-desc">Todas las animaciones de scroll, stagger, split text, counters y page transitions.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(90,150,255,0.12);">3</div>
+      <div>
+        <div class="tech-name">Three.js / WebGL</div>
+        <div class="tech-desc">Hero particle field y La Repolla ambient particles. Canvas overlay, no bloquea layout.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(100,220,140,0.12);">$</div>
+      <div>
+        <div class="tech-name">Stripe Checkout</div>
+        <div class="tech-desc">Preorder con surcharge pasado al cliente. Stripe Elements embedded en modal.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(255,120,60,0.12);">V</div>
+      <div>
+        <div class="tech-name">Vercel</div>
+        <div class="tech-desc">Deploy automático, Edge Functions para APIs de checkout, CDN global. Analytics incluido.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(230,57,70,0.12);">S</div>
+      <div>
+        <div class="tech-name">Sanity.io (CMS)</div>
+        <div class="tech-desc">Oscar gestiona el menú, el schedule del trailer y las fotos sin tocar código.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(255,200,50,0.12);">📸</div>
+      <div>
+        <div class="tech-name">Instagram Basic API</div>
+        <div class="tech-desc">Feed de las últimas 6 fotos en la sección "Find Us". Auto-actualizado, no requiere plugin.</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon-box" style="background:rgba(60,200,100,0.12);">🗺</div>
+      <div>
+        <div class="tech-name">Google Maps Embed</div>
+        <div class="tech-desc">Mapa estático en Find Us. Lazy loaded. URL dinámica desde CMS para cambiar ubicación.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:28px;">
+    <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Performance targets (Core Web Vitals)</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--gold);">&lt;2.5s</div>
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-top:4px;">LCP</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--gold);">&lt;0.1</div>
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-top:4px;">CLS</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-display);font-size:32px;font-weight:900;color:var(--gold);">90+</div>
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(247,243,238,0.3);margin-top:4px;">Lighthouse Mobile</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     8. UX PRINCIPLES
+══════════════════════════════════════════════════════════ -->
+<div class="doc-section navy" style="padding-bottom:100px;">
+  <div class="section-label">08 — UX Principles</div>
+  <h2 class="section-title">Diseño de experiencia</h2>
+
+  <div class="ux-grid">
+    <div class="ux-card">
+      <div class="ux-icon">🎯</div>
+      <div>
+        <div class="ux-text-title">Un CTA dominante por sección</div>
+        <div class="ux-text-desc">Cada sección tiene exactamente una acción primaria clara. No se compite con CTAs secundarios del mismo peso. El usuario siempre sabe qué hacer.</div>
+      </div>
+    </div>
+    <div class="ux-card">
+      <div class="ux-icon">📸</div>
+      <div>
+        <div class="ux-text-title">Fotografía como copy</div>
+        <div class="ux-text-desc">Las fotos del producto venden antes que el texto. Invertir en fotografía artesanal de alta calidad es tan importante como el código. El diseño está construido alrededor de imágenes great.</div>
+      </div>
+    </div>
+    <div class="ux-card">
+      <div class="ux-icon">⚡</div>
+      <div>
+        <div class="ux-text-title">Menos a más</div>
+        <div class="ux-text-desc">Animaciones que se revelan en scroll, nunca al cargar. La página empieza quieta y cobra vida mientras el usuario explora. Sin autoplays agresivos.</div>
+      </div>
+    </div>
+    <div class="ux-card">
+      <div class="ux-icon">🛒</div>
+      <div>
+        <div class="ux-text-title">Preorder friction mínima</div>
+        <div class="ux-text-desc">Del Hero al checkout en 3 clicks máximo. Sin registro obligatorio, sin creación de cuenta. Checkout como invitado siempre disponible. Email para recibo solamente.</div>
+      </div>
+    </div>
+    <div class="ux-card">
+      <div class="ux-icon">📱</div>
+      <div>
+        <div class="ux-text-title">Touch-first interactions</div>
+        <div class="ux-text-desc">Tap targets mínimo 44×44px. Swipe horizontal en menú. Formularios con teclado numérico donde corresponde. El hover no es una feature en mobile.</div>
+      </div>
+    </div>
+    <div class="ux-card">
+      <div class="ux-icon">♿</div>
+      <div>
+        <div class="ux-text-title">Accesibilidad WCAG AA</div>
+        <div class="ux-text-desc">Contraste 4.5:1 mínimo en todo texto. Focus states visibles para navegación por teclado. Alt text en todas las fotos. Animaciones respetan prefers-reduced-motion.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:60px;text-align:center;padding:60px 40px;background:rgba(230,57,70,0.06);border:1px solid rgba(230,57,70,0.15);border-radius:20px;">
+    <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:20px;">Design philosophy</p>
+    <p style="font-family:var(--font-display);font-size:clamp(22px,4vw,42px);font-weight:700;font-style:italic;color:var(--white);line-height:1.2;max-width:580px;margin:0 auto 20px;">"A site worthy of the product. A product worthy of the site."</p>
+    <p style="font-size:13px;color:rgba(247,243,238,0.4);max-width:480px;margin:0 auto;">Sweet Sin tiene una identidad de marca excepcional. El sitio web no solo la refleja — la amplifica. Cada pixel justifica el precio de las obleas.</p>
+  </div>
+</div>
+
+</body>
+</html>
