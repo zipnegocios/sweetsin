@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { products, WHATSAPP_URL } from './data';
+import { getLineTotal } from './pricing';
 
 export interface CartItem {
   productId: string;
@@ -17,9 +18,11 @@ interface CartContextValue {
   items: CartItem[];
   add: (productId: string) => void;
   remove: (productId: string) => void;
+  setQty: (productId: string, qty: number) => void;
   clear: () => void;
   totalQty: number;
   totalPrice: number;
+  totalSavings: number;
   sendToWhatsApp: (details: CheckoutDetails) => void;
   checkoutOpen: boolean;
   openCheckout: () => void;
@@ -57,24 +60,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const setQty = (productId: string, qty: number) => {
+    setItems(prev => {
+      if (qty <= 0) return prev.filter(i => i.productId !== productId);
+      const existing = prev.find(i => i.productId === productId);
+      if (existing) {
+        return prev.map(i => i.productId === productId ? { ...i, qty } : i);
+      }
+      return [...prev, { productId, qty }];
+    });
+  };
+
   const clear = () => setItems([]);
 
   const totalQty = items.reduce((sum, i) => sum + i.qty, 0);
 
   const totalPrice = items.reduce((sum, i) => {
     const product = products.find(p => p.id === i.productId);
-    return sum + (product?.price ?? 0) * i.qty;
+    if (!product) return sum;
+    return sum + getLineTotal(product.price, i.qty);
+  }, 0);
+
+  const totalSavings = items.reduce((sum, i) => {
+    const product = products.find(p => p.id === i.productId);
+    if (!product) return sum;
+    return sum + (product.price * i.qty - getLineTotal(product.price, i.qty));
   }, 0);
 
   const sendToWhatsApp = (details: CheckoutDetails) => {
     const lines = items.map(i => {
       const product = products.find(p => p.id === i.productId);
-      return `• ${i.qty}x ${product?.name} — $${((product?.price ?? 0) * i.qty).toFixed(2)}`;
+      const lineTotal = product ? getLineTotal(product.price, i.qty) : 0;
+      return `• ${i.qty}x ${product?.name} — $${lineTotal.toFixed(2)}`;
     });
     const grandTotal = totalPrice + details.fulfillmentFee;
     const fulfillmentLine = `Fulfillment: ${FULFILLMENT_LABEL[details.fulfillment]}${
       details.fulfillmentFee > 0 ? ` (+$${details.fulfillmentFee.toFixed(2)})` : ''
     }`;
+    const savingsLine = totalSavings > 0 ? `Volume savings: -$${totalSavings.toFixed(2)}` : null;
     const addressLine = details.address
       ? `Address: ${details.address.line1}, ${details.address.suburb}`
       : null;
@@ -84,6 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ...lines,
       '',
       fulfillmentLine,
+      savingsLine,
       addressLine,
       `Total: $${grandTotal.toFixed(2)}`,
       '',
@@ -105,9 +129,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         items,
         add,
         remove,
+        setQty,
         clear,
         totalQty,
         totalPrice,
+        totalSavings,
         sendToWhatsApp,
         checkoutOpen,
         openCheckout,
