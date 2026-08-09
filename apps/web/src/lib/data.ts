@@ -1,7 +1,7 @@
 export interface Product {
   id: string;
   name: string;
-  category: 'sin' | 'virtue';
+  category: 'sin' | 'virtue' | 'coffee';
   price: number;
   description: string;
   available: boolean;
@@ -30,6 +30,9 @@ export const products: Product[] = [
 
   // Featured
   { id: 'p15', name: 'La Repolla', category: 'sin',    price: 13, description: "Filled with homemade arequipe, dusted with something you didn't know you were missing.", available: true, featured: true, image: '/products/p15.jpg' },
+
+  // Coffee
+  { id: 'p16', name: 'Sweet Sin Coffee', category: 'coffee', price: 4.5, description: 'Locally roasted, made fresh at the trailer.', available: true, image: '/products/p16.jpg' },
 ];
 
 export interface ScheduleEntry {
