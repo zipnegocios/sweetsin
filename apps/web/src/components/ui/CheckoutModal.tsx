@@ -1,5 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { importLibrary } from '@googlemaps/js-api-loader';
 import { useCart, type CheckoutDetails } from '@/lib/cart';
+import { ensureGoogleMapsOptionsSet } from '@/lib/googleMaps';
+
+function getAddressComponent(
+  components: google.maps.GeocoderAddressComponent[] | undefined,
+  type: string,
+): string {
+  return components?.find((c) => c.types.includes(type))?.long_name ?? '';
+}
 
 type Fulfillment = CheckoutDetails['fulfillment'];
 type Step = 'fulfillment' | 'address' | 'contact' | 'payment' | 'confirmation';
@@ -38,6 +47,36 @@ export default function CheckoutModal() {
   const [addressError, setAddressError] = useState('');
   const [contactError, setContactError] = useState('');
   const [cardLoading, setCardLoading] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (step !== 'address' || !addressInputRef.current || !ensureGoogleMapsOptionsSet()) return;
+    let cancelled = false;
+    let listener: google.maps.MapsEventListener | null = null;
+
+    importLibrary('places').then(({ Autocomplete }) => {
+      if (cancelled || !addressInputRef.current) return;
+      const autocomplete = new Autocomplete(addressInputRef.current, {
+        componentRestrictions: { country: 'au' },
+        fields: ['address_components', 'formatted_address'],
+      });
+      listener = autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        const streetNumber = getAddressComponent(place.address_components, 'street_number');
+        const route = getAddressComponent(place.address_components, 'route');
+        const suburb = getAddressComponent(place.address_components, 'locality');
+        setAddress({
+          line1: [streetNumber, route].filter(Boolean).join(' ') || place.formatted_address || '',
+          suburb,
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      listener?.remove();
+    };
+  }, [step]);
 
   if (!checkoutOpen) return null;
 
@@ -178,9 +217,11 @@ export default function CheckoutModal() {
               )}
               <div className="space-y-3 mb-4">
                 <input
+                  ref={addressInputRef}
                   value={address.line1}
                   onChange={(e) => setAddress((a) => ({ ...a, line1: e.target.value }))}
-                  placeholder="Street address"
+                  placeholder="Start typing your address…"
+                  autoComplete="off"
                   className={inputClass}
                 />
                 <input

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
+import { importLibrary } from '@googlemaps/js-api-loader';
+import { ensureGoogleMapsOptionsSet } from '@/lib/googleMaps';
 
 interface LocationMapProps {
   lat: number;
@@ -25,15 +26,6 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#080E22' }] },
 ];
 
-let optionsSet = false;
-
-function ensureOptionsSet() {
-  if (!optionsSet && API_KEY) {
-    setOptions({ key: API_KEY, v: 'weekly' });
-    optionsSet = true;
-  }
-}
-
 export default function LocationMap({ lat, lng, label, className }: LocationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -41,8 +33,7 @@ export default function LocationMap({ lat, lng, label, className }: LocationMapP
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!API_KEY || !containerRef.current) return;
-    ensureOptionsSet();
+    if (!containerRef.current || !ensureGoogleMapsOptionsSet()) return;
     let cancelled = false;
 
     Promise.all([importLibrary('maps'), importLibrary('marker')])
