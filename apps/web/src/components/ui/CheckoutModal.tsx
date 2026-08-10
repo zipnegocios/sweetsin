@@ -28,7 +28,7 @@ const inputClass =
   'w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy placeholder:text-navy/35 focus:border-sin-red outline-none transition-colors';
 
 export default function CheckoutModal() {
-  const { totalPrice, clear, checkoutOpen, closeCheckout, sendToWhatsApp } = useCart();
+  const { totalPrice, totalSavings, clear, checkoutOpen, closeCheckout, sendToWhatsApp } = useCart();
 
   const [step, setStep] = useState<Step>('fulfillment');
   const [fulfillment, setFulfillment] = useState<Fulfillment | null>(null);
@@ -238,6 +238,11 @@ export default function CheckoutModal() {
           {step === 'payment' && (
             <div>
               <h3 className="font-serif font-bold text-navy text-xl mb-2">Pay</h3>
+              {totalSavings > 0 && (
+                <p className="text-[13px] text-sin-red font-medium mb-2">
+                  You're saving ${totalSavings.toFixed(2)} with volume pricing
+                </p>
+              )}
               <div className="flex justify-between items-center border-t border-b border-navy/10 py-3 mb-6">
                 <span className="font-mono text-[11px] uppercase tracking-wider text-navy/40">Total</span>
                 <span className="font-serif font-bold text-navy text-xl">${grandTotal.toFixed(2)}</span>
