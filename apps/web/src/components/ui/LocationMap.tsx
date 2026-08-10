@@ -10,6 +10,21 @@ interface LocationMapProps {
 
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
+// Brand skin: navy base + sin-red roads, instead of Google's default palette.
+const MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { elementType: 'geometry', stylers: [{ color: '#0F1B3D' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0F1B3D' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8fa3d6' }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#253D78' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1A2F5F' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#E63946' }, { weight: 0.4 }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#E63946' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#B82B36' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#080E22' }] },
+];
+
 let optionsSet = false;
 
 function ensureOptionsSet() {
@@ -39,6 +54,7 @@ export default function LocationMap({ lat, lng, label, className }: LocationMapP
           zoom: 15,
           disableDefaultUI: true,
           zoomControl: true,
+          styles: MAP_STYLES,
         });
 
         markerRef.current = new Marker({
@@ -46,12 +62,9 @@ export default function LocationMap({ lat, lng, label, className }: LocationMapP
           map: mapRef.current,
           title: label,
           icon: {
-            path: 'M18 0C8.059 0 0 8.059 0 18c0 13.5 18 26 18 26S36 31.5 36 18C36 8.059 27.941 0 18 0Z',
-            fillColor: '#E63946',
-            fillOpacity: 1,
-            strokeWeight: 0,
-            scale: 1,
-            anchor: new google.maps.Point(18, 44),
+            url: '/devil-icon.png',
+            scaledSize: new google.maps.Size(40, 40),
+            anchor: new google.maps.Point(20, 38),
           },
         });
       })

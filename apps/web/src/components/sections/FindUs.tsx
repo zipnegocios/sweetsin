@@ -1,4 +1,4 @@
-import { schedule } from '@/lib/data';
+import { schedule, type ScheduleEntry } from '@/lib/data';
 import { useRef, useState } from 'react';
 import gsap from 'gsap';
 import LocationMap from '@/components/ui/LocationMap';
@@ -6,6 +6,8 @@ import LocationMap from '@/components/ui/LocationMap';
 const activeStop = schedule.find((slot) => slot.isActive) ?? schedule[0];
 
 export default function FindUs() {
+  const [selectedStop, setSelectedStop] = useState<ScheduleEntry>(activeStop);
+
   return (
     <section id="find-us" className="bg-sweet-white py-[80px] md:py-[120px] px-6 md:px-12">
       <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-start">
@@ -24,18 +26,24 @@ export default function FindUs() {
           
           <div className="space-y-2 mb-12">
             {schedule.map((slot) => (
-              <div key={slot.id} className="flex justify-between items-center py-4 border-b border-navy/[0.07] group">
+              <button
+                key={slot.id}
+                onClick={() => setSelectedStop(slot)}
+                className={`w-full flex justify-between items-center py-4 border-b transition-colors text-left ${
+                  selectedStop.id === slot.id ? 'border-sin-red/30' : 'border-navy/[0.07] hover:border-navy/20'
+                }`}
+              >
                 <div className="flex items-center gap-4">
                   <div className={`w-1.5 h-1.5 rounded-full ${slot.isActive ? 'bg-sin-red animate-pulse' : 'bg-navy/20'}`} />
                   <div>
-                    <span className="block text-sm font-medium text-navy">{slot.day}</span>
+                    <span className={`block text-sm font-medium ${selectedStop.id === slot.id ? 'text-sin-red' : 'text-navy'}`}>{slot.day}</span>
                     <span className="block text-xs text-navy/40 mt-1">{slot.timeRange}</span>
                   </div>
                 </div>
                 <div className="text-sm text-navy/70 text-right max-w-[150px] md:max-w-none">
                   {slot.location}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
           
@@ -46,14 +54,14 @@ export default function FindUs() {
         <div className="flex flex-col gap-6">
           <div className="w-full h-[300px] md:h-[400px] bg-cream rounded-2xl relative overflow-hidden border border-navy/[0.08]">
             <LocationMap
-              lat={activeStop.lat}
-              lng={activeStop.lng}
-              label={activeStop.location}
-              className="absolute inset-0 grayscale sepia brightness-75"
+              lat={selectedStop.lat}
+              lng={selectedStop.lng}
+              label={selectedStop.location}
+              className="absolute inset-0"
             />
             <div className="absolute bottom-4 left-4 pointer-events-none">
               <span className="font-mono text-[9px] tracking-widest text-white px-2 py-1 bg-black/50 rounded backdrop-blur-sm uppercase">
-                {activeStop.location}
+                {selectedStop.location}
               </span>
             </div>
           </div>
