@@ -78,19 +78,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalPrice = items.reduce((sum, i) => {
     const product = products.find(p => p.id === i.productId);
     if (!product) return sum;
-    return sum + getLineTotal(product.price, i.qty);
+    return sum + getLineTotal(product.price, i.qty, product.category);
   }, 0);
 
   const totalSavings = items.reduce((sum, i) => {
     const product = products.find(p => p.id === i.productId);
     if (!product) return sum;
-    return sum + (product.price * i.qty - getLineTotal(product.price, i.qty));
+    return sum + (product.price * i.qty - getLineTotal(product.price, i.qty, product.category));
   }, 0);
 
   const sendToWhatsApp = (details: CheckoutDetails) => {
     const lines = items.map(i => {
       const product = products.find(p => p.id === i.productId);
-      const lineTotal = product ? getLineTotal(product.price, i.qty) : 0;
+      const lineTotal = product ? getLineTotal(product.price, i.qty, product.category) : 0;
       return `• ${i.qty}x ${product?.name} — $${lineTotal.toFixed(2)}`;
     });
     const grandTotal = totalPrice + details.fulfillmentFee;

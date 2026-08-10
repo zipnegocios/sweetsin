@@ -81,7 +81,7 @@ export default function CartBar() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-serif font-semibold text-navy text-[14px] truncate">{product.name}</p>
-                  <p className="font-mono text-[12px] text-sin-red">${getLineTotal(product.price, item.qty).toFixed(2)}</p>
+                  <p className="font-mono text-[12px] text-sin-red">${getLineTotal(product.price, item.qty, product.category).toFixed(2)}</p>
                 </div>
                 {/* Qty controls */}
                 <div className="flex items-center gap-2 flex-shrink-0">

@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { products, Product } from '@/lib/data';
 import { useCart } from '@/lib/cart';
-import { getDiscountForQty, VOLUME_TIERS } from '@/lib/pricing';
+import { getDiscountForQty, isVolumeEligible, VOLUME_TIERS } from '@/lib/pricing';
 import { isMotionOk } from '@/lib/animations';
 
 type Filter = 'all' | 'sin' | 'virtue' | 'coffee';
@@ -99,9 +99,10 @@ export default function Menu() {
 function MenuCard({ product }: { product: Product }) {
   const { add, setQty, items } = useCart();
   const inCart = items.find(i => i.productId === product.id);
-  const tier = inCart ? getDiscountForQty(inCart.qty) : null;
+  const volumeEligible = isVolumeEligible(product.category);
+  const tier = inCart && volumeEligible ? getDiscountForQty(inCart.qty, product.category) : null;
   const nextTierIndex = (tier ? VOLUME_TIERS.indexOf(tier) : VOLUME_TIERS.length) - 1;
-  const nextTier = nextTierIndex >= 0 ? VOLUME_TIERS[nextTierIndex] : null;
+  const nextTier = volumeEligible && nextTierIndex >= 0 ? VOLUME_TIERS[nextTierIndex] : null;
 
   return (
     <div className="menu-card bg-white border border-navy/[0.07] rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-sin-red/30 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(230,57,70,0.10)] flex flex-col">
