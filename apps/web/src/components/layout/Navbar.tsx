@@ -47,7 +47,7 @@ export default function Navbar() {
       
       <Link href="/" className="flex items-center">
         <img
-          src="/devil-icon.png"
+          src="/isotipo.gif"
           alt="Sweet Sin"
           className="h-12 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
           style={{ imageRendering: 'auto' }}

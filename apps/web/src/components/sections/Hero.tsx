@@ -100,7 +100,7 @@ export default function Hero() {
         {/* 3D Logo Mascot */}
         <img
           ref={logoRef}
-          src="/logo-3d.png"
+          src="/videologo.gif"
           alt="Sweet Sin mascot"
           className="w-36 h-36 md:w-48 md:h-48 object-contain rounded-full mb-4 drop-shadow-[0_20px_40px_rgba(230,57,70,0.4)]"
         />
