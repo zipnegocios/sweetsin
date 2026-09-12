@@ -172,7 +172,7 @@ importers:
         specifier: ^15.5.0
         version: 15.5.25(@types/node@25.9.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next-intl:
-        specifier: ^4.0.0
+        specifier: ^4.14.4
         version: 4.14.4(next@15.5.25(@types/node@25.9.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
       react:
         specifier: 'catalog:'
