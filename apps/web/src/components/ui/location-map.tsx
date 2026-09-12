@@ -67,6 +67,9 @@ export function LocationMap({ lat, lng, label, className }: LocationMapProps) {
     return () => {
       cancelled = true;
     };
+    // Intencionalmente mount-only: crea el mapa una sola vez. lat/lng/label
+    // se sincronizan en el efecto de abajo sin recrear la instancia entera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

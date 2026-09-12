@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// navigator.connection y navigator.deviceMemory son extensiones de Chrome
+// sin estandarizar — lib.dom.d.ts no las tipa, por eso la interfaz local
+// en vez de un "as any" (que eslint-config-next bloquea como error).
+interface NavigatorWithExtras extends Navigator {
+  connection?: { saveData?: boolean };
+  deviceMemory?: number;
+}
+
 export function HeroParticles() {
   const [mounted, setMounted] = useState(false);
   const [useWebGL, setUseWebGL] = useState(false);
@@ -11,8 +19,9 @@ export function HeroParticles() {
     try {
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-      const isGoodConnection = !(navigator as any).connection?.saveData;
-      const isGoodMemory = !((navigator as any).deviceMemory < 2);
+      const nav = navigator as NavigatorWithExtras;
+      const isGoodConnection = !nav.connection?.saveData;
+      const isGoodMemory = !(nav.deviceMemory !== undefined && nav.deviceMemory < 2);
 
       if (gl && isGoodConnection && isGoodMemory && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setUseWebGL(true);
