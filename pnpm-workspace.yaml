@@ -143,3 +143,4 @@ overrides:
 
 allowBuilds:
   esbuild: true
+  unrs-resolver: true

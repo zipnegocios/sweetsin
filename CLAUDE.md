@@ -28,8 +28,9 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-- `apps/web` — **Next.js 15**: sitio público + panel admin. Actúa como adaptador de entrada/salida del núcleo hexagonal (Server Actions / Route Handlers inyectando repositorios de `packages/db` en los casos de uso de `packages/domain`)
-- `apps/mobile` — *(planeado, Fase 1, hito separado)* Expo — apps de despachador/delivery
+- `apps/web` — **Next.js 15**: sitio público + panel admin. Actúa como adaptador de entrada/salida del núcleo hexagonal (Server Actions / Route Handlers inyectando repositorios de `packages/db` en los casos de uso de `packages/domain`). Scaffold vacío hasta Fase 2.
+- `apps/web-legacy` — prototipo Vite + React descartado, mantenido solo como referencia visual/de copy durante la migración. No se deploya más. Se elimina en Fase 8.
+- `apps/mobile` — *(planeado, Fase 7, hito separado)* Expo — apps de despachador/delivery
 - `packages/domain` — núcleo hexagonal: entidades, puertos (interfaces) y casos de uso en TypeScript puro. Cero imports de Next.js, Drizzle, Stripe, Expo, etc.
 - `packages/db` — schemas de Drizzle, migraciones, instancia de conexión a Postgres
 - `packages/notifications` — adaptadores de notificaciones 100% nativos (SMTP propio, Expo Push) — sin servicios de terceros
