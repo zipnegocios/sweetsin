@@ -39,7 +39,33 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- **Reutilización y minimalismo (no negociable):** antes de crear cualquier
+  util/helper/componente/lógica nueva, revisar el codebase existente para
+  evitar duplicar funciones, tipos, schemas o estilos. Escribir solo el
+  código estrictamente necesario — sin abstracciones especulativas,
+  optimizaciones prematuras ni boilerplate innecesario.
+- **MCP tools:** no lanzar ni conectar el Chrome DevTools MCP salvo que el
+  usuario lo pida explícitamente. Priorizar inspección por terminal,
+  análisis estático, linting, logs y tests unitarios.
+- **Reglas de commits de git (no negociable):**
+  - Sin firmas: nunca agregar `Co-Authored-By`, `Claude-Session` ni ningún
+    otro trailer o metadato de IA al mensaje de commit.
+  - Solo en español.
+  - Solo un resumen de una línea (subject); nunca cuerpo/descripción ni
+    líneas en blanco debajo del resumen.
+- **Estrategia de branching (no negociable):** trabajar directamente sobre
+  `main`. No crear branches de feature, no abrir Pull Requests, no
+  preguntar si abrir uno. Nunca cambiar ni crear branches
+  (`git checkout -b`, `git branch`, etc.) sin pedido explícito del usuario.
+  Commitear seguido, directo en `main`.
+- **Cierre de sesión / handoff:** antes de cerrar o terminar una sesión de
+  trabajo, generar o actualizar `handoff.md` en la raíz del proyecto con
+  exactamente estas 5 secciones: Objetivo, Estado actual, Archivos y
+  cambios, Intentos fallidos (nunca borrar entradas previas, solo agregar),
+  Próximos pasos.
+- Si alguna de estas reglas está por violarse (p. ej. a punto de firmar un
+  commit, o de crear una función que ya existe en otro archivo), detenerse
+  y avisar en vez de proceder.
 
 ## Gotchas
 
