@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-sin-red: #E63946;
+  --color-sin-red-dark: #B82B36;
+  --color-sin-red-light: #FF5C6A;
+  --color-navy: #0F1B3D;
+  --color-navy-mid: #1A2F5F;
+  --color-navy-light: #253D78;
+  --color-cream: #F7F3EE;
+  --color-cream-dark: #EDE7DC;
+  --color-sweet-white: #FDFAF7;
+  --color-sweet-dark: #080D1A;
+
+  --color-background: var(--color-sweet-white);
+  --color-foreground: var(--color-navy);
+  --color-border: rgba(15, 27, 61, 0.08);
+
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-fraunces);
+  --font-mono: var(--font-dm-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Overlay del modal de cotización de eventos (Events) */
+.modal-overlay {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(15, 27, 61, 0.35);
 }
