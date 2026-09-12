@@ -65,10 +65,10 @@ _Describe the high-level user-facing capabilities of this app once they exist._
     de los archivos relevantes y sugiere en el chat el comando exacto de
     commit para que el usuario lo ejecute manualmente en su terminal.
   - Los mensajes de commit que Claude sugiera van exclusivamente en
-    inglés, un solo resumen de una línea (subject; nunca cuerpo/descripción
+    español, un solo resumen de una línea (subject; nunca cuerpo/descripción
     ni líneas en blanco debajo), y jamás con firmas (`Co-Authored-By`,
     `Claude-Session`) ni metadata de IA.
-  - Ejemplo: `git commit -m "chore: update CLAUDE.md with Next.js 15 and Hexagonal architecture"`
+  - Ejemplo: `git commit -m "Documenta migración de stack a Next.js 15 y arquitectura hexagonal"`
 - **Estrategia de branching (no negociable):** trabajar directamente sobre
   `main`. No crear branches de feature, no abrir Pull Requests, no
   preguntar si abrir uno. Nunca cambiar ni crear branches
