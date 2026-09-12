@@ -13,5 +13,11 @@
     "./event-bookings": "./src/event-bookings/index.ts",
     "./payments": "./src/payments/index.ts",
     "./notifications": "./src/notifications/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
   }
 }
