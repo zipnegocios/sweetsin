@@ -92,8 +92,9 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## Deploy (EasyPanel)
 
-> ⚠️ Topología provisoria post-Fase 1, a rediseñar en Fase 8: `apps/api` ya no existe (su servicio en EasyPanel debe pausarse/eliminarse manualmente). `apps/web` todavía **no tiene `Dockerfile`** — no se creó en Fase 1 porque hoy solo sirve el scaffold vacío de Next.js; se agrega cuando haya algo real que deployar (Fase 2 en adelante). `apps/web-legacy` (el viejo prototipo Vite) conserva su `Dockerfile` pero ya no se deploya.
+> ⚠️ Topología provisoria post-Fase 1, a rediseñar en Fase 8: `apps/api` ya no existe (su servicio en EasyPanel debe pausarse/eliminarse manualmente — el build va a seguir fallando con "open Dockerfile: no such file or directory" hasta que se haga). `apps/web-legacy` (el viejo prototipo Vite) conserva su `Dockerfile` pero ya no se deploya.
 
+- `apps/web/Dockerfile` → Next.js. Build context = repo root. Runtime temporal con `next start` (reutiliza el stage de build) en vez de `output: "standalone"` — se optimiza cuando se revise la topología completa en Fase 8. Sirve el scaffold vacío hasta Fase 2.
 - Postgres: managed by EasyPanel (separate service in the same project).
 - No CI/tests configured yet — verify with `pnpm run typecheck`, `pnpm run test` and `pnpm run build` before deploying.
 
