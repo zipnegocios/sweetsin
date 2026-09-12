@@ -10,6 +10,9 @@
       "path": "./packages/domain"
     },
     {
+      "path": "./packages/i18n"
+    },
+    {
       "path": "./packages/notifications"
     }
   ]

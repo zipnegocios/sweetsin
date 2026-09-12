@@ -360,6 +360,14 @@ stock ya se conectó en Fase 3).
 - Advertencia visual de solapamiento: al crear un `trailer_stop` público, se
   usa `findOverlapping` (`EventBookingRepository`, ya definido en Fase 1.3)
   contra `event_bookings` confirmados — advierte, no bloquea.
+- Resaltado visual de cotizaciones con `location = "TBD"` (decisión del
+  owner, 2026-09-12, al planificar Fase 2): el formulario público de
+  cotización de eventos no pide ubicación ni horario exacto (prioriza baja
+  fricción/conversión), así que `requestEventQuote` los guarda como
+  placeholder (`location: "TBD"`, día completo). El panel admin debe marcar
+  visualmente estas filas para obligar a Oscar a completarlas al pasar el
+  `status` a `quoted`/`confirmed` — no deben quedar cotizaciones confirmadas
+  con ubicación sin definir.
 
 **Schema/archivos:** no crea tablas nuevas. Toca `apps/web/app/admin/**`.
 
