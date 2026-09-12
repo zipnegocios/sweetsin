@@ -78,6 +78,27 @@ _Describe the high-level user-facing capabilities of this app once they exist._
   exactamente estas 5 secciones: Objetivo, Estado actual, Archivos y
   cambios, Intentos fallidos (nunca borrar entradas previas, solo agregar),
   Próximos pasos.
+- **Idioma y formato de razonamiento (no negociable):** absolutamente todo
+  el procesamiento de Claude va en español — **sin excepción, incluido el
+  bloque de pensamiento/thinking extendido que el cliente muestra en la
+  UI**, no solo la respuesta visible final. Toda explicación previa a
+  ejecutar comandos, leer archivos o escribir código sigue esta estructura
+  de 4 pasos:
+  1. **Evaluación de Impacto** — qué archivos, interfaces, dependencias y
+     flujos de UI/UX se ven afectados por el requerimiento actual.
+  2. **Resolución de Conflictos** — cómo se integra el cambio con la
+     arquitectura existente (acoplamientos, manejo de estado,
+     refactorización de interfaces, mutaciones de DOM a evitar, etc.).
+  3. **Mentoría Técnica** — el *porqué* de la decisión: patrones de diseño
+     aplicados, buenas prácticas, o cómo funciona internamente la
+     herramienta/framework en juego (ej. por qué Server Component vs
+     Client Component acá, cómo resuelve Drizzle esta query). El objetivo
+     es que el usuario aprenda mientras se desarrolla — actuar como un
+     Tech Lead guiando a un developer, no solo como un ejecutor de tareas.
+  4. **Plan de Acción** — pasos exactos de implementación y herramientas a
+     invocar.
+  Mantener rigor técnico de Senior Software Engineer con la claridad de un
+  buen mentor.
 - Si alguna de estas reglas está por violarse (p. ej. a punto de firmar un
   commit, o de crear una función que ya existe en otro archivo), detenerse
   y avisar en vez de proceder.
