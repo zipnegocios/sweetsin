@@ -4,15 +4,14 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Run & Operate
 
-> ⚠️ **En transición de stack** (ver Architecture decisions). Los comandos de abajo son del prototipo Vite/Express, vigentes hasta ejecutar la migración a Next.js 15 — se reemplazan cuando el nuevo scaffold esté armado.
-
-- `pnpm --filter @workspace/web run dev` — run the frontend (Vite) — *prototipo, a reemplazar*
-- `pnpm --filter @workspace/api run dev` — run the API server (port 5000) — *prototipo, a reemplazar*
+- `pnpm --filter @workspace/web run dev` — run the Next.js 15 app (sitio público + panel admin). Scaffold vacío hasta Fase 2.
+- `pnpm --filter @workspace/web-legacy run dev` — run the discarded Vite prototype (reference only, not deployed).
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
+- `pnpm run test` — Vitest suite across `packages/domain` and `packages/db` (the latter needs `packages/db/.env` with `DATABASE_URL` — hits the real Postgres instance)
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm run deploy:migrate` — frozen install + DB schema push (run on deploy)
-- Required env: `DATABASE_URL` — Postgres connection string, `PORT`, `BASE_PATH` (frontend) — *válido solo para el prototipo Vite/Express*
+- Required env: `DATABASE_URL` — Postgres connection string (`packages/db/.env`, gitignored). `apps/web-legacy` also needs `PORT`/`BASE_PATH` in its own `.env` if you run it.
 
 ## Stack
 
@@ -22,9 +21,9 @@ _Replace the heading above with the project's name, and this line with one sente
 - DB: PostgreSQL + Drizzle ORM (`packages/db`)
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - Notificaciones: transporte nativo (SMTP propio / Expo Notifications) — **sin proveedores de terceros tipo Resend**
-- Mobile (Fase 1, hito separado): Expo — apps de despachador/delivery con login por PIN
-- Build: esbuild (CJS bundle) — aplica mientras exista código del stack anterior
-- ~~API: Express 5~~ / ~~API codegen: Orval (from OpenAPI spec)~~ — descartados, ver Architecture decisions
+- Mobile (Fase 7, hito separado): Expo — apps de despachador/delivery con login por PIN
+- Testing: Vitest en `packages/domain` (obligatorio) y `packages/db` (integración contra DB real)
+- ~~API: Express 5~~ / ~~API codegen: Orval (from OpenAPI spec)~~ — descartados y eliminados en Fase 1
 
 ## Where things live
 
@@ -33,15 +32,14 @@ _Replace the heading above with the project's name, and this line with one sente
 - `apps/mobile` — *(planeado, Fase 7, hito separado)* Expo — apps de despachador/delivery
 - `packages/domain` — núcleo hexagonal: entidades, puertos (interfaces) y casos de uso en TypeScript puro. Cero imports de Next.js, Drizzle, Stripe, Expo, etc.
 - `packages/db` — schemas de Drizzle, migraciones, instancia de conexión a Postgres
-- `packages/notifications` — adaptadores de notificaciones 100% nativos (SMTP propio, Expo Push) — sin servicios de terceros
+- `packages/notifications` — adaptadores de notificaciones 100% nativos (SMTP propio, Expo Push) — sin servicios de terceros. Esqueleto vacío hasta Fase 6.
 - `attached_assets/` — reference material (logos, prompts, design system docs); not wired into the build
-- ⚠️ `apps/api` (Express) y `lib/api-spec` / `lib/api-zod` / `lib/api-client-react` (pipeline Orval/OpenAPI) — **prototipo descartado**, pendiente de eliminación en la fase de implementación
 
 ## Architecture decisions
 
-- **Migración de stack (decisión de owner, congelada):** el prototipo original (Vite + React en `apps/web`, Express 5 en `apps/api`, contrato OpenAPI + Orval) se trata como descartable. El stack definitivo es Next.js 15 + Arquitectura Hexagonal estricta. El código viejo se elimina/reescribe durante la implementación, no antes de aprobar el spec/plan.
+- **Migración de stack (decisión de owner, congelada):** el prototipo original (Vite + React en `apps/web`, Express 5 en `apps/api`, contrato OpenAPI + Orval) se trató como descartable. El stack definitivo es Next.js 15 + Arquitectura Hexagonal estricta. `apps/api` y el pipeline Orval/OpenAPI se eliminaron por completo en Fase 1; el prototipo Vite quedó como referencia en `apps/web-legacy` hasta Fase 8.
 - **Hexagonal estricta:** `packages/domain` contiene entidades, puertos y casos de uso en TypeScript puro — cero dependencias de framework, DB o proveedores externos. Motivo: el motor de reglas de negocio (descuentos por volumen, stock, estados de pedido) necesita máxima testabilidad aislada y reutilización entre superficies (web, mobile, webhooks).
-- **Roles y autenticación:** `users.role` enum (`admin | despachador | delivery | customer`), sin tablas de permisos granulares — autorización vía guards por rol a nivel de endpoint. Web: `admin` en `/admin/*`, `customer` vía Auth.js. Mobile (Expo, Fase 1): `despachador`/`delivery` autenticados por PIN de 6 dígitos (hash bcrypt/argon2) + validación de integridad del cliente (Play Integrity/DeviceCheck o HMAC de build) + rate limiting, con JWT de sesión de TTL corto revocable vía `is_active`.
+- **Roles y autenticación:** `users.role` enum (`admin | despachador | delivery | customer`), sin tablas de permisos granulares — autorización vía guards por rol a nivel de endpoint. Web: `admin` en `/admin/*`, `customer` vía Auth.js. Mobile (Expo, Fase 7): `despachador`/`delivery` autenticados por PIN de 6 dígitos (hash bcrypt/argon2) + validación de integridad del cliente (Play Integrity/DeviceCheck o HMAC de build) + rate limiting, con JWT de sesión de TTL corto revocable vía `is_active`.
 - **Ciclo de vida de una orden:** `payment_status` (`pending|paid|failed|refunded`) y `fulfillment_status` (`pending|received|in_prep|ready_for_pickup|out_for_delivery|delivered|cancelled`) son campos independientes — el pago (gestionado vía webhooks de Stripe) nunca se mezcla con el estado de preparación/entrega. Solo `paid` + `received` entran a la cola activa del despachador.
 - **Fulfillment:** pickup + self-delivery (fee fijo). Courier/Uber Direct queda fuera de alcance por ahora.
 - **Pagos:** Stripe real (PaymentIntent + webhook) es la decisión congelada, aunque las credenciales todavía no están disponibles — se construye listo para conectar, sin mockear el flujo en silencio.
@@ -86,23 +84,18 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## Gotchas
 
-> ⚠️ Las siguientes notas describen el **prototipo Vite/Express**, superseded por la migración a Next.js 15 — se reemplazan cuando el nuevo scaffold esté armado:
-- `apps/web/vite.config.ts` and `apps/api` both require `PORT` at runtime (and `apps/web` also requires `BASE_PATH`) — they throw if missing. Local dev reads them from each app's `.env` (gitignored); production (EasyPanel) sets them as real container env vars, no `.env` file needed (`--env-file-if-exists` / Vite's `loadEnv` both no-op if the file is absent).
-- `BASE_PATH` is baked into the built frontend assets' URLs at build time (Vite `base`) — it must match the path the app is actually served from in prod (`/` unless served under a subpath).
-- `lib/db`, `lib/api-zod`, `lib/api-client-react` export raw `.ts` source (no build step) — consumed directly by Vite/esbuild via workspace linking.
-
-Sigue vigente con el nuevo stack:
+- `packages/db/drizzle.config.ts` must use a plain relative string (`"./src/schema/index.ts"`) for `schema`, never `path.join(__dirname, ...)` — on Windows that produces backslashes, and drizzle-kit's internal glob doesn't match them, failing with "No schema files found" even though the file exists.
+- Vitest doesn't auto-load `.env` the way `drizzle-kit` does — `packages/db/vitest.config.ts` calls `process.loadEnvFile()` before anything imports `../index` (which throws immediately if `DATABASE_URL` is missing).
+- `apps/web`'s `tsconfig.json` gets auto-patched by `next build`/`next dev` (adds `allowJs`, `strict: false`, `esModuleInterop`) — harmless here since `tsconfig.base.json` already pins the individual strict-family flags explicitly (those always win over the `strict` umbrella regardless of which file sets them), but don't be surprised by the diff.
+- `apps/web-legacy/vite.config.ts` still requires `PORT` and `BASE_PATH` at runtime (throws if missing) — only matters if you run it locally for reference; it's not deployed.
 - Dev and production currently point at the **same** Postgres instance (EasyPanel-managed, on the VPS) — there is no separate local/dev database. Be careful running destructive Drizzle commands (`push --force`) locally.
 
 ## Deploy (EasyPanel)
 
-> ⚠️ Topología pendiente de rediseño: la migración a Next.js 15 probablemente colapsa `apps/api` (Express) dentro de `apps/web`, y sumará un servicio/pipeline propio para `apps/mobile` (Expo) en su hito correspondiente. Lo de abajo describe la topología del prototipo, a revisar durante la implementación.
+> ⚠️ Topología provisoria post-Fase 1, a rediseñar en Fase 8: `apps/api` ya no existe (su servicio en EasyPanel debe pausarse/eliminarse manualmente). `apps/web` todavía **no tiene `Dockerfile`** — no se creó en Fase 1 porque hoy solo sirve el scaffold vacío de Next.js; se agrega cuando haya algo real que deployar (Fase 2 en adelante). `apps/web-legacy` (el viejo prototipo Vite) conserva su `Dockerfile` pero ya no se deploya.
 
-- Two services, each built from this repo with **build context = repo root**, not the app subfolder:
-  - `apps/api/Dockerfile` → backend. Env vars: `DATABASE_URL`, `PORT` (5000), `NODE_ENV=production`.
-  - `apps/web/Dockerfile` → frontend, built to static files and served by nginx. Build arg `BASE_PATH` (defaults to `/`).
-- Postgres: managed by EasyPanel (separate service in the same project) — sigue vigente con el nuevo stack.
-- No CI/tests configured yet — verify with `pnpm run typecheck` before deploying.
+- Postgres: managed by EasyPanel (separate service in the same project).
+- No CI/tests configured yet — verify with `pnpm run typecheck`, `pnpm run test` and `pnpm run build` before deploying.
 
 ## Pointers
 
