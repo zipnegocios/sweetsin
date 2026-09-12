@@ -4,7 +4,13 @@
   "files": [],
   "references": [
     {
-      "path": "./lib/db"
+      "path": "./packages/db"
+    },
+    {
+      "path": "./packages/domain"
+    },
+    {
+      "path": "./packages/notifications"
     }
   ]
 }

@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.ts",
+    "./products": "./src/products/index.ts",
+    "./pricing": "./src/pricing/index.ts",
+    "./orders": "./src/orders/index.ts",
+    "./stock": "./src/stock/index.ts",
+    "./users": "./src/users/index.ts",
+    "./event-bookings": "./src/event-bookings/index.ts",
+    "./payments": "./src/payments/index.ts",
+    "./notifications": "./src/notifications/index.ts"
+  }
+}
