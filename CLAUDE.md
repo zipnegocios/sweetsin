@@ -10,8 +10,9 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm run test` — Vitest suite across `packages/domain` and `packages/db` (the latter needs `packages/db/.env` with `DATABASE_URL` — hits the real Postgres instance)
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/db run seed` — carga/actualiza el contenido real de `products` y `trailer_stops` (idempotente; no crea duplicados)
 - `pnpm run deploy:migrate` — frozen install + DB schema push (run on deploy)
-- Required env: `DATABASE_URL` — Postgres connection string (`packages/db/.env`, gitignored). `apps/web-legacy` also needs `PORT`/`BASE_PATH` in its own `.env` if you run it.
+- Required env: `DATABASE_URL` — Postgres connection string (`packages/db/.env`, gitignored). `apps/web-legacy` also needs `PORT`/`BASE_PATH` in its own `.env` if you run it. `apps/web` needs its own copy of `DATABASE_URL` **and** `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` (gitignored) — Next.js doesn't read `packages/db/.env`, and `next build`/`next dev` fail as soon as any Server Component imports `@workspace/db/repositories` without it.
 
 ## Stack
 
@@ -31,7 +32,8 @@ _Replace the heading above with the project's name, and this line with one sente
 - `apps/web-legacy` — prototipo Vite + React descartado, mantenido solo como referencia visual/de copy durante la migración. No se deploya más. Se elimina en Fase 8.
 - `apps/mobile` — *(planeado, Fase 7, hito separado)* Expo — apps de despachador/delivery
 - `packages/domain` — núcleo hexagonal: entidades, puertos (interfaces) y casos de uso en TypeScript puro. Cero imports de Next.js, Drizzle, Stripe, Expo, etc.
-- `packages/db` — schemas de Drizzle, migraciones, instancia de conexión a Postgres
+- `packages/i18n` — diccionarios ES/EN framework-free (sin lógica de UI, sin `next-intl`). Consumidos como `messages` de `next-intl` en `apps/web`; se reutilizan tal cual (los datos, no `next-intl`) en el panel admin (Fase 4) y en `apps/mobile` (Fase 7, con su propio adaptador nativo).
+- `packages/db` — schemas de Drizzle, migraciones, instancia de conexión a Postgres, script de seed (`src/seed.ts`)
 - `packages/notifications` — adaptadores de notificaciones 100% nativos (SMTP propio, Expo Push) — sin servicios de terceros. Esqueleto vacío hasta Fase 6.
 - `attached_assets/` — reference material (logos, prompts, design system docs); not wired into the build
 
@@ -44,10 +46,11 @@ _Replace the heading above with the project's name, and this line with one sente
 - **Fulfillment:** pickup + self-delivery (fee fijo). Courier/Uber Direct queda fuera de alcance por ahora.
 - **Pagos:** Stripe real (PaymentIntent + webhook) es la decisión congelada, aunque las credenciales todavía no están disponibles — se construye listo para conectar, sin mockear el flujo en silencio.
 - **Notificaciones:** sin proveedores de terceros (explícitamente sin Resend). Emails transaccionales por SMTP propio; push a mobile vía Expo Notifications. Vive en `packages/notifications`.
+- **i18n:** `packages/i18n` solo expone diccionarios framework-free (datos puros). `apps/web` los consume con `next-intl` y routing por locale: `en` (default) en la raíz limpia `/` sin prefijo ni redirect (`localePrefix: "as-needed"`, preserva el link equity del dominio), `es` explícito en `/es` — decisión del owner (2026-09-12) por SEO bilingüe indexable (URLs y `hreflang` propios por idioma) y por aprovechar el SSR de los Server Components de Next 15, en vez de un Context client-side con `localStorage`. `apps/mobile` (Fase 7) no usa `next-intl` — consume los mismos diccionarios de `packages/i18n` con su propio adaptador nativo.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es`): hero, catálogo de 16 postres reales (paradas y precios desde Postgres), historia de marca, ubicaciones activas del trailer con mapa en vivo, y un formulario de cotización de eventos que persiste la solicitud real. Sin cuenta de cliente, carrito ni checkout todavía (Fase 3). Panel admin todavía no existe (Fase 4).
 
 ## User preferences
 
@@ -110,6 +113,12 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 - `apps/web`'s `tsconfig.json` gets auto-patched by `next build`/`next dev` (adds `allowJs`, `strict: false`, `esModuleInterop`) — harmless here since `tsconfig.base.json` already pins the individual strict-family flags explicitly (those always win over the `strict` umbrella regardless of which file sets them), but don't be surprised by the diff.
 - `apps/web-legacy/vite.config.ts` still requires `PORT` and `BASE_PATH` at runtime (throws if missing) — only matters if you run it locally for reference; it's not deployed.
 - Dev and production currently point at the **same** Postgres instance (EasyPanel-managed, on the VPS) — there is no separate local/dev database. Be careful running destructive Drizzle commands (`push --force`) locally.
+- `packages/db/src/seed.ts` importa `./index`/`./schema` de forma dinámica (`await import(...)` dentro de `main()`), no estática — los imports de un módulo ES se hoistean por encima de cualquier otra sentencia, así que un `process.loadEnvFile()` puesto arriba de un import estático de `./index` no llega a correr antes de que ese import se evalúe (y reviente por falta de `DATABASE_URL`). Mismo síntoma que el gotcha de Vitest de más arriba, fix distinto porque acá no hay un archivo de config separado donde cargar el `.env` antes.
+- GSAP `SplitText` (usado en `Hero`/`BrandStory`) mete sus propios `<span>` en el DOM del título de forma imperativa. El toggle de idioma navega a otra URL de locale y ese texto se re-renderiza — el elemento afectado por `SplitText` lleva `key={locale}` para forzar un remount limpio en vez de dejar que React reconcilie el nuevo texto contra un DOM que GSAP ya mutó por su cuenta.
+- `videologo.gif` e `isotipo.gif` se sirven con `<img>` plano, no `next/image` — `next/image` optimiza GIFs a un frame estático salvo que se pase `unoptimized`, y ambos llevan además una animación GSAP propia sobre su `ref`.
+- Next.js 16 renombró `middleware.ts` a `proxy.ts` — este proyecto está pineado a Next `^15.5.0`, así que el archivo correcto sigue siendo `apps/web/src/middleware.ts`. Si se sube la versión de Next en el futuro, revisar la guía de migración de `next-intl` antes de renombrarlo.
+- `@types/*` exclusivos de un solo paquete (ej. `@types/google.maps`, solo usado en `apps/web`) no se auto-incluyen en TypeScript dentro de este monorepo pnpm — pnpm hoistea a la raíz los `@types` compartidos entre paquetes (`react`, `node`), pero uno exclusivo queda aislado en `apps/web/node_modules/@types/` y el auto-discovery de `tsc` no lo alcanza ahí. Fix: `/// <reference types="..." />` explícito en `apps/web/src/global.d.ts` — nunca declarar `compilerOptions.types` a mano, porque eso apaga el auto-include para todo lo demás (react/react-dom incluidos).
+- Cualquier página bajo `app/[locale]/` que haga fetch a Postgres (`Menu`, `FindUs`) necesita `export const dynamic = "force-dynamic"` — sin eso, `generateStaticParams()` en el layout hace que `next build` intente pre-renderizar la página como HTML estático, ejecutando esas queries contra la DB real *en build time* y congelando los datos hasta el próximo deploy (y fallando el build si la DB no es alcanzable en ese momento). Verificar con el manifiesto real (`.next/prerender-manifest.json`), no con el símbolo `●`/`○` de la tabla resumen de `next build` — ese símbolo solo indica si la ruta usa `generateStaticParams()`, no si el contenido quedó congelado.
 
 ## Deploy (EasyPanel)
 
