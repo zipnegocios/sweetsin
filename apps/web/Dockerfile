@@ -22,6 +22,12 @@ COPY packages/notifications/package.json packages/notifications/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
+# NEXT_PUBLIC_* se hornea en el bundle del cliente durante `next build`, no
+# se lee en runtime — a diferencia de DATABASE_URL, tiene que existir como
+# variable de entorno en ESTA etapa (no en el stage `runtime`), así que se
+# recibe como build-arg y se promueve a ENV antes de correr el build.
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 COPY . .
 RUN pnpm --filter @workspace/web run build
 
