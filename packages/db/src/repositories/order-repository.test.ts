@@ -52,4 +52,32 @@ describe("DrizzleOrderRepository", () => {
     expect(found?.totalCents).toBe(2600);
     expect(found?.items).toHaveLength(1);
   });
+
+  it("attaches a payment intent and marks the order as paid", async () => {
+    const products = new DrizzleProductRepository();
+    const orders = new DrizzleOrderRepository();
+
+    const order = await createOrder(
+      { products, orders },
+      {
+        customerId: null,
+        customerName: "Jane Doe",
+        customerEmail: "jane@example.com",
+        customerPhone: "+61400000000",
+        fulfillmentType: "pickup",
+        deliveryAddress: null,
+        stopId: null,
+        deliveryFeeCents: 0,
+        channel: "web",
+        items: [{ productId, quantity: 1 }],
+      },
+    );
+
+    await orders.attachPaymentIntent(order.id, "pi_test_123");
+    await orders.markAsPaid(order.id);
+
+    const found = await orders.findById(order.id);
+    expect(found?.stripePaymentIntentId).toBe("pi_test_123");
+    expect(found?.paymentStatus).toBe("paid");
+  });
 });

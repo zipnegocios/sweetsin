@@ -59,4 +59,12 @@ export class DrizzleOrderRepository implements OrderRepository {
       })),
     };
   }
+
+  async attachPaymentIntent(orderId: string, stripePaymentIntentId: string): Promise<void> {
+    await db.update(ordersTable).set({ stripePaymentIntentId }).where(eq(ordersTable.id, orderId));
+  }
+
+  async markAsPaid(orderId: string): Promise<void> {
+    await db.update(ordersTable).set({ paymentStatus: "paid" }).where(eq(ordersTable.id, orderId));
+  }
 }

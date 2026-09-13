@@ -16,4 +16,6 @@ export interface NewOrderInput {
 export interface OrderRepository {
   create(order: Omit<Order, "id">): Promise<Order>;
   findById(id: string): Promise<Order | null>;
+  attachPaymentIntent(orderId: string, stripePaymentIntentId: string): Promise<void>;
+  markAsPaid(orderId: string): Promise<void>;
 }

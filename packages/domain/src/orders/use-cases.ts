@@ -2,6 +2,8 @@ import type { ProductRepository } from "../products/ports";
 import type { OrderRepository, NewOrderInput } from "./ports";
 import type { Order, OrderItem } from "./entities";
 import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
+import type { StockRepository } from "../stock/ports";
+import { decrementStockOnSale } from "../stock/use-cases";
 
 export async function createOrder(
   deps: { products: ProductRepository; orders: OrderRepository },
@@ -54,4 +56,21 @@ export async function createOrder(
     stripePaymentIntentId: null,
     items,
   });
+}
+
+export async function confirmOrderPayment(
+  deps: { orders: OrderRepository; stock: StockRepository },
+  orderId: string,
+): Promise<void> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.paymentStatus === "paid") return; // Stripe puede reenviar el mismo evento de webhook más de una vez.
+
+  await deps.orders.markAsPaid(orderId);
+
+  if (order.stopId) {
+    for (const item of order.items) {
+      await decrementStockOnSale(deps.stock, order.stopId, item.productId, item.quantity);
+    }
+  }
 }

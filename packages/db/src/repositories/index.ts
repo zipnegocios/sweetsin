@@ -4,3 +4,5 @@ export * from "./user-repository";
 export * from "./stock-repository";
 export * from "./event-booking-repository";
 export * from "./trailer-stop-repository";
+export * from "./settings-repository";
+export * from "./cart-repository";

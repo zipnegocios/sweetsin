@@ -100,4 +100,37 @@ export interface Dictionary {
     whatsapp: string;
     copyright: string;
   };
+  cart: {
+    title: string;
+    empty: string;
+    subtotal: string;
+    savings: string;
+    checkoutButton: string;
+    remove: string;
+    stepFulfillmentTitle: string;
+    fulfillmentPickup: string;
+    fulfillmentPickupFee: string;
+    fulfillmentDelivery: string;
+    stepAddressTitle: string;
+    addressLine1Placeholder: string;
+    addressSuburbPlaceholder: string;
+    addressError: string;
+    continueButton: string;
+    backButton: string;
+    stepContactTitle: string;
+    contactNamePlaceholder: string;
+    contactPhonePlaceholder: string;
+    contactEmailPlaceholder: string;
+    contactError: string;
+    stepPaymentTitle: string;
+    payWithWhatsapp: string;
+    payWithCardTitle: string;
+    payWithCardUnavailable: string;
+    payButton: string;
+    processing: string;
+    confirmationTitle: string;
+    confirmationBody: string;
+    doneButton: string;
+    total: string;
+  };
 }

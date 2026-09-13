@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { createOrder } from "./use-cases";
+import { createOrder, confirmOrderPayment } from "./use-cases";
 import type { Order } from "./entities";
 import type { OrderRepository } from "./ports";
 import type { Product } from "../products/entities";
 import type { ProductRepository } from "../products/ports";
+import type { StockRepository } from "../stock/ports";
+import type { StopProductStock, StockEvent } from "../stock/entities";
 
 function fakeProduct(overrides: Partial<Product> = {}): Product {
   return {
@@ -47,6 +49,8 @@ function fakeOrderRepo(): OrderRepository & { created: Omit<Order, "id">[] } {
     async findById() {
       return null;
     },
+    async attachPaymentIntent() {},
+    async markAsPaid() {},
   };
 }
 
@@ -151,5 +155,133 @@ describe("createOrder", () => {
         },
       ),
     ).rejects.toThrow("Product not found: missing");
+  });
+});
+
+function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: string[] } {
+  const paidCalls: string[] = [];
+  return {
+    paidCalls,
+    async create(o) {
+      return { ...o, id: "unused" };
+    },
+    async findById(id) {
+      return id === order.id ? order : null;
+    },
+    async attachPaymentIntent() {},
+    async markAsPaid(id) {
+      paidCalls.push(id);
+      order.paymentStatus = "paid";
+    },
+  };
+}
+
+function fakeStockRepo(stock: StopProductStock[]): StockRepository & { events: Omit<StockEvent, "id">[] } {
+  const events: Omit<StockEvent, "id">[] = [];
+  return {
+    events,
+    async findByStopAndProduct(stopId, productId) {
+      return stock.find((s) => s.stopId === stopId && s.productId === productId) ?? null;
+    },
+    async decrementStock(id, quantity) {
+      const item = stock.find((s) => s.id === id);
+      if (!item) throw new Error("not found");
+      item.currentStock -= quantity;
+      return item;
+    },
+    async recordEvent(event) {
+      events.push(event);
+      return { ...event, id: `event-${events.length}` };
+    },
+  };
+}
+
+describe("confirmOrderPayment", () => {
+  it("marks the order as paid and does nothing else when there is no stopId", async () => {
+    const order: Order = {
+      id: "order-1",
+      customerId: null,
+      customerName: "Jane",
+      customerEmail: "jane@example.com",
+      customerPhone: "+61400000000",
+      fulfillmentType: "pickup",
+      deliveryAddress: null,
+      stopId: null,
+      paymentStatus: "pending",
+      fulfillmentStatus: "pending",
+      subtotalCents: 1000,
+      discountCents: 0,
+      deliveryFeeCents: 0,
+      totalCents: 1000,
+      channel: "web",
+      stripePaymentIntentId: "pi_123",
+      items: [{ productId: "p1", quantity: 1, unitPriceCents: 1000, lineDiscountCents: 0 }],
+    };
+    const orders = fakeOrderRepoWithOrder(order);
+    const stock = fakeStockRepo([]);
+
+    await confirmOrderPayment({ orders, stock }, "order-1");
+
+    expect(orders.paidCalls).toEqual(["order-1"]);
+    expect(stock.events).toHaveLength(0);
+  });
+
+  it("decrements stock for every item when the order has a stopId", async () => {
+    const order: Order = {
+      id: "order-2",
+      customerId: null,
+      customerName: "Jane",
+      customerEmail: "jane@example.com",
+      customerPhone: "+61400000000",
+      fulfillmentType: "pickup",
+      deliveryAddress: null,
+      stopId: "stop-1",
+      paymentStatus: "pending",
+      fulfillmentStatus: "pending",
+      subtotalCents: 2000,
+      discountCents: 0,
+      deliveryFeeCents: 0,
+      totalCents: 2000,
+      channel: "web",
+      stripePaymentIntentId: "pi_456",
+      items: [{ productId: "p1", quantity: 2, unitPriceCents: 1000, lineDiscountCents: 0 }],
+    };
+    const orders = fakeOrderRepoWithOrder(order);
+    const stock = fakeStockRepo([{ id: "stock-1", stopId: "stop-1", productId: "p1", maxStock: 10, currentStock: 10 }]);
+
+    await confirmOrderPayment({ orders, stock }, "order-2");
+
+    expect(stock.events).toEqual([
+      { stopProductStockId: "stock-1", eventType: "sale", quantity: 2, reason: null, reportedByUserId: null },
+    ]);
+  });
+
+  it("is idempotent: does nothing if the order is already paid", async () => {
+    const order: Order = {
+      id: "order-3",
+      customerId: null,
+      customerName: "Jane",
+      customerEmail: "jane@example.com",
+      customerPhone: "+61400000000",
+      fulfillmentType: "pickup",
+      deliveryAddress: null,
+      stopId: "stop-1",
+      paymentStatus: "paid",
+      fulfillmentStatus: "pending",
+      subtotalCents: 1000,
+      discountCents: 0,
+      deliveryFeeCents: 0,
+      totalCents: 1000,
+      channel: "web",
+      stripePaymentIntentId: "pi_789",
+      items: [{ productId: "p1", quantity: 1, unitPriceCents: 1000, lineDiscountCents: 0 }],
+    };
+    const orders = fakeOrderRepoWithOrder(order);
+    const stock = fakeStockRepo([{ id: "stock-1", stopId: "stop-1", productId: "p1", maxStock: 10, currentStock: 10 }]);
+
+    await confirmOrderPayment({ orders, stock }, "order-3");
+
+    expect(orders.paidCalls).toEqual([]);
+    expect(stock.events).toHaveLength(0);
   });
 });

@@ -19,6 +19,7 @@
     "next-intl": "^4.14.4",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "stripe": "^22.6.2",
     "three": "^0.185.1",
     "zod": "catalog:"
   },

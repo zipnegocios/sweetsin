@@ -53,7 +53,7 @@ const TRAILER_STOPS = [
 
 async function main() {
   const { db, pool } = await import("./index");
-  const { productsTable, trailerStopsTable } = await import("./schema");
+  const { productsTable, trailerStopsTable, settingsTable } = await import("./schema");
   const { and, eq } = await import("drizzle-orm");
 
   for (const product of PRODUCTS) {
@@ -88,6 +88,9 @@ async function main() {
     createdStops++;
   }
   console.log(`Seeded ${createdStops} new trailer stop(s) (${TRAILER_STOPS.length - createdStops} already existed).`);
+
+  await db.insert(settingsTable).values({ id: 1, deliveryFeeCents: 500 }).onConflictDoNothing();
+  console.log("Ensured default settings row (delivery fee: 500 cents).");
 
   await pool.end();
 }
