@@ -6,5 +6,6 @@ export interface User {
   email: string | null;
   role: UserRole;
   pinHash: string | null;
+  passwordHash: string | null;
   isActive: boolean;
 }
