@@ -12,11 +12,13 @@ tareas con `superpowers:executing-plans`.
 
 ## Estado actual
 
-**Fase 1 y Fase 2 completas. Fase 2 verificada de punta a punta localmente
-(typecheck + tests + build + smoke test manual contra la DB real); el
-deploy a producción (Tarea 17) queda como el paso final, pendiente de que
-el owner haga `git push` y verifique el resultado en EasyPanel — ver
-"Próximos pasos".**
+**Fase 1 y Fase 2 completas y en producción real, verificadas.** El deploy
+a producción (Tarea 17) tuvo dos incidentes post-push, ambos diagnosticados
+con evidencia real (log de build de EasyPanel + HTML servido en vivo) y
+resueltos — ver Intentos fallidos #13 y #14. Verificación final contra
+`https://sweetsin.com.au/` real: `/` (inglés, sin prefijo) y `/es` en 200,
+catálogo con los 16 productos reales visibles en el HTML servido, mapa de
+Google cargando (`maps.googleapis` presente, ya no cae al fallback).
 
 Fase 1 (sin cambios respecto al handoff anterior): prototipo descartado
 retirado, monorepo reestructurado (`packages/domain`, `packages/db`,
@@ -165,21 +167,47 @@ Fase 2 (nuevo en esta sesión):
     si la ruta usa `generateStaticParams()`, no si el contenido quedó
     congelado — confiar en ese símbolo habría llevado a una conclusión
     incorrecta.
+13. **Deploy a EasyPanel falló con `DATABASE_URL must be set` en
+    "Collecting page data"**, pese al fix #12 (`force-dynamic`).
+    Diagnóstico: `force-dynamic` evita que Next.js *ejecute* las queries en
+    build time, pero no evita que *importe* `packages/db/src/index.ts` —
+    Next.js carga ese módulo durante "Collecting page data" para cualquier
+    página que lo referencie, sea estática o dinámica. La validación de
+    `DATABASE_URL` estaba a nivel de módulo (top-level), y el build de
+    Docker en EasyPanel corre en una etapa que solo recibe variables de
+    *runtime*, no de *build-time*. Fix: conexión lazy vía `Proxy` en
+    `packages/db/src/index.ts` — el `Pool`/`db` reales se crean (y
+    `DATABASE_URL` se valida) recién en el primer método invocado, con
+    `.bind()` correcto para que los métodos de Drizzle sigan funcionando a
+    través del Proxy. Verificado con tests reales contra Postgres +
+    simulación exacta del escenario (mover `.env.local`, borrar `.next`,
+    `pnpm run build` completo sin ninguna env var disponible — pasó limpio)
+    antes de dar el fix por bueno.
+14. **Tras resolver #13, el build pasó pero el mapa de Google quedó en
+    fallback (`Map unavailable`) en producción real**, detectado
+    verificando el HTML servido en `https://sweetsin.com.au/` (no alcanza
+    con "el build pasó" — un build exitoso no garantiza que el contenido
+    servido esté completo). Causa distinta a #13: `NEXT_PUBLIC_*` no se lee
+    en runtime como `DATABASE_URL` — Next.js lo sustituye por su valor
+    literal dentro del bundle del cliente durante `next build` mismo. El
+    `Dockerfile` de `apps/web` no declaraba ningún `ARG`, así que
+    `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` solo llegaba al `ENV` del stage
+    `runtime` (después del build), nunca a la etapa `build` donde hacía
+    falta. Fix: `ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` + `ENV` promovido
+    justo antes del `RUN pnpm --filter @workspace/web run build` en
+    `apps/web/Dockerfile`. Verificado tras el siguiente deploy: el HTML
+    real pasó de contener solo `Map unavailable` a incluir la carga real de
+    `maps.googleapis`.
 
 ## Próximos pasos
 
-- **Deploy a producción (Tarea 17 del plan de Fase 2) — el owner ejecuta:**
-  1. `git push` (Claude no lo hace por su cuenta, ver reglas de commits).
-  2. **Antes de dar el deploy por exitoso**, inyectar en el panel de
-     EasyPanel, para el servicio `apps/web`, dos variables de entorno:
-     - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (mismo valor que
-       `apps/web/.env.local`) — si falta, el build pasa igual pero el mapa
-       de FindUs no carga para nadie, en silencio.
-     - `DATABASE_URL` (mismo valor que `packages/db/.env`) — si falta, el
-       build **entero falla**, con el mismo error que se vio localmente.
-  3. Verificar el log de build en EasyPanel y el sitio real: `/` en
-     inglés sin redirect, `/es` en español, mapa cargando, formulario de
-     eventos funcionando contra la DB real.
+- **Deploy a producción (Tarea 17 del plan de Fase 2): completo y
+  verificado en `https://sweetsin.com.au/` real** — ver Intentos fallidos
+  #13 y #14 para el detalle de los dos incidentes post-push y sus fixes.
+- **Rotar la contraseña de Postgres en EasyPanel** — la `DATABASE_URL`
+  completa (con contraseña) quedó expuesta en texto plano en el chat de
+  esta sesión (mensaje de texto y screenshot) durante el diagnóstico del
+  incidente #13. Recomendado, todavía no confirmado que se haya hecho.
 - **El servicio `apps/api` en EasyPanel sigue roto**, arrastrado desde el
   cierre de Fase 1 — pendiente de que el owner lo pause/elimine
   manualmente. Sigue fuera de mi alcance.
@@ -188,8 +216,8 @@ Fase 2 (nuevo en esta sesión):
   no revisadas por Oscar. Corregirlas es tan simple como editar el array y
   re-correr `pnpm --filter @workspace/db run seed` (idempotente).
 - **Arrancar Fase 3 — Checkout, carrito y órdenes** (ver
-  `docs/superpowers/plan-desarrollo.md`, sección "Fase 3") una vez
-  confirmado el deploy — todavía no tiene plan bite-sized.
+  `docs/superpowers/plan-desarrollo.md`, sección "Fase 3") — todavía no
+  tiene plan bite-sized. No iniciar sin pedido explícito del owner.
 - Decisión pendiente de Fase 5 ya anotada en `plan-desarrollo.md`: el panel
   admin debe resaltar visualmente las cotizaciones de evento con
   `location = "TBD"`.
