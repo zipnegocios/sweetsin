@@ -53,8 +53,9 @@ const TRAILER_STOPS = [
 
 async function main() {
   const { db, pool } = await import("./index");
-  const { productsTable, trailerStopsTable, settingsTable } = await import("./schema");
+  const { productsTable, trailerStopsTable, settingsTable, usersTable } = await import("./schema");
   const { and, eq } = await import("drizzle-orm");
+  const { hashPassword } = await import("@workspace/domain/users");
 
   for (const product of PRODUCTS) {
     await db
@@ -91,6 +92,19 @@ async function main() {
 
   await db.insert(settingsTable).values({ id: 1, deliveryFeeCents: 500 }).onConflictDoNothing();
   console.log("Ensured default settings row (delivery fee: 500 cents).");
+
+  const adminEmail = process.env.ADMIN_SEED_EMAIL;
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (adminEmail && adminPassword) {
+    const passwordHash = await hashPassword(adminPassword);
+    await db
+      .insert(usersTable)
+      .values({ name: "Admin", email: adminEmail, role: "admin", passwordHash, isActive: true })
+      .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash, isActive: true } });
+    console.log(`Ensured admin user: ${adminEmail}.`);
+  } else {
+    console.log("ADMIN_SEED_EMAIL/ADMIN_SEED_PASSWORD not set — skipping admin seed.");
+  }
 
   await pool.end();
 }
