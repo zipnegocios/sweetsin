@@ -1,12 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authenticateUser } from "@workspace/domain/users";
-import type { UserRole } from "@workspace/domain/users";
 import { DrizzleUserRepository } from "@workspace/db/repositories";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
-  pages: { signIn: "/login" },
   providers: [
     Credentials({
       credentials: { email: {}, password: {} },
@@ -23,6 +23,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async jwt({ token, user }) {
       if (user) {
         // Login recién ocurrido: `user` viene de authorize().
@@ -33,17 +34,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Request subsecuente: revalidar contra la DB para poder revocar
       // la sesión si el usuario fue desactivado, sin esperar a que
       // expire el JWT (mismo patrón que la revocación vía is_active ya
-      // usada para las sesiones de mobile).
+      // usada para las sesiones de mobile). Solo corre acá (Node.js
+      // runtime) — el middleware usa authConfig.callbacks.jwt, sin DB.
       if (!token.sub) return null;
       const dbUser = await new DrizzleUserRepository().findById(token.sub);
       if (!dbUser || !dbUser.isActive) return null;
       token.role = dbUser.role;
       return token;
-    },
-    async session({ session, token }) {
-      if (token.sub) session.user.id = token.sub;
-      if (token.role) session.user.role = token.role as UserRole;
-      return session;
     },
   },
 });
