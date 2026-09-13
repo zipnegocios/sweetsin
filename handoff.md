@@ -20,14 +20,30 @@ plan bite-sized de Fase 3 (Checkout, Carrito y Órdenes,
 → implementación → test en verde) en cada tarea con lógica de negocio,
 typecheck y test suite completa en verde, build de `apps/web` exitoso, y
 `/[locale]` confirmado dinámico (no congelado) en
-`.next/prerender-manifest.json`. **Los smoke tests manuales de UI (Tarea
-22, pasos 4-6: checkout de invitado vía WhatsApp end-to-end contra la DB
-real, error 503 de tarjeta sin credenciales, persistencia de carrito en
-`localStorage` tras F5) quedaron delegados al owner en esta sesión** — el
-MCP de Chrome no respondía en este entorno (ver Intentos fallidos #15), y
-el owner optó por corerlos manualmente con `pnpm --filter @workspace/web
-run dev` en lugar de perder tiempo reintentando la herramienta rota.
-**Confirmar con el owner si esos smoke tests se corrieron y pasaron antes
+`.next/prerender-manifest.json`. Los smoke tests manuales de UI (Tarea 22,
+pasos 4-6) se corrieron con el owner probando a mano contra
+`pnpm --filter @workspace/web run dev` en `localhost:3002` — el MCP de
+Chrome no respondía en este entorno (ver Intentos fallidos #15).
+
+- **Paso 4 (WhatsApp) encontró un bug real, diagnosticado y arreglado en
+  esta sesión** — ver Intentos fallidos #16: el botón no abría la pestaña
+  de WhatsApp (Chrome la bloqueaba en silencio). Confirmado por el owner
+  que quedó resuelto tras el fix.
+- **Paso 5 (503 de tarjeta sin credenciales) verificado por `curl` directo**
+  al Route Handler (`/api/checkout/payment-intent`) contra la orden real de
+  la prueba de WhatsApp — devolvió `503` con
+  `{"error":"Card payments are not available yet."}`, confirmando el
+  comportamiento esperado. Nota para quien pruebe esto en el navegador: sin
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` declarada, el modal ni siquiera
+  muestra el botón "Pay" — cae directo al fallback de cliente "Card
+  payments coming soon."; el `503` real del servidor solo se vería en un
+  estado intermedio (publishable key presente, secret key ausente) que no
+  es el estado actual del proyecto.
+- **Paso 6 (persistencia de `localStorage` tras F5): confirmar con el
+  owner si quedó verificado** — no se confirmó explícitamente en el chat
+  de esta sesión.
+
+**Confirmar con el owner si el paso 6 se corrió y pasó antes
 de dar la Fase 3 por verificada de punta a punta.**
 
 El deploy de Fase 2 a producción (Tarea 17 de ese plan) tuvo dos incidentes
@@ -320,6 +336,26 @@ Fase 3 (nuevo en esta sesión):
     Si se vuelve a necesitar el navegador desde Claude en este entorno,
     diagnosticar la extensión de Chrome (reinstalar/reconectar) antes de
     reintentar.
+16. **Bug real encontrado durante el smoke test manual del owner (Tarea 22,
+    Paso 4 de Fase 3): el botón "Order via WhatsApp" no abría ninguna
+    pestaña**, aunque la orden sí se creaba correctamente en la DB
+    (confirmado por el owner con una query directa antes de reportar el
+    bug — eso descartó de entrada que `placeOrderAction` fuera la causa).
+    Diagnóstico con `superpowers:systematic-debugging`: en
+    `checkout-modal.tsx`, `payWithWhatsApp` llamaba a `window.open(...)`
+    *después* de `await placeOrderAction(...)` — un round-trip real de red.
+    Chrome solo permite abrir una pestaña de forma síncrona dentro del
+    gesto de click original; en cuanto hay un `await` de por medio se
+    pierde esa "activación transitoria" y el navegador bloquea el popup en
+    silencio (sin ninguna excepción JS). Confirmado con evidencia real
+    antes de tocar código: el owner mostró el diálogo nativo "Pop-ups
+    bloqueados" de Chrome. Fix: `window.open("", "_blank")` se llama de
+    forma síncrona al principio del handler (dentro del gesto de click,
+    antes de cualquier `await`), guardando la referencia a la pestaña ya
+    abierta; una vez que `placeOrderAction` resuelve, se navega esa pestaña
+    con `.location.href = whatsappUrl` en vez de abrir una pestaña nueva en
+    ese momento. Verificado por el owner tras el fix: la pestaña se abre
+    correctamente.
 
 ## Próximos pasos
 
@@ -362,9 +398,15 @@ Fase 3 (nuevo en esta sesión):
 - Decisión pendiente de Fase 5 ya anotada en `plan-desarrollo.md`: el panel
   admin debe resaltar visualmente las cotizaciones de evento con
   `location = "TBD"`.
-- **Limpieza de datos de prueba pendiente**: `DrizzleCartRepository` (Tarea
-  5 de Fase 3) dejó un usuario y un producto de prueba con prefijo
+- **Limpieza de datos de prueba**: las 17 filas `Jane Doe` /
+  `jane@example.com` acumuladas en `orders` por corridas repetidas de
+  `order-repository.test.ts` (Fases 2 y 3) se borraron a pedido explícito
+  del owner en esta sesión (`orders` + `order_items`, verificado por
+  `count(*)` antes de borrar). **Sigue pendiente**: `DrizzleCartRepository`
+  (Tarea 5 de Fase 3) dejó un usuario y un producto de prueba con prefijo
   `cart-test-` en la DB compartida dev=prod, sin cleanup (a diferencia del
-  test de `settings`, que sí revierte). Bajo riesgo (prefijo identificable,
-  no interfiere con datos reales), pero borrarlos si se quiere una DB
-  limpia.
+  test de `settings`, que sí revierte) — no se tocó en esta sesión. Bajo
+  riesgo (prefijo identificable, no interfiere con datos reales), pero
+  borrarlos si se quiere una DB limpia. Si esto se repite, considerar
+  agregar cleanup (`afterAll`) a esos tests de integración en vez de seguir
+  limpiando manualmente después de cada corrida.
