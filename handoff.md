@@ -39,12 +39,13 @@ Chrome no respondía en este entorno (ver Intentos fallidos #15).
   payments coming soon."; el `503` real del servidor solo se vería en un
   estado intermedio (publishable key presente, secret key ausente) que no
   es el estado actual del proyecto.
-- **Paso 6 (persistencia de `localStorage` tras F5): confirmar con el
-  owner si quedó verificado** — no se confirmó explícitamente en el chat
-  de esta sesión.
+- **Paso 6 (persistencia de `localStorage` tras F5): confirmado por el
+  owner** — el contador del carrito se mantiene correctamente tras
+  recargar.
 
-**Confirmar con el owner si el paso 6 se corrió y pasó antes
-de dar la Fase 3 por verificada de punta a punta.**
+**Tarea 22 (verificación end-to-end) completa: los 7 steps del plan
+pasaron, incluidos los 3 smoke tests manuales. Fase 3 verificada de punta
+a punta.**
 
 El deploy de Fase 2 a producción (Tarea 17 de ese plan) tuvo dos incidentes
 post-push, ambos diagnosticados con evidencia real (log de build de
