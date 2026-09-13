@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { Product, ProductCategory } from "@workspace/domain/products";
 import { useLocale, useTranslations } from "next-intl";
 import { isMotionOk } from "@/lib/animations";
+import { useCart } from "@/lib/cart-store";
 
 type Filter = "all" | ProductCategory;
 
@@ -101,6 +102,8 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
   const name = locale === "en" ? product.nameEn : product.nameEs;
   const description = locale === "en" ? product.descriptionEn : product.descriptionEs;
   const price = (product.priceCents / 100).toFixed(2);
+  const { items, add, remove } = useCart();
+  const quantity = items.find((i) => i.productId === product.id)?.quantity ?? 0;
 
   return (
     <div className="menu-card bg-white border border-navy/[0.07] rounded-2xl overflow-hidden group transition-all duration-300 hover:border-sin-red/30 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(230,57,70,0.10)] flex flex-col">
@@ -134,6 +137,34 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
 
         <div className="flex items-center justify-between mt-auto pt-2">
           <span className="font-mono text-[13px] md:text-[16px] text-sin-red font-semibold">${price}</span>
+
+          {quantity === 0 ? (
+            <button
+              onClick={() => add(product.id)}
+              className="w-8 h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors"
+              aria-label={`Add ${name}`}
+            >
+              +
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => remove(product.id)}
+                className="w-7 h-7 rounded-full border border-navy/15 text-navy flex items-center justify-center hover:border-sin-red hover:text-sin-red transition-colors"
+                aria-label={`Remove one ${name}`}
+              >
+                −
+              </button>
+              <span className="font-mono text-[13px] text-navy w-4 text-center">{quantity}</span>
+              <button
+                onClick={() => add(product.id)}
+                className="w-7 h-7 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors"
+                aria-label={`Add one more ${name}`}
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
