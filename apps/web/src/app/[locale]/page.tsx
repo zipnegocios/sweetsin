@@ -1,5 +1,10 @@
 import type { Locale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
+import { listAvailableProducts } from "@workspace/domain/products";
+import { DrizzleProductRepository } from "@workspace/db/repositories";
+import { CartProvider } from "@/lib/cart-store";
+import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CheckoutModal } from "@/components/cart/checkout-modal";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Hero } from "@/components/sections/hero";
@@ -20,16 +25,22 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
   const { locale } = await params;
   setRequestLocale(locale);
 
+  const products = await listAvailableProducts(new DrizzleProductRepository());
+
   return (
-    <main className="w-full min-h-screen bg-sweet-dark text-cream selection:bg-sin-red selection:text-white pb-14 md:pb-0">
-      <Navbar />
-      <Hero />
-      <BrandStory />
-      <Menu />
-      <Events />
-      <FindUs />
-      <Footer />
-      <MobileNav />
-    </main>
+    <CartProvider products={products}>
+      <main className="w-full min-h-screen bg-sweet-dark text-cream selection:bg-sin-red selection:text-white pb-14 md:pb-0">
+        <Navbar />
+        <Hero />
+        <BrandStory />
+        <Menu products={products} />
+        <Events />
+        <FindUs />
+        <Footer />
+        <MobileNav />
+      </main>
+      <CartDrawer />
+      <CheckoutModal />
+    </CartProvider>
   );
 }

@@ -4,21 +4,39 @@
 
 Ejecutar `docs/superpowers/plan-desarrollo.md` fase por fase, sin adelantar
 trabajo de fases posteriores. Sesión 1: roadmap completo (Fases 1-8) +
-Fase 1 (Cimientos) de punta a punta. Sesión 2 (esta): plan bite-sized de
-Fase 2 vía `superpowers:writing-plans`, revisado con el owner en una
-interview exhaustiva (`grill-me`, 8 preguntas reales resueltas) que cambió
-la arquitectura de i18n a mitad de plan, y ejecución completa de las 17
-tareas con `superpowers:executing-plans`.
+Fase 1 (Cimientos) de punta a punta. Sesión 2: plan bite-sized de Fase 2
+vía `superpowers:writing-plans`, revisado con el owner en una interview
+exhaustiva (`grill-me`, 8 preguntas reales resueltas) que cambió la
+arquitectura de i18n a mitad de plan, y ejecución completa de las 17 tareas
+con `superpowers:executing-plans`. Sesión 3 (esta): ejecución completa del
+plan bite-sized de Fase 3 (Checkout, Carrito y Órdenes,
+`docs/superpowers/plans/2026-09-13-fase-3-checkout-carrito-ordenes.md`,
+24 tareas) con `superpowers:executing-plans`, directo sobre `main`.
 
 ## Estado actual
 
-**Fase 1 y Fase 2 completas y en producción real, verificadas.** El deploy
-a producción (Tarea 17) tuvo dos incidentes post-push, ambos diagnosticados
-con evidencia real (log de build de EasyPanel + HTML servido en vivo) y
-resueltos — ver Intentos fallidos #13 y #14. Verificación final contra
-`https://sweetsin.com.au/` real: `/` (inglés, sin prefijo) y `/es` en 200,
-catálogo con los 16 productos reales visibles en el HTML servido, mapa de
-Google cargando (`maps.googleapis` presente, ya no cae al fallback).
+**Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
+(código) completa: las 24 tareas del plan ejecutadas con TDD (test en rojo
+→ implementación → test en verde) en cada tarea con lógica de negocio,
+typecheck y test suite completa en verde, build de `apps/web` exitoso, y
+`/[locale]` confirmado dinámico (no congelado) en
+`.next/prerender-manifest.json`. **Los smoke tests manuales de UI (Tarea
+22, pasos 4-6: checkout de invitado vía WhatsApp end-to-end contra la DB
+real, error 503 de tarjeta sin credenciales, persistencia de carrito en
+`localStorage` tras F5) quedaron delegados al owner en esta sesión** — el
+MCP de Chrome no respondía en este entorno (ver Intentos fallidos #15), y
+el owner optó por corerlos manualmente con `pnpm --filter @workspace/web
+run dev` en lugar de perder tiempo reintentando la herramienta rota.
+**Confirmar con el owner si esos smoke tests se corrieron y pasaron antes
+de dar la Fase 3 por verificada de punta a punta.**
+
+El deploy de Fase 2 a producción (Tarea 17 de ese plan) tuvo dos incidentes
+post-push, ambos diagnosticados con evidencia real (log de build de
+EasyPanel + HTML servido en vivo) y resueltos — ver Intentos fallidos #13
+y #14. Verificación final contra `https://sweetsin.com.au/` real: `/`
+(inglés, sin prefijo) y `/es` en 200, catálogo con los 16 productos reales
+visibles en el HTML servido, mapa de Google cargando (`maps.googleapis`
+presente, ya no cae al fallback).
 
 Fase 1 (sin cambios respecto al handoff anterior): prototipo descartado
 retirado, monorepo reestructurado (`packages/domain`, `packages/db`,
@@ -73,6 +91,51 @@ Fase 2 — Catálogo público bilingüe (nuevo en esta sesión):
   Conflictos, Mentoría Técnica, Plan de Acción) antes de tocar código —
   framing explícito de mentoría/aprendizaje, no solo verbosidad.
 
+Fase 3 — Checkout, carrito y órdenes (nuevo en esta sesión):
+
+- `packages/domain/src/settings` (subdominio nuevo): `AppSettings`,
+  `SettingsRepository` — sin `use-cases.ts`, `get`/`update` no encapsulan
+  ninguna regla de negocio propia.
+- `packages/domain/src/cart` (subdominio nuevo): `Cart`, `CartItem`,
+  `CartRepository`, `syncCart`, `mergeGuestCart` (suma cantidades por
+  `productId` vía `Map` cuando el carrito de invitado se fusiona con uno
+  server-side existente). Construido y probado (3 tests), pero **ningún
+  flujo de UI de esta fase lo invoca todavía** — se conecta en Fase 4 con
+  Auth.js real.
+- `packages/domain/src/orders`: puerto extendido con
+  `attachPaymentIntent`/`markAsPaid`; nuevo caso de uso
+  `confirmOrderPayment` (idempotente — no hace nada si la orden ya está
+  `paid`, porque Stripe puede reenviar el mismo evento de webhook más de
+  una vez; decrementa stock vía `decrementStockOnSale` solo si la orden
+  tiene `stopId`).
+- `packages/domain/src/payments`: puerto `PaymentGateway` extendido con
+  `metadata` en `createPaymentIntent`, para que el webhook de Stripe pueda
+  vincular cada evento a un `orderId` propio del dominio.
+- `packages/db`: tabla `settings` (fila única `id=1`, fee de delivery
+  editable), `DrizzleSettingsRepository`, `DrizzleCartRepository` (con test
+  de integración contra Postgres real — deja un usuario y un producto de
+  prueba con prefijo `cart-test-` sin limpiar, a diferencia del test de
+  settings que sí revierte al valor por defecto), métodos nuevos en
+  `DrizzleOrderRepository`. Seed actualizado para cargar el default de
+  `settings`.
+- `apps/web`: `StripePaymentGateway` (validación lazy de
+  `STRIPE_SECRET_KEY`, mismo patrón que el incidente #13 de Fase 2),
+  Route Handlers `POST /api/checkout/payment-intent` y
+  `POST /api/webhooks/stripe`, `CartProvider` (Context de React con
+  persistencia en `localStorage`, hidratación diferida para no pisar lo
+  guardado con un array vacío), `CartDrawer`, `CheckoutModal` (reconstruye
+  el modal legacy sin el paso "courier", WhatsApp funcional de punta a
+  punta + Stripe Elements con fallback explícito si falta la publishable
+  key), Server Action `placeOrderAction`. Catálogo (`MenuCard`), `Navbar` y
+  `MobileNav` conectados al carrito. `page.tsx` ensambla todo.
+- `packages/i18n`: namespace `cart` completo (30 claves, ES/EN).
+- Verificación automatizada completa: typecheck limpio, 35 tests en verde
+  (`domain` 27, `db` 7, `i18n` 1), build de `apps/web` exitoso,
+  `/[locale]` confirmado dinámico en `.next/prerender-manifest.json` (no
+  `routes` ni `dynamicRoutes` — nunca se pre-renderizó como HTML estático).
+  **Verificación manual de UI (Tarea 22, pasos 4-6) delegada al owner** —
+  ver Estado actual e Intentos fallidos #15.
+
 ## Archivos y cambios
 
 Fase 1 (sin cambios, ver handoff anterior si hace falta el detalle
@@ -117,6 +180,48 @@ Fase 2 (nuevo en esta sesión):
   `@swc/core` (mismo patrón que Fase 1).
 - `CLAUDE.md` — 5 secciones actualizadas + 6 gotchas nuevos + la regla de
   idioma/mentoría de esta sesión.
+
+Fase 3 (nuevo en esta sesión):
+
+- `docs/superpowers/plans/2026-09-13-fase-3-checkout-carrito-ordenes.md` —
+  plan bite-sized de Fase 3 (24 tareas), ejecutado completo.
+- `packages/domain/src/settings/**`, `packages/domain/src/cart/**` —
+  subdominios nuevos.
+- `packages/domain/package.json` — exports `"./settings"`, `"./cart"`
+  agregados.
+- `packages/domain/src/orders/ports.ts`, `use-cases.ts`, `use-cases.test.ts`
+  — `attachPaymentIntent`/`markAsPaid`/`confirmOrderPayment`.
+- `packages/domain/src/payments/ports.ts` — `metadata` en
+  `createPaymentIntent`.
+- `packages/db/src/schema/settings.ts` (+ export en `schema/index.ts`).
+- `packages/db/src/repositories/settings-repository.ts` (+ test),
+  `cart-repository.ts` (+ test) — nuevos.
+- `packages/db/src/repositories/order-repository.ts` (+ test) —
+  `attachPaymentIntent`/`markAsPaid` implementados.
+- `packages/db/src/repositories/index.ts` — exports agregados.
+- `packages/db/src/seed.ts` — carga el default de `settings`.
+- `apps/web/package.json` — `stripe`, `@stripe/stripe-js`,
+  `@stripe/react-stripe-js` agregados.
+- `apps/web/src/infra/stripe-payment-gateway.ts` — nuevo.
+- `apps/web/src/app/api/checkout/payment-intent/route.ts`,
+  `apps/web/src/app/api/webhooks/stripe/route.ts` — nuevos.
+- `apps/web/src/lib/cart-store.tsx` — nuevo (`CartProvider`/`useCart`).
+- `apps/web/src/components/cart/cart-drawer.tsx`,
+  `checkout-modal.tsx` — nuevos.
+- `apps/web/src/app/actions/checkout.ts` — Server Action
+  `placeOrderAction`.
+- `apps/web/src/components/sections/menu-grid.tsx`,
+  `apps/web/src/components/layout/navbar.tsx`, `mobile-nav.tsx` —
+  conectados al carrito.
+- `apps/web/src/components/sections/menu.tsx`,
+  `apps/web/src/app/[locale]/page.tsx` — `Menu` presentacional,
+  `CartProvider`/`CartDrawer`/`CheckoutModal` ensamblados.
+- `packages/i18n/src/types.ts`, `dictionaries/en.ts`, `dictionaries/es.ts`
+  — namespace `cart`.
+- `CLAUDE.md` — Run & Operate (env vars de Stripe pendientes),
+  Architecture decisions (carrito/checkout de Fase 3), Product (carrito y
+  checkout ya no son "todavía no"), Gotchas (`metadata.orderId` requerido
+  para el webhook).
 
 ## Intentos fallidos
 
@@ -198,6 +303,23 @@ Fase 2 (nuevo en esta sesión):
     `apps/web/Dockerfile`. Verificado tras el siguiente deploy: el HTML
     real pasó de contener solo `Map unavailable` a incluir la carga real de
     `maps.googleapis`.
+15. **El MCP de Chrome (`claude-in-chrome`) no funcionó en esta sesión para
+    correr los smoke tests manuales de la Tarea 22 de Fase 3** —
+    `navigate` reportaba éxito, pero `tabs_context_mcp` seguía mostrando la
+    pestaña en `chrome://newtab` en cada verificación posterior, y
+    `screenshot`/`get_page_text` fallaban con "No URL available for active
+    tab" / "Cannot access a chrome:// URL". Se intentó: reintento simple,
+    pestaña nueva, `list_connected_browsers` + `select_browser` explícito
+    sobre el único browser conectado (`isLocal: true`) — mismo resultado
+    en los tres casos. Consistente con que
+    `plugin:chrome-devtools-mcp:chrome-devtools` ya había fallado con
+    `CONNECT_TIMEOUT` al arrancar la sesión — sugiere un problema de
+    conectividad de la extensión de Chrome en este entorno, no un error de
+    uso de la herramienta. No se investigó más a fondo (fuera de alcance
+    de la tarea); se delegó la verificación manual al owner en su lugar.
+    Si se vuelve a necesitar el navegador desde Claude en este entorno,
+    diagnosticar la extensión de Chrome (reinstalar/reconectar) antes de
+    reintentar.
 
 ## Próximos pasos
 
@@ -215,9 +337,34 @@ Fase 2 (nuevo en esta sesión):
   productos (`packages/db/src/seed.ts`) son un primer borrador de Claude,
   no revisadas por Oscar. Corregirlas es tan simple como editar el array y
   re-correr `pnpm --filter @workspace/db run seed` (idempotente).
-- **Arrancar Fase 3 — Checkout, carrito y órdenes** (ver
-  `docs/superpowers/plan-desarrollo.md`, sección "Fase 3") — todavía no
-  tiene plan bite-sized. No iniciar sin pedido explícito del owner.
+- **Confirmar los smoke tests manuales de Fase 3 (Tarea 22, pasos 4-6)** —
+  quedaron delegados al owner en esta sesión por la falla del MCP de
+  Chrome (Intentos fallidos #15). Antes de dar Fase 3 por verificada de
+  punta a punta: confirmar que el checkout de invitado vía WhatsApp
+  persistió una orden real y se borró después, que el pago con tarjeta
+  respondió `503` explícito, y que el carrito sobrevive a un `F5`.
+- **Cuando lleguen las credenciales reales de Stripe**: declarar
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` y
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` en `apps/web/.env.local` (y en
+  EasyPanel al deployar — esta última como `ARG`/`ENV` de build, mismo
+  patrón que `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` del incidente #14), y
+  probar el flujo de pago con tarjeta end-to-end. Hasta entonces el panel
+  de pago con tarjeta queda con el mensaje "coming soon" — comportamiento
+  esperado, no un bug.
+- **Deploy de Fase 3 a producción**: pendiente de que el owner corra
+  `git push` manualmente y confirme el log de build de EasyPanel + el
+  sitio real (mismo procedimiento que el deploy de Fase 2).
+- **Arrancar Fase 4 — Auth.js + panel admin básico** (ver
+  `docs/superpowers/plan-desarrollo.md`) — todavía no tiene plan
+  bite-sized. No iniciar sin pedido explícito del owner. Es el momento en
+  que `CartRepository`/`syncCart`/`mergeGuestCart` (construidos en Fase 3
+  pero sin wiring de UI) finalmente se conectan a un flujo real.
 - Decisión pendiente de Fase 5 ya anotada en `plan-desarrollo.md`: el panel
   admin debe resaltar visualmente las cotizaciones de evento con
   `location = "TBD"`.
+- **Limpieza de datos de prueba pendiente**: `DrizzleCartRepository` (Tarea
+  5 de Fase 3) dejó un usuario y un producto de prueba con prefijo
+  `cart-test-` en la DB compartida dev=prod, sin cleanup (a diferencia del
+  test de `settings`, que sí revierte). Bajo riesgo (prefijo identificable,
+  no interfiere con datos reales), pero borrarlos si se quiere una DB
+  limpia.

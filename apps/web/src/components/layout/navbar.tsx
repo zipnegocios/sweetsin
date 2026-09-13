@@ -5,6 +5,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import "@/lib/animations";
+import { useCart } from "@/lib/cart-store";
 
 export function Navbar() {
   const t = useTranslations("nav");
@@ -13,6 +14,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const navRef = useRef<HTMLElement>(null);
+  const { totalQty, openDrawer } = useCart();
 
   useEffect(() => {
     const nav = navRef.current;
@@ -86,6 +88,22 @@ export function Navbar() {
           className="md:hidden text-navy/50 text-[11px] font-mono uppercase tracking-widest"
         >
           {tCommon("switchToLanguage")}
+        </button>
+        <button
+          onClick={openDrawer}
+          className="relative w-10 h-10 flex items-center justify-center text-navy/70 hover:text-sin-red transition-colors"
+          aria-label="Open cart"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </svg>
+          {totalQty > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-sin-red text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              {totalQty}
+            </span>
+          )}
         </button>
         <a
           href="#menu"

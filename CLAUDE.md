@@ -13,6 +13,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm --filter @workspace/db run seed` — carga/actualiza el contenido real de `products` y `trailer_stops` (idempotente; no crea duplicados)
 - `pnpm run deploy:migrate` — frozen install + DB schema push (run on deploy)
 - Required env: `DATABASE_URL` — Postgres connection string (`packages/db/.env`, gitignored). `apps/web-legacy` also needs `PORT`/`BASE_PATH` in its own `.env` if you run it. `apps/web` needs its own copy of `DATABASE_URL` **and** `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` (gitignored) — Next.js doesn't read `packages/db/.env`, and `next build`/`next dev` fail as soon as any Server Component imports `@workspace/db/repositories` without it.
+- Variables de Stripe pendientes de credenciales reales: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (`apps/web/.env.local`) y `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — sin ellas, el checkout de invitado (pickup/self-delivery, pago vía WhatsApp) funciona igual; el pago con tarjeta responde explícitamente "not available yet", nunca simula un pago exitoso.
 
 ## Stack
 
@@ -47,10 +48,11 @@ _Replace the heading above with the project's name, and this line with one sente
 - **Pagos:** Stripe real (PaymentIntent + webhook) es la decisión congelada, aunque las credenciales todavía no están disponibles — se construye listo para conectar, sin mockear el flujo en silencio.
 - **Notificaciones:** sin proveedores de terceros (explícitamente sin Resend). Emails transaccionales por SMTP propio; push a mobile vía Expo Notifications. Vive en `packages/notifications`.
 - **i18n:** `packages/i18n` solo expone diccionarios framework-free (datos puros). `apps/web` los consume con `next-intl` y routing por locale: `en` (default) en la raíz limpia `/` sin prefijo ni redirect (`localePrefix: "as-needed"`, preserva el link equity del dominio), `es` explícito en `/es` — decisión del owner (2026-09-12) por SEO bilingüe indexable (URLs y `hreflang` propios por idioma) y por aprovechar el SSR de los Server Components de Next 15, en vez de un Context client-side con `localStorage`. `apps/mobile` (Fase 7) no usa `next-intl` — consume los mismos diccionarios de `packages/i18n` con su propio adaptador nativo.
+- **Carrito y checkout (Fase 3):** carrito de invitado 100% en `localStorage` (sin cuenta, `orders.customerId = null`); `CartRepository`/`syncCart`/`mergeGuestCart` server-side construidos y probados desde ya, pero sin ningún flujo de UI que los invoque todavía — se conectan en Fase 4 cuando exista sesión real de Auth.js. El fee de self-delivery vive en la tabla `settings` (fila única, no una constante en código) para poder editarse desde el panel admin sin tocar el dominio.
 
 ## Product
 
-Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es`): hero, catálogo de 16 postres reales (paradas y precios desde Postgres), historia de marca, ubicaciones activas del trailer con mapa en vivo, y un formulario de cotización de eventos que persiste la solicitud real. Sin cuenta de cliente, carrito ni checkout todavía (Fase 3). Panel admin todavía no existe (Fase 4).
+Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es`): hero, catálogo de 16 postres reales (paradas y precios desde Postgres), historia de marca, ubicaciones activas del trailer con mapa en vivo, un formulario de cotización de eventos que persiste la solicitud real, y carrito + checkout de invitado (pickup/self-delivery, pago vía WhatsApp funcional de punta a punta; pago con tarjeta scaffoldeado con Stripe, pendiente de credenciales reales). Sin cuenta de cliente todavía. Panel admin todavía no existe (Fase 4).
 
 ## User preferences
 
@@ -119,6 +121,7 @@ Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es
 - Next.js 16 renombró `middleware.ts` a `proxy.ts` — este proyecto está pineado a Next `^15.5.0`, así que el archivo correcto sigue siendo `apps/web/src/middleware.ts`. Si se sube la versión de Next en el futuro, revisar la guía de migración de `next-intl` antes de renombrarlo.
 - `@types/*` exclusivos de un solo paquete (ej. `@types/google.maps`, solo usado en `apps/web`) no se auto-incluyen en TypeScript dentro de este monorepo pnpm — pnpm hoistea a la raíz los `@types` compartidos entre paquetes (`react`, `node`), pero uno exclusivo queda aislado en `apps/web/node_modules/@types/` y el auto-discovery de `tsc` no lo alcanza ahí. Fix: `/// <reference types="..." />` explícito en `apps/web/src/global.d.ts` — nunca declarar `compilerOptions.types` a mano, porque eso apaga el auto-include para todo lo demás (react/react-dom incluidos).
 - Cualquier página bajo `app/[locale]/` que haga fetch a Postgres (`Menu`, `FindUs`) necesita `export const dynamic = "force-dynamic"` — sin eso, `generateStaticParams()` en el layout hace que `next build` intente pre-renderizar la página como HTML estático, ejecutando esas queries contra la DB real *en build time* y congelando los datos hasta el próximo deploy (y fallando el build si la DB no es alcanzable en ese momento). Verificar con el manifiesto real (`.next/prerender-manifest.json`), no con el símbolo `●`/`○` de la tabla resumen de `next build` — ese símbolo solo indica si la ruta usa `generateStaticParams()`, no si el contenido quedó congelado.
+- `PaymentGateway.createPaymentIntent` recibe `metadata: Record<string, string>` — el webhook de Stripe (`apps/web/src/app/api/webhooks/stripe/route.ts`) depende de que `metadata.orderId` viaje en el PaymentIntent para saber qué orden confirmar; si se crea un PaymentIntent por otra vía sin ese metadata, el webhook no tiene forma de vincularlo a una orden.
 
 ## Deploy (EasyPanel)
 

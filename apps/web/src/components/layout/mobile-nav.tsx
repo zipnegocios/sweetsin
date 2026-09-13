@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useCart } from "@/lib/cart-store";
 
 function TabIcon({ id }: { id: string }) {
   const props = {
@@ -58,6 +59,7 @@ export function MobileNav() {
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const [activeTab, setActiveTab] = useState("menu");
+  const { totalQty, openDrawer } = useCart();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -74,11 +76,10 @@ export function MobileNav() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // "order" apunta a #menu (no #preorder) hasta que Fase 3 tenga carrito/checkout real.
   const tabs = [
     { id: "menu", label: t("menu"), href: "#menu" },
     { id: "events", label: t("events"), href: "#events" },
-    { id: "order", label: t("order"), href: "#menu" },
+    { id: "order", label: t("order"), href: null },
     { id: "find-us", label: t("findUs"), href: "#find-us" },
   ];
 
@@ -88,21 +89,38 @@ export function MobileNav() {
         isVisible ? "translate-y-0" : "translate-y-full"
       }`}
     >
-      {tabs.map((tab) => (
-        <a
-          key={tab.id}
-          href={tab.href}
-          onClick={() => setActiveTab(tab.id)}
-          className="flex flex-col items-center justify-center w-full h-full gap-1"
-        >
-          <span className={`transition-all ${activeTab === tab.id ? "scale-110 text-sin-red" : "opacity-50 text-white"}`}>
-            <TabIcon id={tab.id} />
-          </span>
-          {activeTab === tab.id && (
-            <span className="text-[9px] font-mono uppercase tracking-wider text-sin-red">{tab.label}</span>
-          )}
-        </a>
-      ))}
+      {tabs.map((tab) =>
+        tab.href ? (
+          <a
+            key={tab.id}
+            href={tab.href}
+            onClick={() => setActiveTab(tab.id)}
+            className="flex flex-col items-center justify-center w-full h-full gap-1"
+          >
+            <span className={`transition-all ${activeTab === tab.id ? "scale-110 text-sin-red" : "opacity-50 text-white"}`}>
+              <TabIcon id={tab.id} />
+            </span>
+            {activeTab === tab.id && (
+              <span className="text-[9px] font-mono uppercase tracking-wider text-sin-red">{tab.label}</span>
+            )}
+          </a>
+        ) : (
+          <button
+            key={tab.id}
+            onClick={openDrawer}
+            className="relative flex flex-col items-center justify-center w-full h-full gap-1"
+          >
+            <span className="opacity-50 text-white">
+              <TabIcon id={tab.id} />
+            </span>
+            {totalQty > 0 && (
+              <span className="absolute top-1 right-1/2 translate-x-3 w-3.5 h-3.5 bg-sin-red text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {totalQty}
+              </span>
+            )}
+          </button>
+        ),
+      )}
     </div>
   );
 }
