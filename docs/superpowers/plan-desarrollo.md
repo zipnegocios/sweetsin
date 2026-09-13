@@ -197,6 +197,8 @@ event_booking_items  (id, event_booking_id, description, quantity, agreed_unit_p
 carts              (id, customer_id -> users, created_at, updated_at)
 cart_items         (id, cart_id -> carts, product_id -> products, quantity)
 
+settings           (id fijo=1, delivery_fee_cents, updated_at)  -- agregada en Fase 3, ver nota abajo
+
 orders             (id, customer_id?, customer_name, customer_email, customer_phone, fulfillment_type, delivery_address?, stop_id?, payment_status, fulfillment_status, subtotal_cents, discount_cents, delivery_fee_cents, total_cents, channel, stripe_payment_intent_id?, created_at, updated_at)
 order_items        (id, order_id, product_id, quantity, unit_price_cents, line_discount_cents)
 ```
@@ -303,10 +305,35 @@ logueado, motor de descuento por volumen ya vive en `packages/domain`
   Fase 1.3) por cada item de la orden si tiene `stop_id`. **Bloqueado hasta
   recibir credenciales de test/live** — se avisa explícitamente al arrancar
   esta fase si siguen sin llegar; no se mockea el flujo en silencio.
+  **Confirmado al arrancar Fase 3 (2026-09-13): siguen sin llegar** — se
+  construye el scaffold completo (SDK, adaptador, webhook, Route Handler de
+  creación de PaymentIntent) pero la verificación end-to-end queda
+  documentada como bloqueada hasta recibir las credenciales.
+- **Fee de self-delivery: $5.00 AUD por defecto, pero editable desde el
+  panel admin** (decisión del owner, 2026-09-13) — no una constante en
+  código. Requiere una tabla nueva de configuración, `settings` (fila
+  única, ver boceto de schema arriba), con puerto `SettingsRepository`
+  (`packages/domain/src/settings/`) y `DrizzleSettingsRepository`
+  (`packages/db`). El Server Action de checkout lee el fee vigente ahí
+  antes de llamar `createOrder` — `createOrder` (Fase 1.3) ya recibe
+  `deliveryFeeCents` como input resuelto, sin cambios. La UI de admin para
+  editarlo es de Fase 4/5; Fase 3 solo deja el `update()` del puerto listo
+  y el seed con el default cargado.
+- **Carrito server-side sin Auth.js todavía (decisión del owner,
+  2026-09-13):** Auth.js (login real de `customer`) es Fase 4, posterior a
+  esta. Se construye igual `CartRepository` + casos de uso completos y
+  probados (Vitest + integración, usando un `customerId` de prueba
+  insertado directamente, sin login real). El checkout real que ve un
+  visitante en Fase 3 es 100% invitado vía `localStorage` — el wiring de
+  "fusionar el carrito local con el server-side al loguearse" se conecta
+  recién en Fase 4, cuando exista sesión real.
 
-**Schema/archivos:** no crea tablas nuevas. Toca `apps/web/app/checkout/**`,
-`packages/domain/src/cart/**` (nuevo), `packages/db/src/repositories/cart-repository.ts`
-(nuevo), `apps/web/src/infra/stripe-payment-gateway.ts` (nuevo).
+**Schema/archivos:** crea la tabla `settings` (nueva, no estaba en el
+boceto original de Fase 1). Toca `apps/web/app/checkout/**`,
+`packages/domain/src/cart/**` (nuevo), `packages/domain/src/settings/**`
+(nuevo), `packages/db/src/repositories/cart-repository.ts` (nuevo),
+`packages/db/src/repositories/settings-repository.ts` (nuevo),
+`apps/web/src/infra/stripe-payment-gateway.ts` (nuevo).
 
 **Criterios de aceptación (borrador):** checkout completo persiste una
 orden real vía WhatsApp; vía tarjeta queda armado y probado contra el modo
