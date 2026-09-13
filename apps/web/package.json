@@ -16,8 +16,10 @@
     "@workspace/db": "workspace:*",
     "@workspace/domain": "workspace:*",
     "@workspace/i18n": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "gsap": "^3.15.0",
     "next": "^15.5.0",
+    "next-auth": "5.0.0-beta.32",
     "next-intl": "^4.14.4",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -28,6 +30,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^3.0.0",
     "@types/google.maps": "^3.65.5",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
