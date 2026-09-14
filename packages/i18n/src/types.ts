@@ -141,4 +141,28 @@ export interface Dictionary {
     loginError: string;
     logoutButton: string;
   };
+  admin: {
+    ordersTitle: string;
+    filterAll: string;
+    filterFulfillmentStatus: string;
+    filterPaymentStatus: string;
+    filterChannel: string;
+    filterDateFrom: string;
+    filterDateTo: string;
+    searchPlaceholder: string;
+    applyFilters: string;
+    columnCustomer: string;
+    columnStatus: string;
+    columnPayment: string;
+    columnChannel: string;
+    columnTotal: string;
+    columnDate: string;
+    viewDetail: string;
+    backToOrders: string;
+    detailItems: string;
+    detailCustomer: string;
+    detailAddress: string;
+    saveStatus: string;
+    statusSaved: string;
+  };
 }
