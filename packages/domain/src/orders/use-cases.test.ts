@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createOrder, confirmOrderPayment } from "./use-cases";
+import { createOrder, confirmOrderPayment, listOrders } from "./use-cases";
 import type { Order } from "./entities";
-import type { OrderRepository } from "./ports";
+import type { OrderRepository, OrderFilters } from "./ports";
 import type { Product } from "../products/entities";
 import type { ProductRepository } from "../products/ports";
 import type { StockRepository } from "../stock/ports";
@@ -51,6 +51,14 @@ function fakeOrderRepo(): OrderRepository & { created: Omit<Order, "id">[] } {
     },
     async attachPaymentIntent() {},
     async markAsPaid() {},
+    async listAll() {
+      return [];
+    },
+    async listByCustomerId() {
+      return [];
+    },
+    async updateFulfillmentStatus() {},
+    async updatePaymentStatus() {},
   };
 }
 
@@ -173,6 +181,14 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
       paidCalls.push(id);
       order.paymentStatus = "paid";
     },
+    async listAll() {
+      return [];
+    },
+    async listByCustomerId() {
+      return [];
+    },
+    async updateFulfillmentStatus() {},
+    async updatePaymentStatus() {},
   };
 }
 
@@ -283,5 +299,55 @@ describe("confirmOrderPayment", () => {
 
     expect(orders.paidCalls).toEqual([]);
     expect(stock.events).toHaveLength(0);
+  });
+});
+
+function fakeOrderRepoForListing(orders: Order[]): OrderRepository & { listAllCalls: OrderFilters[] } {
+  const listAllCalls: OrderFilters[] = [];
+  return {
+    listAllCalls,
+    async create(o) {
+      return { ...o, id: "unused" };
+    },
+    async findById(id) {
+      return orders.find((o) => o.id === id) ?? null;
+    },
+    async attachPaymentIntent() {},
+    async markAsPaid() {},
+    async listAll(filters) {
+      listAllCalls.push(filters);
+      return orders;
+    },
+    async listByCustomerId() {
+      return orders;
+    },
+    async updateFulfillmentStatus() {},
+    async updatePaymentStatus() {},
+  };
+}
+
+describe("listOrders", () => {
+  it("passes the filters through to the repository", async () => {
+    const repo = fakeOrderRepoForListing([]);
+    const filters: OrderFilters = { fulfillmentStatus: "pending" };
+
+    await listOrders(repo, filters);
+
+    expect(repo.listAllCalls).toEqual([filters]);
+  });
+
+  it("throws when dateFrom is after dateTo", async () => {
+    const repo = fakeOrderRepoForListing([]);
+
+    await expect(
+      listOrders(repo, { dateFrom: "2026-09-20", dateTo: "2026-09-01" }),
+    ).rejects.toThrow("dateFrom must not be after dateTo");
+  });
+
+  it("allows a filter with only dateFrom or only dateTo", async () => {
+    const repo = fakeOrderRepoForListing([]);
+
+    await expect(listOrders(repo, { dateFrom: "2026-09-01" })).resolves.toEqual([]);
+    await expect(listOrders(repo, { dateTo: "2026-09-01" })).resolves.toEqual([]);
   });
 });

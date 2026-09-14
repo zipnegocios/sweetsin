@@ -1,5 +1,5 @@
 import type { ProductRepository } from "../products/ports";
-import type { OrderRepository, NewOrderInput } from "./ports";
+import type { OrderRepository, NewOrderInput, OrderFilters } from "./ports";
 import type { Order, OrderItem } from "./entities";
 import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
@@ -73,4 +73,11 @@ export async function confirmOrderPayment(
       await decrementStockOnSale(deps.stock, order.stopId, item.productId, item.quantity);
     }
   }
+}
+
+export async function listOrders(repo: OrderRepository, filters: OrderFilters): Promise<Order[]> {
+  if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+    throw new Error("dateFrom must not be after dateTo");
+  }
+  return repo.listAll(filters);
 }
