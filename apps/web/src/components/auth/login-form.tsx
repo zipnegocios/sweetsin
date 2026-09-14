@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { signInAction } from "@/app/actions/auth";
+import { mergeCartOnLoginAction } from "@/app/actions/merge-cart";
 
 export function LoginForm() {
   const t = useTranslations("auth");
@@ -25,6 +26,19 @@ export function LoginForm() {
         setError(t("loginError"));
         return;
       }
+
+      if (result.role === "customer") {
+        try {
+          const raw = window.localStorage.getItem("sweet-sin-cart");
+          const guestItems = raw ? JSON.parse(raw) : [];
+          const merged = await mergeCartOnLoginAction(guestItems);
+          window.localStorage.setItem("sweet-sin-cart", JSON.stringify(merged));
+        } catch {
+          // localStorage puede fallar (modo privado) — el login igual continúa,
+          // el carrito server-side queda como fuente de verdad de todos modos.
+        }
+      }
+
       const callbackUrl = searchParams.get("callbackUrl");
       router.push(result.role === "admin" ? "/admin" : callbackUrl || "/");
       router.refresh();
