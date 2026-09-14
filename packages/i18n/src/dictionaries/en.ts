@@ -167,4 +167,18 @@ export const en: Dictionary = {
     saveStatus: "Save",
     statusSaved: "Saved",
   },
+  account: {
+    registerTitle: "Create your account",
+    namePlaceholder: "Full name",
+    emailPlaceholder: "Email",
+    passwordPlaceholder: "Password (min. 8 characters)",
+    registerButton: "Create account",
+    registerError: "That email is already registered.",
+    haveAccount: "Already have an account?",
+    loginLink: "Sign in",
+    ordersTitle: "Your orders",
+    noOrders: "You haven't placed any orders yet.",
+    orderTotal: "Total",
+    orderStatus: "Status",
+  },
 };

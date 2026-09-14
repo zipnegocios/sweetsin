@@ -165,4 +165,18 @@ export interface Dictionary {
     saveStatus: string;
     statusSaved: string;
   };
+  account: {
+    registerTitle: string;
+    namePlaceholder: string;
+    emailPlaceholder: string;
+    passwordPlaceholder: string;
+    registerButton: string;
+    registerError: string;
+    haveAccount: string;
+    loginLink: string;
+    ordersTitle: string;
+    noOrders: string;
+    orderTotal: string;
+    orderStatus: string;
+  };
 }

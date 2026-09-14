@@ -168,4 +168,18 @@ export const es: Dictionary = {
     saveStatus: "Guardar",
     statusSaved: "Guardado",
   },
+  account: {
+    registerTitle: "Creá tu cuenta",
+    namePlaceholder: "Nombre completo",
+    emailPlaceholder: "Email",
+    passwordPlaceholder: "Contraseña (mín. 8 caracteres)",
+    registerButton: "Crear cuenta",
+    registerError: "Ese email ya está registrado.",
+    haveAccount: "¿Ya tenés cuenta?",
+    loginLink: "Iniciar sesión",
+    ordersTitle: "Tus pedidos",
+    noOrders: "Todavía no hiciste ningún pedido.",
+    orderTotal: "Total",
+    orderStatus: "Estado",
+  },
 };
