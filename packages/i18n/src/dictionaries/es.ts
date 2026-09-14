@@ -136,4 +136,12 @@ export const es: Dictionary = {
     doneButton: "Listo",
     total: "Total",
   },
+  auth: {
+    loginTitle: "Iniciar sesión",
+    emailPlaceholder: "Email",
+    passwordPlaceholder: "Contraseña",
+    loginButton: "Iniciar sesión",
+    loginError: "Email o contraseña incorrectos.",
+    logoutButton: "Cerrar sesión",
+  },
 };

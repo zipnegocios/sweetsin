@@ -135,4 +135,12 @@ export const en: Dictionary = {
     doneButton: "Done",
     total: "Total",
   },
+  auth: {
+    loginTitle: "Sign in",
+    emailPlaceholder: "Email",
+    passwordPlaceholder: "Password",
+    loginButton: "Sign in",
+    loginError: "Incorrect email or password.",
+    logoutButton: "Sign out",
+  },
 };

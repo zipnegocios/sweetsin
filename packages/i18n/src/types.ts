@@ -133,4 +133,12 @@ export interface Dictionary {
     doneButton: string;
     total: string;
   };
+  auth: {
+    loginTitle: string;
+    emailPlaceholder: string;
+    passwordPlaceholder: string;
+    loginButton: string;
+    loginError: string;
+    logoutButton: string;
+  };
 }
