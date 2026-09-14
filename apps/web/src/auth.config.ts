@@ -7,6 +7,12 @@ import type { UserRole } from "@workspace/domain/users";
 // DB viven en auth.ts, que solo se usa en Route Handlers/Server
 // Components/Server Actions (runtime Node.js).
 export const authConfig: NextAuthConfig = {
+  // Requerido en cualquier deploy que no sea Vercel (EasyPanel acá) — sin
+  // esto Auth.js no confía en el host de la request y puede fallar en
+  // silencio al persistir la cookie de sesión, sin lanzar un AuthError
+  // capturable: el login "funciona" (devuelve el usuario) pero nunca
+  // queda ninguna cookie authjs.* seteada en el navegador.
+  trustHost: true,
   pages: { signIn: "/login" },
   providers: [],
   callbacks: {
