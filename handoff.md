@@ -8,10 +8,14 @@ Fase 1 (Cimientos) de punta a punta. Sesión 2: plan bite-sized de Fase 2
 vía `superpowers:writing-plans`, revisado con el owner en una interview
 exhaustiva (`grill-me`, 8 preguntas reales resueltas) que cambió la
 arquitectura de i18n a mitad de plan, y ejecución completa de las 17 tareas
-con `superpowers:executing-plans`. Sesión 3 (esta): ejecución completa del
+con `superpowers:executing-plans`. Sesión 3: ejecución completa del
 plan bite-sized de Fase 3 (Checkout, Carrito y Órdenes,
 `docs/superpowers/plans/2026-09-13-fase-3-checkout-carrito-ordenes.md`,
 24 tareas) con `superpowers:executing-plans`, directo sobre `main`.
+Sesión 4 (esta): ejecución completa del plan bite-sized de Fase 4
+(Autenticación y Panel Admin,
+`docs/superpowers/plans/2026-09-13-fase-4-auth-panel-admin.md`, 28 tareas)
+con `superpowers:executing-plans`, directo sobre `main`.
 
 ## Estado actual
 
@@ -153,6 +157,43 @@ Fase 3 — Checkout, carrito y órdenes (nuevo en esta sesión):
   **Verificación manual de UI (Tarea 22, pasos 4-6) delegada al owner** —
   ver Estado actual e Intentos fallidos #15.
 
+**Fase 4 — Autenticación y Panel Admin: las 28 tareas completas,
+commiteadas y desplegadas en producción real, verificadas de punta a
+punta.** Cada tarea de dominio/DB siguió TDD; typecheck y test suite
+completa (`domain` 37, `db` 11, `i18n` 1) en verde; build completo del
+monorepo exitoso, verificado con el manifiesto real (`/admin/orders` y
+`/account/orders` no quedan congeladas — `auth()` las vuelve dinámicas
+automáticamente al leer cookies, sin necesitar `force-dynamic` explícito).
+
+- Auth.js v5 (Credentials + JWT) funcionando en producción para `admin` y
+  `customer`, con revocación de sesión vía `is_active` verificada con
+  evidencia real (usuario de prueba desactivado, login rechazado con
+  "Incorrect email or password" — `authenticateUser` bloquea desde el
+  login mismo, no solo revoca sesiones ya activas).
+- Panel admin de órdenes completo: tabla con filtros (`fulfillmentStatus`,
+  `paymentStatus`, `channel`, fecha, búsqueda por nombre/email), detalle
+  con cambio de estado — verificado con un pedido de prueba real vía
+  WhatsApp (`zipnegocios@gmail.com`, Tarea 18), filtros y búsqueda
+  confirmados, cambio de estado persistente tras recargar.
+- Customer: registro, login, historial de pedidos (`listByCustomerId`), y
+  merge de carrito de invitado — verificado con una cuenta de prueba real
+  (`qa-fase4-customer@example.com`, Tarea 26): el carrito de invitado
+  sobrevivió al registro sin perder items, logout/login funcionó.
+- **Hallazgo real, no bloqueante**: `mergeCartOnLoginAction` solo está
+  conectado al flujo de **login** (`login-form.tsx`), no al de
+  **registro** (`register-form.tsx` hace login automático tras
+  registrarse, pero nunca llama al merge) — se descubrió al verificar que
+  el usuario de prueba no tenía ningún `cart`/`cart_items` server-side al
+  momento de limpiarlo. No es un bug funcional hoy porque el checkout
+  sigue siendo 100% de invitado vía `localStorage` (nada se pierde), pero
+  documentado en `CLAUDE.md` (Architecture decisions) para cuando el
+  checkout dependa del carrito server-side.
+- Todos los datos de prueba de esta fase se limpiaron de la DB compartida
+  dev=prod: 4 órdenes de `zipnegocios@gmail.com` (una de hoy + 3 que habían
+  quedado sin limpiar de la verificación de Fase 3, con sus 9
+  `order_items`), y el usuario `qa-fase4-customer@example.com` (sin
+  carrito ni órdenes asociadas).
+
 ## Archivos y cambios
 
 Fase 1 (sin cambios, ver handoff anterior si hace falta el detalle
@@ -239,6 +280,72 @@ Fase 3 (nuevo en esta sesión):
   Architecture decisions (carrito/checkout de Fase 3), Product (carrito y
   checkout ya no son "todavía no"), Gotchas (`metadata.orderId` requerido
   para el webhook).
+
+Fase 4 (nuevo en esta sesión):
+
+- `docs/superpowers/plans/2026-09-13-fase-4-auth-panel-admin.md` — plan
+  bite-sized de Fase 4 (28 tareas), ejecutado completo.
+- `packages/domain/src/users/entities.ts`, `ports.ts`, `use-cases.ts`,
+  `use-cases.test.ts` — `passwordHash` en `User`, `authenticateUser`,
+  `registerCustomer` ahora pide `password`.
+- `packages/domain/src/users/auth.ts` (nuevo) + `auth.test.ts` —
+  `hashPassword`/`verifyPassword` (bcryptjs).
+- `packages/domain/src/users/index.ts` — re-exporta `./auth`.
+- `packages/domain/src/orders/ports.ts` — `OrderFilters`,
+  `listAll`/`listByCustomerId`/`updateFulfillmentStatus`/`updatePaymentStatus`.
+- `packages/domain/src/orders/use-cases.ts`, `use-cases.test.ts` —
+  `listOrders` (valida `dateFrom <= dateTo`).
+- `packages/domain/package.json` — `bcryptjs` + `@types/bcryptjs`.
+- `packages/db/src/schema/users.ts` — columna `password_hash` (aplicada
+  contra Postgres real).
+- `packages/db/src/repositories/user-repository.test.ts` (nuevo).
+- `packages/db/src/repositories/order-repository.ts`, `.test.ts` —
+  `listAll`/`listByCustomerId`/`updateFulfillmentStatus`/`updatePaymentStatus`.
+- `packages/db/src/seed.ts` — carga condicional del primer admin vía
+  `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD` (corrido una vez contra
+  producción: `sweetsin.au@gmail.com`).
+- `apps/web/package.json` — `next-auth@beta` (5.0.0-beta.32), `bcryptjs`.
+- `apps/web/src/auth.config.ts` (nuevo) — config edge-safe de Auth.js
+  (`trustHost: true`, sin DB, sin providers).
+- `apps/web/src/auth.ts` — extiende `authConfig` con el provider
+  Credentials + revalidación de `is_active` (Node.js runtime).
+- `apps/web/src/types/next-auth.d.ts` (nuevo) — `Session.user.role`,
+  `JWT.role`.
+- `apps/web/src/app/api/auth/[...nextauth]/route.ts` (nuevo).
+- `apps/web/src/middleware.ts` — combina `next-intl` + una instancia de
+  Auth.js construida solo con `authConfig` (edge-safe) para proteger
+  `/admin/**` por rol.
+- `apps/web/src/app/actions/auth.ts` (nuevo) — `signInAction`,
+  `signOutAction`.
+- `apps/web/src/app/actions/admin-orders.ts` (nuevo) — `listOrdersAction`,
+  `updateOrderStatusAction`.
+- `apps/web/src/app/actions/register.ts` (nuevo) —
+  `registerCustomerAction`.
+- `apps/web/src/app/actions/merge-cart.ts` (nuevo) —
+  `mergeCartOnLoginAction`.
+- `apps/web/src/app/[locale]/login/page.tsx` (nuevo, con `<Suspense>`),
+  `apps/web/src/components/auth/login-form.tsx` (nuevo, conectado al
+  merge de carrito).
+- `apps/web/src/app/[locale]/register/page.tsx` (nuevo),
+  `apps/web/src/components/auth/register-form.tsx` (nuevo).
+- `apps/web/src/app/[locale]/admin/layout.tsx` (nuevo) — guard de rol a
+  nivel Server Component.
+- `apps/web/src/app/[locale]/admin/orders/page.tsx` (nuevo) — tabla con
+  filtros vía `searchParams`.
+- `apps/web/src/app/[locale]/admin/orders/[id]/page.tsx` (nuevo),
+  `apps/web/src/components/admin/order-status-form.tsx` (nuevo).
+- `apps/web/src/app/[locale]/account/orders/page.tsx` (nuevo) —
+  historial de pedidos del cliente.
+- `apps/web/.env.local` (gitignored) — `AUTH_SECRET` agregado.
+- `packages/i18n/src/types.ts`, `dictionaries/en.ts`, `dictionaries/es.ts`
+  — namespaces `auth`, `admin`, `account` agregados.
+- EasyPanel (fuera de git): variable de runtime `AUTH_SECRET` declarada en
+  el servicio `apps/web`.
+- `CLAUDE.md` — Run & Operate (seed de admin), Architecture decisions
+  (Auth.js de Fase 4, hallazgo del merge de carrito no conectado al
+  registro), Product (cuenta de cliente y panel admin ya no son
+  "todavía no"), Gotchas (split de `auth.config.ts`/`auth.ts` por el
+  Edge Runtime, `trustHost: true` obligatorio fuera de Vercel).
 
 ## Intentos fallidos
 
@@ -357,6 +464,88 @@ Fase 3 (nuevo en esta sesión):
     con `.location.href = whatsappUrl` en vez de abrir una pestaña nueva en
     ese momento. Verificado por el owner tras el fix: la pestaña se abre
     correctamente.
+17. **Memoria de la máquina local agotada varias veces durante Fase 4**:
+    `tsc` crasheó con `VirtualAlloc failed`/`low_level_alloc.cc`, y
+    `next dev` falló con "el archivo de paginación es demasiado pequeño
+    para completar la operación". Causa: 8GB de RAM total, hasta 29
+    procesos `node.exe` colgados simultáneamente (de sesiones/instalaciones
+    anteriores). Mitigación: verificar contra producción vía `curl` en vez
+    de local cuando la memoria no alcanzaba (Tareas 7 y 18); el owner
+    reinició la máquina a mitad de sesión, lo que ayudó temporalmente (ver
+    #26 para la recaída).
+18. **El middleware combinado (Tarea 7) rompía build y dev server**:
+    `Error: The edge runtime does not support Node.js 'crypto' module` —
+    `middleware.ts` importaba `auth.ts`, que arrastra `DrizzleUserRepository`
+    y por lo tanto `pg` (usa `crypto` de Node), inaceptable en el Edge
+    Runtime. Fix: split siguiendo el patrón oficial de Auth.js v5 —
+    `auth.config.ts` nuevo (edge-safe, cero imports de DB), del que
+    `middleware.ts` construye su propia instancia de `NextAuth()`; `auth.ts`
+    (Node.js runtime) extiende `authConfig` agregando el provider
+    Credentials y la revalidación por DB.
+19. **Error de tipos en el callback `session` de `auth.ts`**
+    (`Type '{}' is not assignable to type 'UserRole'`) — la intersección de
+    tipos de la versión beta de Auth.js v5 para el parámetro del callback
+    `session` no dejaba inferir `token.role` correctamente. Fix: cast
+    explícito `token.role as UserRole` (mismo patrón que el cast ya usado
+    en el callback `jwt`).
+20. **Route Handler de Auth.js no compilaba**: el código literal del plan
+    (`export { GET, POST } from "@/auth"`) fallaba porque `auth.ts` exporta
+    `handlers` como objeto agrupado, no `GET`/`POST` sueltos. Fix:
+    `import { handlers } from "@/auth"; export const { GET, POST } = handlers;`.
+21. **Timeout de test en `order-repository.test.ts` (Tarea 12)**: el test
+    de 2 `createOrder` + 2 `listAll` contra el Postgres remoto excedía el
+    timeout default de vitest (5000ms) por latencia de red pura. Fix:
+    timeout de 15000ms solo en ese test.
+22. **Flake de timeout en `cart-repository.test.ts`** (test de Fase 3, no
+    tocado en esta sesión) — mismo síntoma de latencia de red. Confirmado
+    transitorio al reintentar.
+23. **El build de producción en EasyPanel falló tras la Tarea 17**:
+    `useSearchParams() should be wrapped in a suspense boundary at page
+    "/[locale]/login"` — bug real de la Tarea 10 que ningún
+    `tsc --noEmit` local detecta (solo aparece en `next build` real, al
+    intentar prerenderizar). Fix: envolver `<LoginForm />` en `<Suspense>`.
+24. **Tras el fix de Suspense, el build pasó pero el login en producción
+    "no hacía nada"**: el botón quedaba trabado sin redirigir. Diagnosticado
+    con capturas reales del owner (Network tab + Application/Cookies): la
+    Server Action de login devolvía el rol correctamente, pero nunca se
+    seteaba ninguna cookie `authjs.*`. Causa: faltaba `trustHost: true` —
+    requerido en cualquier deploy self-hosted que no sea Vercel; sin eso
+    Auth.js no confía en el host de la request y falla en silencio al
+    persistir la cookie. Fix aplicado en `auth.config.ts` y confirmado
+    funcionando en producción tras el siguiente deploy (cookie
+    `authjs.session-token` presente, `/admin/orders` accesible).
+25. **Error de narrowing de TypeScript en `account/orders/page.tsx`**
+    (`'session' is possibly 'null'` después de un
+    `if (!session) { redirect(...); }` sin `return`) — el tipo `never` de
+    `redirect()` de next-intl no disparaba el narrowing automático de
+    TypeScript sin un `return` explícito delante. Fix:
+    `return redirect(...)`.
+26. **Durante el smoke test manual de la Tarea 26 (local): "Jest worker
+    encountered 2 child process exceptions, exceeding retry limit"** —
+    causado por 3 instancias de `next dev` acumuladas simultáneamente
+    (puertos 3000/3001/3002) de intentos previos no detenidos
+    correctamente, agotando la memoria de nuevo (bajó a ~739MB libres de
+    8GB). Diagnosticado con `netstat -ano` (no adivinado) para identificar
+    los PIDs exactos escuchando en esos tres puertos, confirmando que las
+    tres instancias eran del propio dev server de esta sesión antes de
+    matarlas — nunca se mató un proceso sin verificar primero a qué
+    correspondía. Fix: `taskkill` de los 3 PIDs, borrar `.next`, levantar
+    una única instancia limpia.
+27. **Conflicto de caché `.next` entre `next build` (producción) y
+    `next dev` corriendo sobre el mismo directorio**: error
+    `ENOENT: ... pages/_document.js` al levantar el dev server justo
+    después de correr un build completo del monorepo (Tarea 26). Fix:
+    borrar `apps/web/.next` antes de levantar el dev server cada vez que
+    se corrió un build de producción justo antes.
+28. **La contraseña del customer de prueba (`qa-fase4-customer@example.com`,
+    Tarea 26) se perdió** — el owner no la anotó y Claude nunca la vio (el
+    registro la tipeó él mismo en el navegador; en la DB solo queda el hash
+    bcrypt, irreversible). Se resolvió con un script temporal
+    (`packages/db/src/reset-qa-password.ts`, reutilizando `hashPassword`
+    real del dominio, mismo patrón que `seed.ts`) que actualizó
+    `password_hash` directo en la DB con una contraseña nueva conocida; el
+    script se borró inmediatamente después de usarlo, nunca se stageó ni
+    commiteó.
 
 ## Próximos pasos
 
@@ -388,14 +577,21 @@ Fase 3 (nuevo en esta sesión):
   probar el flujo de pago con tarjeta end-to-end. Hasta entonces el panel
   de pago con tarjeta queda con el mensaje "coming soon" — comportamiento
   esperado, no un bug.
-- **Deploy de Fase 3 a producción**: pendiente de que el owner corra
-  `git push` manualmente y confirme el log de build de EasyPanel + el
-  sitio real (mismo procedimiento que el deploy de Fase 2).
-- **Arrancar Fase 4 — Auth.js + panel admin básico** (ver
-  `docs/superpowers/plan-desarrollo.md`) — todavía no tiene plan
-  bite-sized. No iniciar sin pedido explícito del owner. Es el momento en
-  que `CartRepository`/`syncCart`/`mergeGuestCart` (construidos en Fase 3
-  pero sin wiring de UI) finalmente se conectan a un flujo real.
+- **Deploy de Fase 3 a producción: completo** — confirmado implícitamente
+  al deployar Fase 4 encima sin ningún problema atribuible a Fase 3.
+- **Fase 4 — Auth.js + panel admin: completa, deployada y verificada de
+  punta a punta en producción real** (ver Estado actual e Intentos
+  fallidos #17-28). `CartRepository`/`syncCart`/`mergeGuestCart`
+  (construidos en Fase 3 sin wiring de UI) ya están conectados al flujo de
+  login real.
+- **Rotar `ADMIN_SEED_PASSWORD`** — la contraseña del primer admin quedó
+  en texto plano en el chat de esta sesión (el owner la tipeó directamente
+  para que Claude corriera el seed). Recomendado rotarla desde el panel
+  admin o re-corriendo el seed con una nueva, todavía no confirmado que se
+  haya hecho.
+- **Arrancar Fase 5** (ver `docs/superpowers/plan-desarrollo.md`) —
+  todavía no tiene plan bite-sized. No iniciar sin pedido explícito del
+  owner.
 - Decisión pendiente de Fase 5 ya anotada en `plan-desarrollo.md`: el panel
   admin debe resaltar visualmente las cotizaciones de evento con
   `location = "TBD"`.
