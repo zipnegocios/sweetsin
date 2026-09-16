@@ -25,4 +25,22 @@ export class DrizzleStockRepository implements StockRepository {
     const [inserted] = await db.insert(stockEventsTable).values(event).returning();
     return inserted;
   }
+
+  async create(stock: Omit<StopProductStock, "id">): Promise<StopProductStock> {
+    const [inserted] = await db.insert(stopProductStockTable).values(stock).returning();
+    return inserted;
+  }
+
+  async listByStop(stopId: string): Promise<StopProductStock[]> {
+    return db.select().from(stopProductStockTable).where(eq(stopProductStockTable.stopId, stopId));
+  }
+
+  async incrementStock(stopProductStockId: string, quantity: number): Promise<StopProductStock> {
+    const [updated] = await db
+      .update(stopProductStockTable)
+      .set({ currentStock: sql`${stopProductStockTable.currentStock} + ${quantity}` })
+      .where(eq(stopProductStockTable.id, stopProductStockId))
+      .returning();
+    return updated;
+  }
 }
