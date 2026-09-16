@@ -1,4 +1,4 @@
-import { and, asc, gte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, ne } from "drizzle-orm";
 import type { TrailerStop, TrailerStopRepository } from "@workspace/domain/trailer-stops";
 import { db } from "../index";
 import { trailerStopsTable } from "../schema";
@@ -22,5 +22,19 @@ export class DrizzleTrailerStopRepository implements TrailerStopRepository {
         ),
       )
       .orderBy(asc(trailerStopsTable.startTime));
+  }
+
+  async create(stop: Omit<TrailerStop, "id">): Promise<TrailerStop> {
+    const [inserted] = await db.insert(trailerStopsTable).values(stop).returning();
+    return inserted;
+  }
+
+  async findById(id: string): Promise<TrailerStop | null> {
+    const [row] = await db.select().from(trailerStopsTable).where(eq(trailerStopsTable.id, id));
+    return row ?? null;
+  }
+
+  async updateStatus(id: string, status: TrailerStop["status"]): Promise<void> {
+    await db.update(trailerStopsTable).set({ status }).where(eq(trailerStopsTable.id, id));
   }
 }

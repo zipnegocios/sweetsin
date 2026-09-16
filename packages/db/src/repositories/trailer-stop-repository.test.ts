@@ -48,4 +48,24 @@ describe("DrizzleTrailerStopRepository", () => {
     expect(matching[0].status).toBe("scheduled");
     expect(matching[0].endTime.getTime()).toBeGreaterThan(Date.now());
   });
+
+  it("creates a stop, finds it by id, and updates its status", async () => {
+    const repo = new DrizzleTrailerStopRepository();
+
+    const stop = await repo.create({
+      location: `Test Stop ${Date.now()}`,
+      lat: -34.9,
+      lng: 138.6,
+      startTime: new Date("2026-11-01T00:00:00Z"),
+      endTime: new Date("2026-11-01T05:00:00Z"),
+      status: "scheduled",
+    });
+
+    const found = await repo.findById(stop.id);
+    expect(found?.location).toBe(stop.location);
+
+    await repo.updateStatus(stop.id, "completed");
+    const updated = await repo.findById(stop.id);
+    expect(updated?.status).toBe("completed");
+  });
 });
