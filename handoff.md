@@ -584,11 +584,12 @@ Fase 4 (nuevo en esta sesión):
   fallidos #17-28). `CartRepository`/`syncCart`/`mergeGuestCart`
   (construidos en Fase 3 sin wiring de UI) ya están conectados al flujo de
   login real.
-- **Rotar `ADMIN_SEED_PASSWORD`** — la contraseña del primer admin quedó
-  en texto plano en el chat de esta sesión (el owner la tipeó directamente
-  para que Claude corriera el seed). Recomendado rotarla desde el panel
-  admin o re-corriendo el seed con una nueva, todavía no confirmado que se
-  haya hecho.
+- **Rotar `ADMIN_SEED_PASSWORD`: hecho.** La contraseña original había
+  quedado en texto plano en el chat de esta sesión (el owner la tipeó
+  directamente para que Claude corriera el seed) — se rotó re-corriendo
+  `pnpm --filter @workspace/db run seed` con una contraseña nueva
+  generada al azar (no queda registrada en ningún archivo del repo, solo
+  se la sabe el owner).
 - **Arrancar Fase 5** (ver `docs/superpowers/plan-desarrollo.md`) —
   todavía no tiene plan bite-sized. No iniciar sin pedido explícito del
   owner.
