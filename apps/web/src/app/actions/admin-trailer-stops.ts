@@ -2,7 +2,7 @@
 
 import { listAllTrailerStops, createTrailerStop, completeTrailerStop, cancelTrailerStop } from "@workspace/domain/trailer-stops";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
-import { initializeStopStock } from "@workspace/domain/stock";
+import { initializeStopStock, restockProduct, reportStockWaste } from "@workspace/domain/stock";
 import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleEventBookingRepository } from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
 
@@ -58,4 +58,19 @@ export async function completeTrailerStopAction(id: string): Promise<void> {
 export async function cancelTrailerStopAction(id: string): Promise<void> {
   await requireAdmin();
   await cancelTrailerStop(new DrizzleTrailerStopRepository(), id);
+}
+
+export async function restockAction(stopId: string, productId: string, quantity: number): Promise<void> {
+  await requireAdmin();
+  await restockProduct(new DrizzleStockRepository(), stopId, productId, quantity, null);
+}
+
+export async function reportWasteAction(
+  stopId: string,
+  productId: string,
+  quantity: number,
+  reason: string | null,
+): Promise<void> {
+  await requireAdmin();
+  await reportStockWaste(new DrizzleStockRepository(), stopId, productId, quantity, reason, null);
 }
