@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { listActiveTrailerStops, createTrailerStop, completeTrailerStop, cancelTrailerStop } from "./use-cases";
+import { listActiveTrailerStops, listAllTrailerStops, createTrailerStop, completeTrailerStop, cancelTrailerStop } from "./use-cases";
 import type { TrailerStop } from "./entities";
 import type { TrailerStopRepository } from "./ports";
 
@@ -22,6 +22,9 @@ function fakeRepo(stops: TrailerStop[]): TrailerStopRepository & { created: Omit
     created,
     async listActive() {
       return stops.filter((s) => s.status !== "completed" && s.status !== "cancelled");
+    },
+    async listAll() {
+      return stops;
     },
     async create(stop) {
       created.push(stop);
@@ -50,6 +53,15 @@ describe("listActiveTrailerStops", () => {
 
     const result = await listActiveTrailerStops(repo);
     expect(result.map((s) => s.id)).toEqual(["stop1", "stop4"]);
+  });
+});
+
+describe("listAllTrailerStops", () => {
+  it("returns every stop regardless of status", async () => {
+    const repo = fakeRepo([fakeStop({ id: "stop1", status: "completed" }), fakeStop({ id: "stop2" })]);
+
+    const result = await listAllTrailerStops(repo);
+    expect(result.map((s) => s.id)).toEqual(["stop1", "stop2"]);
   });
 });
 

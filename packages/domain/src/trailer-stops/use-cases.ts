@@ -5,6 +5,10 @@ export function listActiveTrailerStops(repo: TrailerStopRepository): Promise<Tra
   return repo.listActive();
 }
 
+export function listAllTrailerStops(repo: TrailerStopRepository): Promise<TrailerStop[]> {
+  return repo.listAll();
+}
+
 export async function createTrailerStop(
   repo: TrailerStopRepository,
   input: { location: string; lat: number; lng: number; startTime: Date; endTime: Date },

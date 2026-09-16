@@ -24,6 +24,10 @@ export class DrizzleTrailerStopRepository implements TrailerStopRepository {
       .orderBy(asc(trailerStopsTable.startTime));
   }
 
+  async listAll(): Promise<TrailerStop[]> {
+    return db.select().from(trailerStopsTable).orderBy(asc(trailerStopsTable.startTime));
+  }
+
   async create(stop: Omit<TrailerStop, "id">): Promise<TrailerStop> {
     const [inserted] = await db.insert(trailerStopsTable).values(stop).returning();
     return inserted;
