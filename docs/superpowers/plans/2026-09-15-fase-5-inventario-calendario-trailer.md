@@ -938,7 +938,7 @@ export async function updateEventBookingDetails(
 - [ ] **Step 5: Correr los tests y confirmar que pasan**
 
 Run: `pnpm --filter @workspace/domain run test -- event-bookings`
-Expected: PASS (10 tests)
+Expected: PASS (9 tests)
 
 - [ ] **Step 6: Commit**
 
@@ -1732,7 +1732,7 @@ export default async function AdminTrailerStopsPage({ params }: { params: Promis
               <td className="px-4 py-3">{stop.status}</td>
               <td className="px-4 py-3">
                 <Link href={`/admin/trailer-stops/${stop.id}`} className="text-sin-red hover:underline">
-                  View
+                  {t("viewDetail")}
                 </Link>
               </td>
               <td className="px-4 py-3">
