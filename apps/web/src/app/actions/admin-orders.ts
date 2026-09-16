@@ -3,14 +3,7 @@
 import { listOrders } from "@workspace/domain/orders";
 import type { Order, OrderFilters, FulfillmentStatus, PaymentStatus } from "@workspace/domain/orders";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
-import { auth } from "@/auth";
-
-async function requireAdmin(): Promise<void> {
-  const session = await auth();
-  if (!session || session.user.role !== "admin") {
-    throw new Error("Forbidden");
-  }
-}
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function listOrdersAction(filters: OrderFilters): Promise<Order[]> {
   await requireAdmin();
