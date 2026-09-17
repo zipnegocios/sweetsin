@@ -32,7 +32,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
       return;
     }
     const handle = setTimeout(async () => {
-      const result = await checkStopOverlapAction(startTime, endTime);
+      const result = await checkStopOverlapAction(new Date(startTime).toISOString(), new Date(endTime).toISOString());
       setOverlaps(result);
     }, 500);
     return () => clearTimeout(handle);

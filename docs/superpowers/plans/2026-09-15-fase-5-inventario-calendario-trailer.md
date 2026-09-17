@@ -2275,11 +2275,14 @@ import type { EventBookingStatus } from "@workspace/domain/event-bookings";
 type SearchParams = Record<string, string | undefined>;
 
 export default async function AdminEventBookingsPage({
+  params,
   searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
   searchParams: Promise<SearchParams>;
 }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const sp = await searchParams;
   const t = await getTranslations("admin");
 
@@ -2510,7 +2513,8 @@ import { useRouter } from "@/i18n/navigation";
 import { updateEventBookingDetailsAction } from "@/app/actions/admin-event-bookings";
 
 function toDatetimeLocal(date: Date): string {
-  return date.toISOString().slice(0, 16);
+  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localTime.toISOString().slice(0, 16);
 }
 
 export function EventBookingDetailsForm({
@@ -2770,11 +2774,8 @@ Comando sugerido: `git commit -m "Agrega la Server Action que combina paradas y 
 
 import { useMemo } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import format from "date-fns/format";
-import parse from "date-fns/parse";
-import startOfWeek from "date-fns/startOfWeek";
-import getDay from "date-fns/getDay";
-import enUS from "date-fns/locale/en-US";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useTranslations } from "next-intl";
 import type { CalendarEvent } from "@/app/actions/admin-calendar";
@@ -2854,7 +2855,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
 - [ ] **Step 3: Verificar que tipa limpio**
 
 Run: `pnpm run typecheck`
-Expected: sin errores. Si `date-fns/format` (import de subruta) da error de tipos con la versión instalada, usar `import { format, parse, startOfWeek, getDay } from "date-fns";` y `import { enUS } from "date-fns/locale";` en su lugar (ambas formas son válidas según la versión mayor de `date-fns` que instale pnpm — confirmar cuál compila con la versión real resuelta en el Step 1 de la Tarea 17).
+Expected: sin errores. El Step 1 ya usa los imports nombrados de `date-fns` (no subrutas con default export) porque la versión real instalada en la Tarea 17 (`date-fns@^3.6.0`) solo expone `format`/`parse`/`startOfWeek`/`getDay`/`enUS` como exports nombrados — un `import format from "date-fns/format"` typechequearía contra el objeto namespace completo del módulo, no contra la función, y rompería al usarse en `dateFnsLocalizer`.
 
 - [ ] **Step 4: Commit**
 
