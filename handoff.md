@@ -12,10 +12,17 @@ con `superpowers:executing-plans`. Sesión 3: ejecución completa del
 plan bite-sized de Fase 3 (Checkout, Carrito y Órdenes,
 `docs/superpowers/plans/2026-09-13-fase-3-checkout-carrito-ordenes.md`,
 24 tareas) con `superpowers:executing-plans`, directo sobre `main`.
-Sesión 4 (esta): ejecución completa del plan bite-sized de Fase 4
+Sesión 4: ejecución completa del plan bite-sized de Fase 4
 (Autenticación y Panel Admin,
 `docs/superpowers/plans/2026-09-13-fase-4-auth-panel-admin.md`, 28 tareas)
-con `superpowers:executing-plans`, directo sobre `main`.
+con `superpowers:executing-plans`, directo sobre `main`. Sesión 5 (esta):
+plan bite-sized de Fase 5 (Inventario y calendario del trailer,
+`docs/superpowers/plans/2026-09-15-fase-5-inventario-calendario-trailer.md`,
+25 tareas) ejecutado con `superpowers:subagent-driven-development` —
+subagente implementador + subagente revisor fresco por tarea, con el
+owner corriendo cada `git commit` manualmente entre tareas (el harness de
+esta sesión tiene un permiso `deny` real sobre `Bash(git commit *)`/
+`Bash(git push *)`, descubierto en la Tarea 1).
 
 ## Estado actual
 
@@ -194,6 +201,42 @@ automáticamente al leer cookies, sin necesitar `force-dynamic` explícito).
   `order_items`), y el usuario `qa-fase4-customer@example.com` (sin
   carrito ni órdenes asociadas).
 
+**Fase 5 — Inventario y calendario del trailer: las 20 tareas de código
+completas y commiteadas en `main`; la Tarea 22 (verificación manual de
+event bookings + calendario) quedó pendiente, delegada al owner contra
+producción — ver Próximos pasos.** Cada tarea de dominio/DB siguió TDD;
+typecheck y test suite completa (`domain` 54, `db` 14, `i18n` 1) en verde;
+build completo exitoso, verificado con el manifiesto real
+(`.next/prerender-manifest.json`): ninguna ruta `/admin/*` nueva quedó
+congelada, solo `login`/`register` son estáticas (mismo patrón que Fase 4).
+
+- Calendario admin (`/admin/calendar`) vía `react-big-calendar` + `date-fns`,
+  combinando paradas activas y reservas confirmadas como eventos
+  coloreados distinto (rojo/navy).
+- Paradas del trailer: listado, creación con mapa interactivo
+  (`LocationPicker`, variante editable/arrastrable de `LocationMap` de
+  Fase 2), selección manual de productos con stock inicial, aviso de
+  solapamiento en vivo contra reservas confirmadas (debounce 500ms, no
+  bloqueante), detalle con reposición/reporte de merma de stock.
+- Reservas de eventos: listado con filtro por status y resaltado visual de
+  `location = "TBD"` (decisión del owner anotada desde Fase 2), detalle con
+  cambio de estado, edición de datos (única forma de sacar una reserva del
+  placeholder "TBD"), agregado de items de cotización. Regla de negocio
+  nueva en el dominio: `confirmEventBooking` rechaza confirmar con
+  `location === "TBD"`, reforzada también en la UI (botón deshabilitado).
+- **Verificación manual bloqueante de la Tarea 21 (CRUD de parada +
+  solapamiento + stock): completa, corrida por Claude vía Chrome MCP —
+  encontró y arregló un bug real de producción en el camino** (ver
+  Intentos fallidos #36): el aviso de solapamiento interpretaba la hora
+  del formulario en el timezone del *servidor*, no el de Adelaide.
+- **Tarea 22 (verificación manual de event bookings + calendario): NO
+  corrida** — el Chrome MCP quedó con la ventana minimizada/viewport 0x0 a
+  mitad de la Tarea 22 (ver Intentos fallidos #38); el owner pidió abortar
+  la automatización y una checklist para verificar manualmente contra el
+  deploy de producción en su lugar. Checklist entregada en el chat de esta
+  sesión (no persistida como archivo) — vale la pena guardarla si se
+  quiere recuperar sin releer la transcripción completa.
+
 ## Archivos y cambios
 
 Fase 1 (sin cambios, ver handoff anterior si hace falta el detalle
@@ -346,6 +389,78 @@ Fase 4 (nuevo en esta sesión):
   registro), Product (cuenta de cliente y panel admin ya no son
   "todavía no"), Gotchas (split de `auth.config.ts`/`auth.ts` por el
   Edge Runtime, `trustHost: true` obligatorio fuera de Vercel).
+
+Fase 5 (nuevo en esta sesión):
+
+- `docs/superpowers/plans/2026-09-15-fase-5-inventario-calendario-trailer.md`
+  — plan bite-sized de Fase 5 (25 tareas), ejecutado con
+  `superpowers:subagent-driven-development`. Corregido en el camino, antes
+  de dispatch, un puñado de defectos reales del propio plan (ver Intentos
+  fallidos #30, #32, #33, #34).
+- `packages/domain/src/trailer-stops/ports.ts`, `use-cases.ts`,
+  `use-cases.test.ts` — `create`/`findById`/`updateStatus`/`listAll` en el
+  puerto; `createTrailerStop`/`completeTrailerStop`/`cancelTrailerStop`/
+  `listAllTrailerStops` (sin guardas de máquina de estados, solo
+  actualización directa).
+- `packages/db/src/repositories/trailer-stop-repository.ts` (+ test) —
+  implementación de los métodos nuevos.
+- `packages/domain/src/stock/ports.ts`, `use-cases.ts`, `use-cases.test.ts`
+  — `create`/`listByStop`/`incrementStock` en el puerto;
+  `initializeStopStock`/`restockProduct`/`reportStockWaste` (helper
+  privado `decrementWithEvent` compartido entre `decrementStockOnSale` y
+  `reportStockWaste`).
+- `packages/db/src/repositories/stock-repository.ts` (+ test, nuevo) —
+  implementación, `incrementStock` con SQL crudo (`col + quantity`) igual
+  que el `decrementStock` ya existente.
+- `packages/domain/src/event-bookings/ports.ts`, `use-cases.ts`,
+  `use-cases.test.ts` — `findById`/`listAll`/`updateStatus`/`addItem`/
+  `update` en el puerto; `quoteEventBooking`/`confirmEventBooking`
+  (rechaza `location === "TBD"` y booking inexistente)/
+  `cancelEventBooking`/`completeEventBooking`/`addEventBookingItem`/
+  `updateEventBookingDetails`.
+- `packages/db/src/repositories/event-booking-repository.ts` (+ test) —
+  reescrito completo, helper privado `attachItems` reusado por
+  `findOverlapping`/`findById`/`listAll` (antes `findOverlapping` siempre
+  devolvía `items: []`).
+- `apps/web/src/lib/require-admin.ts` (nuevo) — `requireAdmin()` extraído
+  de `admin-orders.ts`, reusado por las Server Actions nuevas.
+- `apps/web/src/app/actions/admin-trailer-stops.ts` (nuevo) —
+  `listTrailerStopsAction`/`checkStopOverlapAction`/
+  `createTrailerStopAction`/`completeTrailerStopAction`/
+  `cancelTrailerStopAction`/`restockAction`/`reportWasteAction`.
+- `apps/web/src/app/actions/admin-event-bookings.ts` (nuevo) —
+  `listEventBookingsAction`/`quoteEventBookingAction`/
+  `confirmEventBookingAction` (atrapa el error de dominio y lo convierte
+  en `{ error: "location_tbd" } | { ok: true }`)/
+  `cancelEventBookingAction`/`completeEventBookingAction`/
+  `addEventBookingItemAction`/`updateEventBookingDetailsAction`.
+- `apps/web/src/app/actions/admin-calendar.ts` (nuevo) —
+  `listCalendarEventsAction`, combina paradas activas y reservas
+  confirmadas en `CalendarEvent[]` (fechas como ISO string, no `Date`
+  crudo, porque cruzan el límite de una Server Action).
+- `apps/web/src/components/admin/location-picker.tsx` (nuevo) — variante
+  interactiva (arrastrable/clickeable) de `LocationMap`, patrón
+  `onChangeRef` para no recrear el mapa de Google en cada re-render del
+  padre.
+- `apps/web/src/components/admin/{trailer-stop-row-actions,
+  trailer-stop-form, stock-row, event-booking-actions,
+  event-booking-item-form, event-booking-details-form,
+  admin-calendar-view}.tsx` (nuevos) — componentes cliente del panel
+  admin.
+- `apps/web/src/app/[locale]/admin/{trailer-stops,
+  trailer-stops/new, trailer-stops/[id], event-bookings,
+  event-bookings/[id], calendar}/page.tsx` (nuevos).
+- `apps/web/src/app/[locale]/admin/layout.tsx` — nav agregada (links a las
+  4 secciones), puramente aditivo, lógica de sesión/sign-out sin tocar.
+- `apps/web/package.json`, `pnpm-lock.yaml` — `react-big-calendar`,
+  `date-fns`, `@types/react-big-calendar` (dev, la librería no publica
+  tipos propios).
+- `packages/i18n/src/types.ts`, `dictionaries/en.ts`, `dictionaries/es.ts`
+  — 47 claves nuevas en el namespace `admin` (nav, paradas, stock,
+  reservas de eventos, calendario).
+- `CLAUDE.md` — Architecture decisions (calendario/mapa interactivo/stock
+  manual/solapamiento en vivo de Fase 5, extracción de `requireAdmin`),
+  Product (panel admin completo).
 
 ## Intentos fallidos
 
@@ -546,6 +661,103 @@ Fase 4 (nuevo en esta sesión):
     `password_hash` directo en la DB con una contraseña nueva conocida; el
     script se borró inmediatamente después de usarlo, nunca se stageó ni
     commiteó.
+29. **Conflicto real entre el protocolo de `subagent-driven-development`
+    (espera que cada subagente implementador haga `git commit` por tarea) y
+    la regla no-negociable de `CLAUDE.md`** ("Claude nunca ejecuta `git
+    commit` por su cuenta"). El primer implementador (Tarea 1) se negó a
+    commitear citando `CLAUDE.md`; al indicarle que era una excepción
+    autorizada, reveló la causa real: `.claude/settings.local.json` tiene
+    un `deny` real de harness sobre `Bash(git commit *)`/`Bash(git push
+    *)` — no es cuestión de criterio del subagente, es un bloqueo técnico
+    inevitable, confirmado leyendo el archivo directamente. Resuelto con el
+    owner: los implementadores solo hacen `git add`; el owner corre cada
+    `git commit` manualmente entre tareas (misma cadencia que Fase 4, pero
+    con un implementador + revisor subagente fresco por tarea en vez de que
+    Claude implemente directo).
+30. **Defecto real en el propio plan de Fase 5, detectado por el revisor de
+    la Tarea 5**: el Step 5 del brief decía "Expected: PASS (10 tests)",
+    pero el código del propio Step 1 solo produce 9 tests — el
+    self-review del plan había agregado `updateEventBookingDetails`
+    (8→9 tests) pero nunca corrigió el "10" que había quedado de una
+    versión anterior. Detectado contando los `it(...)` reales, no
+    confiando en el texto del plan. Fix: corregido el plan doc a "9
+    tests", con un Ruling formal en el ledger de SDD.
+31. **Otro defecto real del plan, en el brief de la Tarea 11**: el Step 2
+    tenía el literal hardcodeado `"View"` en el link de detalle, en vez de
+    reusar `{t("viewDetail")}` — clave que ya existía en el diccionario
+    `admin` desde la página de órdenes de Fase 4. Corregido en el plan y
+    en el brief antes de despachar el implementador (violaba la regla de
+    reutilización/i18n del proyecto).
+32. **Defecto del plan en la Tarea 15**: la firma de la función de página
+    declaraba `params: Promise<{ locale: Locale }>` en el tipo pero nunca
+    lo desestructuraba ni llamaba `setRequestLocale(locale)` — inconsistente
+    con **todas** las demás páginas del admin (incluida la de `orders`,
+    que ese mismo brief decía replicar). Corregido antes de dispatch.
+33. **Bug real de timezone en el plan de la Tarea 16**: `toDatetimeLocal(date)`
+    usaba `date.toISOString().slice(0, 16)` directo, que devuelve la hora
+    en UTC pero un `<input type="datetime-local">` la trata como hora
+    local — si el admin abría el formulario de edición de una reserva y
+    guardaba sin tocar las fechas, el horario se habría corrido
+    silenciosamente por el offset de zona horaria en cada guardado. Fix
+    (ajuste estándar con `getTimezoneOffset()`) aplicado al plan y al
+    brief antes de despachar — nunca llegó a producción.
+34. **Ambigüedad de imports de `date-fns` en el brief de la Tarea 19,
+    resuelta antes de despachar**: el código primario usaba imports de
+    subruta con default export (`import format from "date-fns/format"`,
+    `import enUS from "date-fns/locale/en-US"`), con un fallback
+    documentado condicionalmente "si tsc se queja". Verificado
+    directamente contra los `.d.ts` reales de `date-fns@3.6.0` (instalada
+    en la Tarea 17): esos módulos solo exportan nombrados, sin default —
+    el import por default habría typechequeado contra el namespace
+    completo del módulo, rompiendo `dateFnsLocalizer`. Se reemplazó el
+    código primario por el fallback ya documentado (imports nombrados)
+    antes de dispatch, evitándole una vuelta al implementador.
+35. **`react-big-calendar@1.20.0` no trae ningún `.d.ts` propio** — el
+    implementador de la Tarea 19 reportó `BLOCKED` con
+    `TS7016: Could not find a declaration file`. El veredicto de la Tarea
+    17 ("no hace falta `@types/react-big-calendar`") nunca se había puesto
+    a prueba realmente porque en ese momento ningún código importaba la
+    librería todavía. Verificado que `@types/react-big-calendar@1.16.3`
+    existe en el registro de npm; instalado como devDependency (fix round
+    1, mismo implementador resumido). El reviewer corrió el typecheck y el
+    lint él mismo para confirmar antes de aprobar.
+36. **Bug real de producción encontrado durante la verificación manual
+    bloqueante de la Tarea 21**: el aviso de solapamiento de paradas
+    (`checkStopOverlapAction`) recibía el string crudo del
+    `<input type="datetime-local">` (sin timezone) y hacía `new
+    Date(startTime)` **en el servidor** — interpretando la hora en el
+    timezone del servidor, no el de Adelaide. En producción (contenedor
+    EasyPanel, muy probablemente UTC) el aviso nunca habría funcionado.
+    Diagnóstico con evidencia real, no adivinado: la máquina de dev tenía
+    `TZ=America/Caracas`; se sembró una `event_booking` `confirmed` real
+    con un rango horario conocido, se confirmó con la pestaña de Network
+    que el Server Action sí se disparaba pero el aviso jamás aparecía, y
+    se confirmó con `findOverlapping` llamado directo contra la DB que el
+    dato SÍ existía y matcheaba con las fechas UTC correctas — aislando el
+    bug a la conversión cliente→servidor, no al dominio. Fix: en
+    `trailer-stop-form.tsx`, el chequeo ahora convierte a ISO
+    (`new Date(startTime).toISOString()`) en el cliente antes de llamar al
+    Server Action — mismo patrón que `handleSubmit` ya usaba para
+    `createTrailerStopAction`, moviendo la interpretación de "hora local"
+    al navegador del admin (genuinamente en Adelaide en uso real) en vez
+    del servidor. Este bug ya estaba commiteado en las Tareas 10 y 12; sus
+    reviews no lo agarraron porque verificaban wiring/transcripción fiel
+    del brief, no corrección de timezone contra datos reales sembrados —
+    la Tarea 21 cumplió exactamente su propósito de red de seguridad.
+37. **El dev server local quedó con el caché de `.next` corrupto** tras un
+    gap largo entre turnos de la sesión: `Cannot find module
+    './vendor-chunks/drizzle-orm@...js'` (`MODULE_NOT_FOUND`), devolviendo
+    500 en `/`. Diagnosticado leyendo el log del proceso en background
+    (no adivinado). Fix: matar el proceso viejo, borrar `apps/web/.next`,
+    levantar una instancia limpia.
+38. **El Chrome MCP quedó con la ventana minimizada a mitad de la Tarea
+    22** — `screenshot` fallaba con `"Cannot take screenshot with 0
+    width"` y el árbol de accesibilidad volvía vacío después de un click
+    real. Se intentó `resize_window` sin éxito (seguía en 0x0). El owner
+    pidió abortar la automatización del navegador en vez de seguir
+    depurando el estado de la ventana, y en su lugar una checklist para
+    verificar manualmente contra el deploy de producción — entregada en el
+    chat de esta sesión. La Tarea 22 quedó pendiente (ver Próximos pasos).
 
 ## Próximos pasos
 
@@ -590,12 +802,34 @@ Fase 4 (nuevo en esta sesión):
   `pnpm --filter @workspace/db run seed` con una contraseña nueva
   generada al azar (no queda registrada en ningún archivo del repo, solo
   se la sabe el owner).
-- **Arrancar Fase 5** (ver `docs/superpowers/plan-desarrollo.md`) —
-  todavía no tiene plan bite-sized. No iniciar sin pedido explícito del
-  owner.
-- Decisión pendiente de Fase 5 ya anotada en `plan-desarrollo.md`: el panel
-  admin debe resaltar visualmente las cotizaciones de evento con
-  `location = "TBD"`.
+- **Fase 5 — código completo (20/25 tareas), pendiente de deploy y de
+  cerrar la verificación manual.** Próximos pasos concretos, en orden:
+  1. **Tarea 22 (verificación manual de event bookings + calendario):
+     pendiente.** Checklist entregada al owner en el chat de esta sesión
+     (no persistida como archivo aparte) para correrla manualmente contra
+     producción una vez deployado — cubre el ciclo completo de una
+     reserva (cotización → edición de `location` TBD→real → confirmación)
+     y que el calendario muestre paradas y reservas con colores distintos.
+     También incluye, como ítem extra de bajo riesgo, el smoke test de
+     Fase 4 que la Tarea 23 Step 4 pedía y no se corrió interactivamente
+     (login, filtros de `/admin/orders`, `/account/orders`) — cubierto por
+     evidencia indirecta (reviews byte-a-byte de las Tareas 7 y 20, suite
+     de tests en verde), pero vale confirmarlo una vez con el navegador.
+  2. **Tarea 24 (esta tarea): `CLAUDE.md` y `handoff.md` actualizados.**
+  3. **Tarea 25: deploy a producción, todavía no hecho** — production no
+     tiene el código de Fase 5 desplegado (comparte DB con dev, pero no el
+     código de `apps/web`). Antes de verificar la Tarea 22 contra
+     producción hace falta pushear `main` (hasta el commit del fix de
+     timezone, `e8c319d`, y los que sigan de esta tarea) y redeployar en
+     EasyPanel.
+  - **Scope conocido, documentado en el plan**: editar una `trailer_stop`
+    ya existente (location/horario) NO está soportado — solo crear +
+    cambiar status a `completed`/`cancelled`. `event_bookings` sí tiene
+    edición completa de detalles vía `updateEventBookingDetails`. Evaluar
+    si hace falta agregar edición de paradas más adelante, a pedido del
+    owner.
+  - **No arrancar Fase 6** (Notificaciones nativas, ver
+    `docs/superpowers/plan-desarrollo.md`) sin pedido explícito del owner.
 - **Limpieza de datos de prueba**: las 17 filas `Jane Doe` /
   `jane@example.com` acumuladas en `orders` por corridas repetidas de
   `order-repository.test.ts` (Fases 2 y 3) se borraron a pedido explícito
@@ -608,3 +842,7 @@ Fase 4 (nuevo en esta sesión):
   borrarlos si se quiere una DB limpia. Si esto se repite, considerar
   agregar cleanup (`afterAll`) a esos tests de integración en vez de seguir
   limpiando manualmente después de cada corrida.
+- Datos de prueba de la Tarea 21 de Fase 5 (parada "Rundle Mall Test Stop"
+  con su `stop_product_stock`/`stock_events`, y la reserva "Overlap Test
+  Client") se limpiaron y se confirmó el borrado con un 404 real al
+  revisitar la parada. No queda pendiente nada de esta verificación.
