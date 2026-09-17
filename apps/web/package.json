@@ -36,6 +36,7 @@
     "@types/google.maps": "^3.65.5",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "catalog:",
     "@types/three": "^0.185.4",
     "eslint": "^9",
