@@ -6,3 +6,4 @@ export * from "./event-booking-repository";
 export * from "./trailer-stop-repository";
 export * from "./settings-repository";
 export * from "./cart-repository";
+export * from "./email-log-repository";

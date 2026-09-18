@@ -6,3 +6,4 @@ export * from "./event-bookings";
 export * from "./carts";
 export * from "./orders";
 export * from "./settings";
+export * from "./email-logs";
