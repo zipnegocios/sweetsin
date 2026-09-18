@@ -183,6 +183,8 @@ export interface Dictionary {
     stopFormProducts: string;
     stopFormMaxStock: string;
     stopFormSubmit: string;
+    stopFormInvalidRange: string;
+    stopFormSubmitError: string;
     stockTitle: string;
     stockColumnProduct: string;
     stockColumnCurrent: string;

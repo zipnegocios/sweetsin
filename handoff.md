@@ -758,6 +758,29 @@ Fase 5 (nuevo en esta sesión):
     depurando el estado de la ventana, y en su lugar una checklist para
     verificar manualmente contra el deploy de producción — entregada en el
     chat de esta sesión. La Tarea 22 quedó pendiente (ver Próximos pasos).
+39. **Bug real reportado por el owner tras probar la checklist manual en
+    producción**: crear una parada nueva tiraba un 500 genérico
+    ("An error occurred in the Server Components render") de forma
+    consistente. Reproducido localmente contra la misma DB con
+    `superpowers:systematic-debugging`: el mensaje real (visible en modo
+    dev, redactado en producción) era `Error: startTime must be before
+    endTime`, lanzado por la validación de dominio en `createTrailerStop`
+    — confirmado con el stack trace completo del servidor
+    (`POST /admin/trailer-stops/new 500`, digest incluido). Causa: el
+    owner (u otra persona probando) cargó una hora de fin anterior o
+    igual a la de inicio en el formulario, y `handleSubmit` en
+    `trailer-stop-form.tsx` no tenía ningún `catch` — el rechazo de la
+    Server Action quedaba como unhandled rejection, exactamente el
+    hallazgo Menor que el reviewer de la Tarea 12 ya había marcado como
+    diferido ("sin catch, sin feedback visual"). Fix: validación
+    client-side (`if (new Date(startTime) >= new Date(endTime))`) antes
+    de llamar al Server Action, con mensaje inline (`stopFormInvalidRange`,
+    nueva clave i18n) en vez de un round-trip al servidor; `catch` genérico
+    agregado también (`stopFormSubmitError`) para cualquier otro error
+    inesperado. Verificado en el navegador: el caso inválido ahora muestra
+    el mensaje sin ningún error de consola ni request al servidor; el caso
+    válido sigue redirigiendo a `/admin/trailer-stops` sin cambios. Datos
+    de prueba (`Bug Repro Stop`, `Valid Range Repro`) limpiados de la DB.
 
 ## Próximos pasos
 
@@ -802,26 +825,35 @@ Fase 5 (nuevo en esta sesión):
   `pnpm --filter @workspace/db run seed` con una contraseña nueva
   generada al azar (no queda registrada en ningún archivo del repo, solo
   se la sabe el owner).
-- **Fase 5 — código completo (20/25 tareas), pendiente de deploy y de
-  cerrar la verificación manual.** Próximos pasos concretos, en orden:
-  1. **Tarea 22 (verificación manual de event bookings + calendario):
-     pendiente.** Checklist entregada al owner en el chat de esta sesión
-     (no persistida como archivo aparte) para correrla manualmente contra
-     producción una vez deployado — cubre el ciclo completo de una
-     reserva (cotización → edición de `location` TBD→real → confirmación)
-     y que el calendario muestre paradas y reservas con colores distintos.
-     También incluye, como ítem extra de bajo riesgo, el smoke test de
-     Fase 4 que la Tarea 23 Step 4 pedía y no se corrió interactivamente
-     (login, filtros de `/admin/orders`, `/account/orders`) — cubierto por
-     evidencia indirecta (reviews byte-a-byte de las Tareas 7 y 20, suite
-     de tests en verde), pero vale confirmarlo una vez con el navegador.
-  2. **Tarea 24 (esta tarea): `CLAUDE.md` y `handoff.md` actualizados.**
-  3. **Tarea 25: deploy a producción, todavía no hecho** — production no
-     tiene el código de Fase 5 desplegado (comparte DB con dev, pero no el
-     código de `apps/web`). Antes de verificar la Tarea 22 contra
-     producción hace falta pushear `main` (hasta el commit del fix de
-     timezone, `e8c319d`, y los que sigan de esta tarea) y redeployar en
-     EasyPanel.
+- **Fase 5 — deployada y verificada por el owner contra producción real
+  (`https://sweetsin.com.au/`), con un bug real encontrado y arreglado en
+  el camino.** Las 25 tareas del plan están cerradas:
+  - Tarea 22 (checklist manual de event bookings + calendario + smoke de
+    Fase 4): **corrida por el owner contra producción, todo funcionando**
+    salvo el punto de abajo.
+    - **Al probarla, el owner encontró que crear una parada nueva tiraba
+      un 500** — diagnosticado y arreglado en esta misma sesión, ver
+      Intentos fallidos #39 (validación de rango de horario faltante en
+      `trailer-stop-form.tsx`). Pendiente: **owner debe commitear y
+      pushear este fix** (`apps/web/src/components/admin/
+      trailer-stop-form.tsx` + 3 archivos de `packages/i18n`) para que
+      llegue a producción — no estaba incluido en el push de la Tarea 25.
+  - **Pedido nuevo del owner, fuera del alcance original del plan:
+    autocompletado de direcciones — implementado.** `google.maps.places.Autocomplete`
+    atado al input de "Location name" existente en `trailer-stop-form.tsx`
+    (mismo patrón `importLibrary`/`ensureGoogleMapsOptionsSet` que
+    `LocationPicker`), restringido a `country: "au"`. Al seleccionar una
+    predicción: `location` se completa con la dirección formateada, y
+    `lat`/`lng` se actualizan — `LocationPicker` se extendió para
+    reaccionar a cambios de `lat`/`lng` que vienen de afuera (no solo de
+    que el propio usuario arrastre/clickee el pin), con `panTo`/
+    `setPosition` sobre refs al mapa/marker ya creados, sin recrear el
+    mapa. Verificado con `typecheck`/`lint`/`build` (sin navegador, a
+    pedido del owner para priorizar agilidad) — falta la verificación
+    visual/interactiva real, pendiente de que el owner la pruebe en
+    producción. Costo pendiente de evaluar: Places Autocomplete tiene
+    facturación propia de Google, separada de Maps JS/Static que ya se
+    usaba.
   - **Scope conocido, documentado en el plan**: editar una `trailer_stop`
     ya existente (location/horario) NO está soportado — solo crear +
     cambiar status a `completed`/`cancelled`. `event_bookings` sí tiene

@@ -186,6 +186,8 @@ export const es: Dictionary = {
     stopFormProducts: "Productos en esta parada",
     stopFormMaxStock: "Stock inicial",
     stopFormSubmit: "Crear parada",
+    stopFormInvalidRange: "La hora de fin debe ser posterior a la de inicio.",
+    stopFormSubmitError: "Algo salió mal guardando la parada. Intentá de nuevo.",
     stockTitle: "Stock",
     stockColumnProduct: "Producto",
     stockColumnCurrent: "Actual",

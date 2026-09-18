@@ -185,6 +185,8 @@ export const en: Dictionary = {
     stopFormProducts: "Products at this stop",
     stopFormMaxStock: "Initial stock",
     stopFormSubmit: "Create stop",
+    stopFormInvalidRange: "End time must be after start time.",
+    stopFormSubmitError: "Something went wrong saving the stop. Please try again.",
     stockTitle: "Stock",
     stockColumnProduct: "Product",
     stockColumnCurrent: "Current",

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { importLibrary } from "@googlemaps/js-api-loader";
+import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
 import { createTrailerStopAction, checkStopOverlapAction } from "@/app/actions/admin-trailer-stops";
 import { LocationPicker } from "@/components/admin/location-picker";
 
@@ -25,6 +27,36 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
   const [overlaps, setOverlaps] = useState<{ clientName: string; eventDate: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!locationInputRef.current || !ensureGoogleMapsOptionsSet()) return;
+    let cancelled = false;
+
+    importLibrary("places").then(({ Autocomplete }) => {
+      if (cancelled || !locationInputRef.current) return;
+
+      const autocomplete = new Autocomplete(locationInputRef.current, {
+        fields: ["formatted_address", "geometry"],
+        componentRestrictions: { country: "au" },
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry?.location) return;
+        setLocation(place.formatted_address ?? locationInputRef.current!.value);
+        setLat(place.geometry.location.lat());
+        setLng(place.geometry.location.lng());
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // Intencionalmente mount-only: el autocompletado se ata al input una
+    // sola vez, mismo patrón que LocationPicker.
+  }, []);
 
   useEffect(() => {
     if (!startTime || !endTime) {
@@ -49,6 +81,11 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (new Date(startTime) >= new Date(endTime)) {
+      setSubmitError(t("stopFormInvalidRange"));
+      return;
+    }
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       await createTrailerStopAction({
@@ -61,6 +98,8 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
       });
       router.push("/admin/trailer-stops");
       router.refresh();
+    } catch {
+      setSubmitError(t("stopFormSubmitError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -69,6 +108,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
       <input
+        ref={locationInputRef}
         value={location}
         onChange={(e) => setLocation(e.target.value)}
         placeholder={t("stopFormLocation")}
@@ -125,6 +165,8 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
           ))}
         </div>
       </div>
+
+      {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
 
       <button type="submit" disabled={isSubmitting} className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
         {t("stopFormSubmit")}

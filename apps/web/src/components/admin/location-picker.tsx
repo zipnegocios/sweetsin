@@ -14,6 +14,8 @@ interface LocationPickerProps {
 export function LocationPicker({ lat, lng, onChange, className }: LocationPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -36,6 +38,8 @@ export function LocationPicker({ lat, lng, onChange, className }: LocationPicker
         });
 
         const marker = new Marker({ position: { lat, lng }, map, draggable: true });
+        mapRef.current = map;
+        markerRef.current = marker;
 
         marker.addListener("dragend", () => {
           const pos = marker.getPosition();
@@ -56,11 +60,18 @@ export function LocationPicker({ lat, lng, onChange, className }: LocationPicker
       cancelled = true;
     };
     // Intencionalmente mount-only, mismo patrón que LocationMap (Fase 2): el
-    // mapa se crea una sola vez. lat/lng iniciales solo definen el centro y
-    // la posición de arranque del marker — los cambios posteriores vienen
-    // del propio usuario clickeando/arrastrando, no de props entrantes.
+    // mapa en sí se crea una sola vez. lat/lng iniciales solo definen el
+    // centro y la posición de arranque del marker; el efecto de abajo
+    // reacciona a cambios posteriores (drag/click propios, o una selección
+    // externa del autocompletado de direcciones) sin recrear el mapa.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !markerRef.current) return;
+    markerRef.current.setPosition({ lat, lng });
+    mapRef.current.panTo({ lat, lng });
+  }, [lat, lng]);
 
   if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || failed) {
     return (
