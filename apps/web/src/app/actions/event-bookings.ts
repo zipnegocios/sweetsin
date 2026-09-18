@@ -81,11 +81,12 @@ async function notifyEventQuoteReceipt(
   booking: { id: string; clientEmail: string },
   pageLocale: "en" | "es",
 ): Promise<void> {
-  const session = await auth();
-  const locale = session?.user.preferredLocale ?? pageLocale;
   const emailLogs = new DrizzleEmailLogRepository();
+  let locale: "en" | "es" = pageLocale;
 
   try {
+    const session = await auth();
+    locale = session?.user.preferredLocale ?? pageLocale;
     await new SmtpNotificationAdapter().sendEventQuoteRequestReceipt(booking, locale);
     await emailLogs.create({ to: booking.clientEmail, type: "event_quote_receipt", locale, status: "sent", errorMessage: null });
   } catch (err) {

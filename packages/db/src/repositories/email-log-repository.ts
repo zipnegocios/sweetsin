@@ -1,3 +1,4 @@
+import { desc } from "drizzle-orm";
 import type { EmailLog, EmailLogRepository } from "@workspace/domain/notifications";
 import { db } from "../index";
 import { emailLogsTable } from "../schema";
@@ -9,6 +10,6 @@ export class DrizzleEmailLogRepository implements EmailLogRepository {
   }
 
   async listAll(): Promise<EmailLog[]> {
-    return (await db.select().from(emailLogsTable)) as EmailLog[];
+    return (await db.select().from(emailLogsTable).orderBy(desc(emailLogsTable.createdAt))) as EmailLog[];
   }
 }

@@ -64,11 +64,12 @@ async function notifyOrderConfirmation(
   order: { id: string; customerEmail: string; totalCents: number },
   pageLocale: "en" | "es",
 ): Promise<void> {
-  const session = await auth();
-  const locale = session?.user.preferredLocale ?? pageLocale;
   const emailLogs = new DrizzleEmailLogRepository();
+  let locale: "en" | "es" = pageLocale;
 
   try {
+    const session = await auth();
+    locale = session?.user.preferredLocale ?? pageLocale;
     await new SmtpNotificationAdapter().sendOrderConfirmation(order, locale);
     await emailLogs.create({ to: order.customerEmail, type: "order_confirmation", locale, status: "sent", errorMessage: null });
   } catch (err) {

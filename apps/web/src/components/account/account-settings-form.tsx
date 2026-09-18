@@ -10,16 +10,20 @@ export function AccountSettingsForm({ currentLocale }: { currentLocale: "en" | "
   const router = useRouter();
   const [locale, setLocale] = useState(currentLocale);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSave() {
     setIsSaving(true);
     setSaved(false);
+    setError(false);
     try {
       const result = await updatePreferredLocaleAction(locale);
       if ("ok" in result) {
         setSaved(true);
         router.refresh();
+      } else {
+        setError(true);
       }
     } finally {
       setIsSaving(false);
@@ -47,6 +51,7 @@ export function AccountSettingsForm({ currentLocale }: { currentLocale: "en" | "
         {t("settingsSaveButton")}
       </button>
       {saved && <p className="text-[13px] text-navy/50 mt-2">{t("settingsSaved")}</p>}
+      {error && <p className="text-[13px] text-sin-red mt-2">{t("settingsError")}</p>}
     </div>
   );
 }

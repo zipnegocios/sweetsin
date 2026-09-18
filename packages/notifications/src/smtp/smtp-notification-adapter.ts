@@ -23,7 +23,12 @@ function readConfig(): SmtpConfig {
     throw new SmtpNotConfiguredError();
   }
 
-  return { host, port: Number(port), user, password, from };
+  const parsedPort = Number(port);
+  if (Number.isNaN(parsedPort)) {
+    throw new SmtpNotConfiguredError();
+  }
+
+  return { host, port: parsedPort, user, password, from };
 }
 
 export class SmtpNotificationAdapter implements NotificationPort {
@@ -46,7 +51,11 @@ export class SmtpNotificationAdapter implements NotificationPort {
     const transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
+      secure: config.port === 465,
       auth: { user: config.user, pass: config.password },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 10_000,
     });
     await transporter.sendMail({ from: config.from, to, subject, text });
   }

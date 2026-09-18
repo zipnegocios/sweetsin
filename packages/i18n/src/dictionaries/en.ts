@@ -245,5 +245,6 @@ export const en: Dictionary = {
     settingsLanguageEs: "Spanish",
     settingsSaveButton: "Save",
     settingsSaved: "Saved.",
+    settingsError: "Couldn't save your preference. Please try again.",
   },
 };

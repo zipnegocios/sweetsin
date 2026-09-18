@@ -243,5 +243,6 @@ export interface Dictionary {
     settingsLanguageEs: string;
     settingsSaveButton: string;
     settingsSaved: string;
+    settingsError: string;
   };
 }

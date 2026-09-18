@@ -18,7 +18,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await authenticateUser(new DrizzleUserRepository(), email, password);
         if (!user) return null;
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return { id: user.id, name: user.name, email: user.email, role: user.role, preferredLocale: user.preferredLocale };
       },
     }),
   ],
@@ -28,6 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         // Login recién ocurrido: `user` viene de authorize().
         token.role = (user as { role: typeof token.role }).role;
+        token.preferredLocale = (user as { preferredLocale: typeof token.preferredLocale }).preferredLocale;
         return token;
       }
 

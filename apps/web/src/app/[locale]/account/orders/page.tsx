@@ -1,5 +1,6 @@
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { auth } from "@/auth";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 
@@ -9,7 +10,10 @@ export default async function AccountOrdersPage({ params }: { params: Promise<{ 
   const t = await getTranslations("account");
 
   const session = await auth();
-  const orders = await new DrizzleOrderRepository().listByCustomerId(session!.user.id);
+  if (!session) {
+    return redirect({ href: { pathname: "/login", query: { callbackUrl: "/account/orders" } }, locale });
+  }
+  const orders = await new DrizzleOrderRepository().listByCustomerId(session.user.id);
 
   return (
     <div>

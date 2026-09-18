@@ -246,5 +246,6 @@ export const es: Dictionary = {
     settingsLanguageEs: "Español",
     settingsSaveButton: "Guardar",
     settingsSaved: "Guardado.",
+    settingsError: "No pudimos guardar tu preferencia. Intentá de nuevo.",
   },
 };
