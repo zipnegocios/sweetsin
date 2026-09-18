@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { requestEventQuote } from "@workspace/domain/event-bookings";
-import { DrizzleEventBookingRepository } from "@workspace/db/repositories";
+import { DrizzleEventBookingRepository, DrizzleEmailLogRepository } from "@workspace/db/repositories";
+import { SmtpNotificationAdapter, SmtpNotConfiguredError } from "@workspace/notifications";
+import { auth } from "@/auth";
 
 const eventQuoteSchema = z.object({
   name: z.string().trim().min(1),
@@ -13,6 +15,7 @@ const eventQuoteSchema = z.object({
   date: z.string().trim().min(1),
   guests: z.coerce.number().int().min(20),
   message: z.string().trim().min(1),
+  locale: z.enum(["en", "es"]),
 });
 
 export interface EventQuoteFormState {
@@ -37,6 +40,7 @@ export async function requestEventQuoteAction(
     date: formData.get("date"),
     guests: formData.get("guests"),
     message: formData.get("message"),
+    locale: formData.get("locale"),
   });
 
   if (!parsed.success) {
@@ -51,7 +55,7 @@ export async function requestEventQuoteAction(
   const endOfDay = new Date(`${parsed.data.date}T23:59:59`);
 
   try {
-    await requestEventQuote(new DrizzleEventBookingRepository(), {
+    const booking = await requestEventQuote(new DrizzleEventBookingRepository(), {
       clientName: parsed.data.name,
       clientCompany: parsed.data.company ?? null,
       clientEmail: parsed.data.email,
@@ -64,8 +68,38 @@ export async function requestEventQuoteAction(
       estimatedGuests: parsed.data.guests,
       notes: parsed.data.message,
     });
+
+    await notifyEventQuoteReceipt(booking, parsed.data.locale);
+
     return { status: "success" };
   } catch {
     return { status: "error" };
+  }
+}
+
+async function notifyEventQuoteReceipt(
+  booking: { id: string; clientEmail: string },
+  pageLocale: "en" | "es",
+): Promise<void> {
+  const session = await auth();
+  const locale = session?.user.preferredLocale ?? pageLocale;
+  const emailLogs = new DrizzleEmailLogRepository();
+
+  try {
+    await new SmtpNotificationAdapter().sendEventQuoteRequestReceipt(booking, locale);
+    await emailLogs.create({ to: booking.clientEmail, type: "event_quote_receipt", locale, status: "sent", errorMessage: null });
+  } catch (err) {
+    try {
+      await emailLogs.create({
+        to: booking.clientEmail,
+        type: "event_quote_receipt",
+        locale,
+        status: err instanceof SmtpNotConfiguredError ? "blocked" : "failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+    } catch {
+      // El log de un fallo de envío es best-effort — si el propio insert
+      // falla, no debe romper el flujo de cotización por un problema de logging.
+    }
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useLayoutEffect, useActionState } from "react";
 import gsap from "gsap";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { isMotionOk } from "@/lib/animations";
 import { requestEventQuoteAction, type EventQuoteFormState } from "@/app/actions/event-bookings";
 
@@ -127,6 +127,7 @@ function EventCard({ icon, title, desc }: { icon: React.ReactNode; title: string
 
 function QuoteModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const t = useTranslations("events");
+  const locale = useLocale();
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [state, formAction, isPending] = useActionState<EventQuoteFormState, FormData>(requestEventQuoteAction, {
@@ -180,6 +181,7 @@ function QuoteModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             <p className="text-navy/45 text-sm mb-8">{t("formSubtitle")}</p>
 
             <form action={formAction} className="space-y-4">
+              <input type="hidden" name="locale" value={locale} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label htmlFor="quote-name" className="block text-[10px] font-mono text-navy/40 uppercase tracking-widest">
