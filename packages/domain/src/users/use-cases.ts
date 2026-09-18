@@ -23,6 +23,7 @@ export async function registerCustomer(
     pinHash: null,
     passwordHash,
     isActive: true,
+    preferredLocale: "en",
   });
 }
 

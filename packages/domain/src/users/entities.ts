@@ -1,3 +1,5 @@
+import type { Locale } from "../shared";
+
 export type UserRole = "admin" | "despachador" | "delivery" | "customer";
 
 export interface User {
@@ -8,4 +10,5 @@ export interface User {
   pinHash: string | null;
   passwordHash: string | null;
   isActive: boolean;
+  preferredLocale: Locale;
 }
