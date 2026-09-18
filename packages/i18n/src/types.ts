@@ -168,6 +168,14 @@ export interface Dictionary {
     navTrailerStops: string;
     navEventBookings: string;
     navCalendar: string;
+    navEmailLogs: string;
+    emailLogsTitle: string;
+    emailLogsColumnTo: string;
+    emailLogsColumnType: string;
+    emailLogsColumnLocale: string;
+    emailLogsColumnStatus: string;
+    emailLogsColumnDate: string;
+    emailLogsEmpty: string;
     stopsTitle: string;
     stopsCreateButton: string;
     stopsColumnLocation: string;
