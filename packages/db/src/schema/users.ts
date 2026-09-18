@@ -10,5 +10,6 @@ export const usersTable = pgTable("users", {
   pinHash: text("pin_hash"),
   passwordHash: text("password_hash"),
   isActive: boolean("is_active").notNull().default(true),
+  preferredLocale: text("preferred_locale").notNull().default("en"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
