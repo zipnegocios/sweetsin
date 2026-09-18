@@ -171,6 +171,7 @@ describe("DrizzleOrderRepository", () => {
       pinHash: null,
       passwordHash: null,
       isActive: true,
+      preferredLocale: "en",
     });
 
     await createOrder(

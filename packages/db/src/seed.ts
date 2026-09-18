@@ -99,7 +99,7 @@ async function main() {
     const passwordHash = await hashPassword(adminPassword);
     await db
       .insert(usersTable)
-      .values({ name: "Admin", email: adminEmail, role: "admin", passwordHash, isActive: true })
+      .values({ name: "Admin", email: adminEmail, role: "admin", passwordHash, isActive: true, preferredLocale: "en" })
       .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash, isActive: true } });
     console.log(`Ensured admin user: ${adminEmail}.`);
   } else {
