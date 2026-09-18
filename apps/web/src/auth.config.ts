@@ -25,6 +25,7 @@ export const authConfig: NextAuthConfig = {
     session({ session, token }) {
       if (token.sub) session.user.id = token.sub;
       if (token.role) session.user.role = token.role as UserRole;
+      if (token.preferredLocale) session.user.preferredLocale = token.preferredLocale as "en" | "es";
       return session;
     },
   },

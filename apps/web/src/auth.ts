@@ -40,6 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const dbUser = await new DrizzleUserRepository().findById(token.sub);
       if (!dbUser || !dbUser.isActive) return null;
       token.role = dbUser.role;
+      token.preferredLocale = dbUser.preferredLocale;
       return token;
     },
   },
