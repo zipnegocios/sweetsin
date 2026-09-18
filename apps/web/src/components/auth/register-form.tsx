@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { registerCustomerAction } from "@/app/actions/register";
 import { signInAction } from "@/app/actions/auth";
@@ -9,6 +9,7 @@ import { signInAction } from "@/app/actions/auth";
 export function RegisterForm() {
   const t = useTranslations("account");
   const tAuth = useTranslations("auth");
+  const locale = useLocale();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,7 +22,7 @@ export function RegisterForm() {
     setError("");
     setIsSubmitting(true);
     try {
-      const result = await registerCustomerAction({ name, email, password });
+      const result = await registerCustomerAction({ name, email, password, preferredLocale: locale as "en" | "es" });
       if ("error" in result) {
         setError(t("registerError"));
         return;

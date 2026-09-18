@@ -8,12 +8,14 @@ const registerSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().trim().email(),
   password: z.string().min(8),
+  preferredLocale: z.enum(["en", "es"]),
 });
 
 export interface RegisterInput {
   name: string;
   email: string;
   password: string;
+  preferredLocale: "en" | "es";
 }
 
 export async function registerCustomerAction(input: RegisterInput): Promise<{ error: string } | { ok: true }> {

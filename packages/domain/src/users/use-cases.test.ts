@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerCustomer, listActiveStaff, authenticateUser } from "./use-cases";
+import { registerCustomer, listActiveStaff, authenticateUser, updateUserPreferredLocale } from "./use-cases";
 import { hashPassword } from "./auth";
 import type { User, UserRole } from "./entities";
 import type { UserRepository } from "./ports";
@@ -36,7 +36,7 @@ function fakeUserRepo(initial: User[] = []): UserRepository & { created: Omit<Us
 describe("registerCustomer", () => {
   it("creates a new customer user", async () => {
     const repo = fakeUserRepo([]);
-    const user = await registerCustomer(repo, { name: "Jane Doe", email: "jane@example.com", password: "hunter2" });
+    const user = await registerCustomer(repo, { name: "Jane Doe", email: "jane@example.com", password: "hunter2", preferredLocale: "en" });
 
     expect(user.role).toBe("customer");
     expect(user.isActive).toBe(true);
@@ -49,14 +49,14 @@ describe("registerCustomer", () => {
     ]);
 
     await expect(
-      registerCustomer(repo, { name: "Jane Doe", email: "jane@example.com", password: "hunter2" }),
+      registerCustomer(repo, { name: "Jane Doe", email: "jane@example.com", password: "hunter2", preferredLocale: "en" }),
     ).rejects.toThrow("User already exists with email: jane@example.com");
   });
 
   it("hashes the password before persisting the new customer", async () => {
     const repo = fakeUserRepo([]);
 
-    const user = await registerCustomer(repo, { name: "New Customer", email: "new@example.com", password: "hunter2" });
+    const user = await registerCustomer(repo, { name: "New Customer", email: "new@example.com", password: "hunter2", preferredLocale: "en" });
 
     expect(user.role).toBe("customer");
     expect(repo.created[0].passwordHash).not.toBe("hunter2");
@@ -120,5 +120,23 @@ describe("authenticateUser", () => {
     const repo = fakeUserRepo([]);
 
     expect(await authenticateUser(repo, "nobody@example.com", "anything")).toBeNull();
+  });
+});
+
+describe("updateUserPreferredLocale", () => {
+  it("updates the user's preferred locale", async () => {
+    const repo = fakeUserRepo([
+      { id: "u1", name: "Jane Doe", email: "jane@example.com", role: "customer", pinHash: null, passwordHash: null, isActive: true, preferredLocale: "en" },
+    ]);
+
+    const updated = await updateUserPreferredLocale(repo, "u1", "es");
+
+    expect(updated.preferredLocale).toBe("es");
+  });
+
+  it("throws when the user does not exist", async () => {
+    const repo = fakeUserRepo([]);
+
+    await expect(updateUserPreferredLocale(repo, "missing", "es")).rejects.toThrow("User not found: missing");
   });
 });

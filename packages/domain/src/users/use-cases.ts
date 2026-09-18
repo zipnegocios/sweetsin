@@ -1,5 +1,6 @@
 import type { UserRepository } from "./ports";
 import type { User, UserRole } from "./entities";
+import type { Locale } from "../shared";
 import { hashPassword, verifyPassword } from "./auth";
 
 export async function listActiveStaff(
@@ -11,7 +12,7 @@ export async function listActiveStaff(
 
 export async function registerCustomer(
   repo: UserRepository,
-  input: { name: string; email: string; password: string },
+  input: { name: string; email: string; password: string; preferredLocale: Locale },
 ): Promise<User> {
   const existing = await repo.findByEmail(input.email);
   if (existing) throw new Error(`User already exists with email: ${input.email}`);
@@ -23,7 +24,7 @@ export async function registerCustomer(
     pinHash: null,
     passwordHash,
     isActive: true,
-    preferredLocale: "en",
+    preferredLocale: input.preferredLocale,
   });
 }
 
@@ -36,4 +37,12 @@ export async function authenticateUser(
   if (!user || !user.isActive || !user.passwordHash) return null;
   const valid = await verifyPassword(password, user.passwordHash);
   return valid ? user : null;
+}
+
+export async function updateUserPreferredLocale(
+  repo: UserRepository,
+  userId: string,
+  locale: Locale,
+): Promise<User> {
+  return repo.update(userId, { preferredLocale: locale });
 }
