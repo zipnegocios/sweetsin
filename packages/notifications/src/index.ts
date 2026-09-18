@@ -2,3 +2,4 @@
 // Implementados en Fase 6 — ver docs/superpowers/plan-desarrollo.md.
 export * from "./smtp/smtp-notification-adapter";
 export * from "./smtp/errors";
+export * from "./expo/expo-notification-adapter";
