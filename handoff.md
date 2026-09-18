@@ -22,7 +22,12 @@ plan bite-sized de Fase 5 (Inventario y calendario del trailer,
 subagente implementador + subagente revisor fresco por tarea, con el
 owner corriendo cada `git commit` manualmente entre tareas (el harness de
 esta sesión tiene un permiso `deny` real sobre `Bash(git commit *)`/
-`Bash(git push *)`, descubierto en la Tarea 1).
+`Bash(git push *)`, descubierto en la Tarea 1). Sesión 6 (esta): plan
+bite-sized de Fase 6 (Notificaciones nativas,
+`docs/superpowers/plans/2026-09-18-fase-6-notificaciones-nativas.md`, 16
+tareas) ejecutado con `superpowers:subagent-driven-development` — mismo
+patrón que Fase 5, más una revisión final de todo el branch en Opus y un
+fix wave único al cierre.
 
 ## Estado actual
 
@@ -236,6 +241,48 @@ congelada, solo `login`/`register` son estáticas (mismo patrón que Fase 4).
   deploy de producción en su lugar. Checklist entregada en el chat de esta
   sesión (no persistida como archivo) — vale la pena guardarla si se
   quiere recuperar sin releer la transcripción completa.
+
+**Fase 6 — Notificaciones nativas: las 16 tareas del plan completas y
+commiteadas en `main` (17 commits, incluye 1 fix de un regresivo
+descubierto a mitad de plan), revisión final de todo el branch corrida y
+con findings ya corregidos.** Verificación final: typecheck completo, 82
+tests (`domain` 56, `db` 17, `i18n` 1, `notifications` 8 nuevo), build de
+`apps/web`+`apps/web-legacy` — los 3 en verde, corridos hasta el final sin
+sustituir por checks acotados (a diferencia de varias tareas intermedias,
+donde sí se sustituyó por la lentitud de la máquina — ver Intentos
+fallidos #17/#26, mismo patrón de siempre).
+
+- `packages/notifications` deja de ser un esqueleto: `SmtpNotificationAdapter`
+  real (nodemailer), validación lazy de credenciales (nunca simula un envío
+  exitoso sin `SMTP_HOST/PORT/USER/PASSWORD/FROM` reales — hoy no
+  configuradas, todo intento queda logueado `blocked`), plantillas EN/ES en
+  texto plano. `ExpoNotificationAdapter` sigue como scaffold sin consumidor
+  real (Fase 7).
+- `User.preferredLocale` nuevo (columna `preferred_locale`, default `'en'`),
+  editable en `/account/settings` (nuevo, con layout compartido
+  `account/layout.tsx` que centraliza el guard de sesión y la nav de
+  cuenta).
+- Resolución de idioma del email: sesión logueada → `preferredLocale`
+  guardado; invitado → locale de la página en el momento del
+  checkout/cotización. El pedido nunca se asocia a `customerId` por esto —
+  sigue 100% invitado, decisión ya congelada desde Fase 3/4.
+- Cada intento de envío (order confirmation, event quote receipt) se
+  loguea en `email_logs` nueva (status `sent`/`failed`/`blocked`), visible
+  de solo lectura en `/admin/email-logs` (nueva página, protegida con
+  `requireAdmin()` + el guard del layout admin + el middleware — triple
+  capa).
+- **Revisión final de todo el branch (Opus, 17 commits, ~166KB de diff)
+  encontró 6 findings Important reales (0 Critical)** — todos corregidos
+  en un único fix wave y re-verificados uno por uno: `await auth()` fuera
+  del try/catch en ambos `notify*` (rompía la garantía "nunca propaga" si
+  `auth()` mismo fallaba), `preferredLocale` tipado no-opcional pero sin
+  poblar en el login fresco, guard propio de `/account/*` removido y
+  reemplazado por `session!` (restaurado), `AccountSettingsForm` sin
+  feedback de error, `email_logs.listAll()` sin `ORDER BY`, transporte
+  SMTP sin `secure`/timeouts/validación de puerto numérico — este último
+  especialmente importante porque hoy no hay credenciales reales para
+  probarlo, así que sin el fix habría fallado (o colgado el checkout) el
+  día que lleguen. Ver Intentos fallidos #40-44 para el detalle completo.
 
 ## Archivos y cambios
 
@@ -461,6 +508,83 @@ Fase 5 (nuevo en esta sesión):
 - `CLAUDE.md` — Architecture decisions (calendario/mapa interactivo/stock
   manual/solapamiento en vivo de Fase 5, extracción de `requireAdmin`),
   Product (panel admin completo).
+
+Fase 6 (nuevo en esta sesión):
+
+- `docs/superpowers/specs/2026-09-18-fase-6-notificaciones-nativas-design.md`
+  — spec, y `docs/superpowers/plans/2026-09-18-fase-6-notificaciones-nativas.md`
+  — plan bite-sized (16 tareas), ambos vía `superpowers:brainstorming` +
+  `superpowers:writing-plans` antes de ejecutar con
+  `superpowers:subagent-driven-development`.
+- `packages/domain/src/shared/types.ts` — tipo `Locale` compartido (nuevo).
+- `packages/domain/src/users/{entities,ports,use-cases,use-cases.test}.ts`
+  — `User.preferredLocale`, `UserRepository.update`, caso de uso
+  `updateUserPreferredLocale`, `registerCustomer` pide `preferredLocale`.
+- `packages/domain/src/notifications/entities.ts` (nuevo) — `EmailLog`,
+  `EmailLogType`, `EmailLogStatus`. `ports.ts` — `NotificationPort` con
+  `locale` en cada método, `EmailLogRepository` nuevo.
+- `packages/db/src/schema/{users,email-logs}.ts` — columna
+  `preferred_locale`, tabla `email_logs` nueva (ambas migraciones
+  aplicadas contra la DB real compartida dev=prod).
+- `packages/db/src/repositories/{user-repository,email-log-repository,
+  order-repository.test}.ts` — `DrizzleUserRepository.update()`,
+  `DrizzleEmailLogRepository` nuevo (con `orderBy` agregado en la
+  revisión final), fix de compilación en `order-repository.test.ts`
+  (literal `User` necesitaba `preferredLocale`).
+- `packages/db/src/seed.ts` — admin sembrado con `preferredLocale: "en"`
+  explícito, sin pisarlo en `onConflictDoUpdate` (no resetear la
+  preferencia de un admin que ya la cambió).
+- `packages/notifications/package.json`, `vitest.config.ts` (nuevo) —
+  primera suite de tests del paquete, `nodemailer`/`@types/nodemailer`
+  agregados.
+- `packages/notifications/src/smtp/{errors,templates,
+  smtp-notification-adapter}.ts` (+ tests) — `SmtpNotConfiguredError`,
+  plantillas EN/ES, `SmtpNotificationAdapter` (con `secure`/timeouts/
+  validación de puerto agregados en la revisión final).
+- `packages/notifications/src/expo/expo-notification-adapter.ts` (+ test)
+  — scaffold, corregido a mitad de plan (ver Intentos fallidos #40) para
+  que su firma coincida con `NotificationPort`.
+- `packages/notifications/src/index.ts` — exports de ambos adaptadores +
+  `SmtpNotConfiguredError`.
+- `apps/web/src/auth.ts`, `apps/web/src/auth.config.ts`,
+  `apps/web/src/types/next-auth.d.ts` — `preferredLocale` en sesión/JWT,
+  poblado también en el login fresco (fix de la revisión final — antes
+  solo se poblaba en la revalidación por DB).
+- `apps/web/src/app/[locale]/account/layout.tsx` (nuevo) — guard de
+  sesión + nav compartida ("Mis pedidos"/"Configuración").
+- `apps/web/src/app/[locale]/account/orders/page.tsx`, `settings/page.tsx`
+  (nuevo) — guard propio restaurado en la revisión final (no solo confiar
+  en el layout padre).
+- `apps/web/src/components/account/account-settings-form.tsx` (nuevo) —
+  radio EN/ES, `router.refresh()` tras guardar (sin `SessionProvider`, la
+  sesión ya se revalida por request), feedback de error agregado en la
+  revisión final.
+- `apps/web/src/app/actions/account-settings.ts` (nuevo) —
+  `updatePreferredLocaleAction`.
+- `apps/web/src/app/actions/{checkout,event-bookings}.ts` —
+  `notifyOrderConfirmation`/`notifyEventQuoteReceipt`: resolución de
+  locale, envío + log, doble try/catch (el interno agregado durante la
+  ejecución para que un fallo del propio insert de log nunca rompa el
+  checkout/cotización; `await auth()` movido adentro del try en la
+  revisión final).
+- `apps/web/src/components/cart/checkout-modal.tsx`,
+  `apps/web/src/components/sections/events.tsx` — mandan `locale` (de
+  `useLocale()`) al Server Action correspondiente.
+- `apps/web/src/app/actions/admin-email-logs.ts` (nuevo),
+  `apps/web/src/app/[locale]/admin/email-logs/page.tsx` (nuevo) —
+  listado de solo lectura, `requireAdmin()`.
+- `apps/web/src/app/[locale]/admin/layout.tsx` — link nuevo al nav
+  ("Email logs"), puramente aditivo.
+- `apps/web/src/app/actions/register.ts`,
+  `apps/web/src/components/auth/register-form.tsx` — `preferredLocale`
+  agregado al registro (tomado de `useLocale()`).
+- `packages/i18n/src/types.ts`, `dictionaries/{en,es}.ts` — namespace
+  `account` ampliado (settings + error), namespace `admin` ampliado
+  (email logs).
+- `CLAUDE.md` — Run & Operate (env vars SMTP pendientes), Where things
+  live (`packages/notifications` ya no vacío), Architecture decisions
+  (preferencia de idioma + log de emails + decisión de `router.refresh()`
+  en vez de `SessionProvider`).
 
 ## Intentos fallidos
 
@@ -781,6 +905,81 @@ Fase 5 (nuevo en esta sesión):
     el mensaje sin ningún error de consola ni request al servidor; el caso
     válido sigue redirigiendo a `/admin/trailer-stops` sin cambios. Datos
     de prueba (`Bug Repro Stop`, `Valid Range Repro`) limpiados de la DB.
+40. **Defecto real del propio plan de Fase 6, descubierto a mitad de la
+    Tarea 13**: el `ExpoNotificationAdapter` de la Tarea 12 (ya
+    commiteado) tenía sus 2 métodos declarados con 0 parámetros, pero su
+    propio test los llamaba con 2 (la firma real de `NotificationPort`)
+    — inconsistencia entre el Step 1 (test) y el Step 3 (implementación)
+    del propio brief. No se detectó en la review de la Tarea 12 porque
+    `vitest run` no tipa-chequea por defecto y esa review no pidió
+    `pnpm run typecheck:libs` explícitamente — recién lo agarró
+    `tsc --build` cuando la Tarea 13 intentó correr el typecheck completo
+    del monorepo. Diagnosticado por el propio implementador de la Tarea
+    13 vía `git stash` (confirmó que el error existía en `main` de forma
+    independiente a sus cambios) y verificado de forma independiente por
+    el controller antes de despachar el fix. Ruling: se corrigió de
+    inmediato (no se parqueó) porque bloqueaba el pipeline de typecheck
+    completo para cualquier tarea posterior — fix acotado a 1 archivo,
+    mismo patrón de parámetros que ya usaba `SmtpNotificationAdapter`
+    para la misma interfaz. Re-review confirmó `ADDRESSED`, sin nueva
+    rotura.
+41. **El implementador de la Tarea 13 crasheó a mitad de tarea por un
+    error de red transitorio de la infraestructura**
+    (`API Error: Can't reach the API server — check your internet or DNS
+    (ENOTFOUND)`), justo antes de correr el test para confirmar GREEN.
+    Antes de redespachar, se verificó el estado real del working tree:
+    los 2 archivos que estaba escribiendo (`smtp-notification-adapter.ts`,
+    `.test.ts`) ya estaban completos y correctos, coincidían exactamente
+    con el brief — no se perdió nada. Se retomó el mismo agente (no uno
+    nuevo) desde el punto exacto donde había quedado, en vez de
+    redespachar de cero. Lección para futuras sesiones: ante un crash de
+    infraestructura (no un bloqueo de la tarea), primero verificar el
+    estado real de los archivos antes de decidir si hace falta
+    redespachar — muchas veces el trabajo ya escrito sigue siendo válido.
+42. **Error de proceso del controller (esta sesión), corregido en el
+    mismo turno**: al despachar el primer fix round de la Tarea 13, el
+    mensaje con las instrucciones de arreglo se mandó por error al agente
+    *revisor* de la Tarea 13 en vez de al agente *implementador* — un
+    revisor no escribe código, solo verifica. Detectado de inmediato al
+    releer el `agentId` usado; se envió un segundo mensaje al revisor
+    aclarando que se ignore el pedido, y el pedido real se mandó al
+    implementador correcto. Sin impacto real (el revisor confirmó que no
+    tocó nada), pero vale la pena, en sesiones futuras con múltiples
+    agentes en paralelo, verificar dos veces el `agentId`/nombre exacto
+    antes de mandar instrucciones de fix.
+43. **Revisión final de todo el branch de Fase 6 (Opus, sobre los 17
+    commits) encontró 6 findings Important reales que ninguna review por
+    tarea había agarrado por mirar solo su propio diff aislado.** El más
+    serio: `await auth()` estaba *fuera* del try/catch en
+    `notifyOrderConfirmation`/`notifyEventQuoteReceipt` — si `auth()`
+    mismo llegaba a rechazar (ej. `AUTH_SECRET` mal configurado en
+    runtime), la excepción se escapaba de la función y, en el caso del
+    checkout, no había ningún `catch` corriente abajo
+    (`checkout-modal.tsx` solo tiene `finally`) — violaba la garantía
+    explícita de la spec de que ese try/catch "nunca propaga". Los otros
+    5: `preferredLocale` tipado no-opcional pero sin poblar en el login
+    fresco (real, aunque de ventana muy corta); `/account/*` había
+    perdido su guard propio al extraerse a un layout compartido (Tarea
+    6) y dependía 100% de `session!`; `AccountSettingsForm` nunca
+    mostraba ningún error al usuario si el save fallaba;
+    `DrizzleEmailLogRepository.listAll()` sin `ORDER BY` (la única
+    pantalla de diagnóstico del subsistema podría mostrar el envío más
+    reciente en cualquier posición); y el transporte SMTP sin
+    `secure`/timeouts/validación de puerto numérico — sin este último, el
+    día que lleguen credenciales reales con puerto 465 el envío se habría
+    colgado (nodemailer default `secure: false`) y, como
+    `placeOrderAction` **awaitea** la notificación, habría colgado el
+    checkout entero varios minutos. Los 6 se corrigieron en un único fix
+    wave (nunca uno por finding) y se re-verificaron uno por uno contra
+    el diff real — sin nueva rotura.
+44. **Flake de timeout en `event-booking-repository.test.ts` durante la
+    verificación final de cierre** (no tocado por ningún commit de Fase
+    6) — mismo patrón ya documentado en #21/#22 (latencia de red contra
+    el Postgres remoto compartido, bajo carga concurrente de varios
+    paquetes corriendo tests en simultáneo). Confirmado transitorio: el
+    mismo test, corrido solo, pasó en ~4.1s (el límite default de vitest
+    es 5s); en una segunda corrida completa de la suite, sin cambios de
+    por medio, pasó limpio.
 
 ## Próximos pasos
 
@@ -860,8 +1059,8 @@ Fase 5 (nuevo en esta sesión):
     edición completa de detalles vía `updateEventBookingDetails`. Evaluar
     si hace falta agregar edición de paradas más adelante, a pedido del
     owner.
-  - **No arrancar Fase 6** (Notificaciones nativas, ver
-    `docs/superpowers/plan-desarrollo.md`) sin pedido explícito del owner.
+  - **Fase 6 (Notificaciones nativas): completa** — ver bloque dedicado
+    más abajo.
 - **Limpieza de datos de prueba**: las 17 filas `Jane Doe` /
   `jane@example.com` acumuladas en `orders` por corridas repetidas de
   `order-repository.test.ts` (Fases 2 y 3) se borraron a pedido explícito
@@ -878,3 +1077,59 @@ Fase 5 (nuevo en esta sesión):
   con su `stop_product_stock`/`stock_events`, y la reserva "Overlap Test
   Client") se limpiaron y se confirmó el borrado con un 404 real al
   revisitar la parada. No queda pendiente nada de esta verificación.
+- **Fase 6 — Notificaciones nativas: código completo, commiteado (17
+  commits en `main`) y con revisión final de todo el branch ya corregida.
+  Falta lo siguiente:**
+  - **Credenciales SMTP reales**: declarar `SMTP_HOST`, `SMTP_PORT`,
+    `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` en `apps/web/.env.local` (y
+    en EasyPanel al deployar, como variables de runtime — a diferencia de
+    `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`/Stripe, estas no son `NEXT_PUBLIC_*`
+    así que no hace falta pasarlas como `ARG`/`ENV` de build, alcanza con
+    declararlas en el servicio). Hasta entonces cada envío queda logueado
+    `blocked` — comportamiento esperado, no un bug. Probar el flujo real
+    de punta a punta (checkout de invitado + cliente logueado, ambos
+    idiomas) recién cuando estén conectadas.
+  - **Verificación manual delegada al owner** (mismo patrón que fases
+    anteriores, ver checklist sugerida al cierre de la Tarea 16 en el
+    chat de esta sesión, no persistida como archivo): (1) sin `SMTP_*`
+    configuradas, checkout de invitado en `/es` → confirmar que la orden
+    se crea igual y aparece una fila `blocked`/`locale: es` en
+    `/admin/email-logs`; (2) loguearse como cliente, cambiar a español en
+    `/account/settings`, hacer un checkout estando en `/` (inglés) →
+    confirmar que la fila de esa orden queda con `locale: es` (la
+    preferencia guardada gana sobre el locale de la página); (3) pedir
+    una cotización de evento en `/` → confirmar fila con
+    `type: event_quote_receipt`, `locale: en`.
+  - **`CLAUDE.md:11` quedó desactualizado** (finding Minor de la revisión
+    final, no corregido a propósito por no ser bloqueante): sigue
+    diciendo que `pnpm run test` cubre solo `packages/domain` y
+    `packages/db`, pero el script raíz (`pnpm -r --if-present run test`)
+    ya corre también `packages/i18n` y el nuevo `packages/notifications`.
+    Corrección de una línea, pendiente para la próxima vez que se toque
+    ese archivo.
+  - **Nota de arquitectura para cuando se conecten las credenciales
+    reales** (recomendación de la revisión final, no bloqueante):
+    `placeOrderAction`/`requestEventQuoteAction` **awaitean** el envío
+    del email dentro del propio Server Action — acopla la latencia del
+    checkout/cotización a un handshake SMTP de un tercero. Hoy es
+    invisible porque no hay credenciales (falla rápido con
+    `SmtpNotConfiguredError`), pero conviene decidir a propósito (¿fire
+    -and-forget? ¿cola?) antes de que el primer envío real lento se note
+    en producción, y documentar la decisión en Architecture decisions de
+    `CLAUDE.md`.
+  - Otros findings Minor de la revisión final, documentados pero no
+    corregidos por no ser bloqueantes (ver reporte completo si hace
+    falta el detalle): `error_message` de `email_logs` se persiste pero
+    no se muestra en la tabla del admin; un `locale` faltante en el
+    `FormData` de la cotización de evento falla toda la solicitud en vez
+    de degradar a un default; los casts `as EmailLog`/`as Locale` en los
+    repositorios son un patrón intencional pero no verificado en
+    runtime; `smtp-notification-adapter.test.ts`/
+    `expo-notification-adapter.test.ts` solo testean
+    `sendOrderConfirmation`, no `sendEventQuoteRequestReceipt`, y ningún
+    test ejercita `SmtpNotificationAdapter.send()` con nodemailer
+    mockeado (es el único código nuevo del paquete sin cobertura directa);
+    `account/layout.tsx` hardcodea `callbackUrl: "/account/orders"` para
+    cualquier redirect a login, incluso si el usuario iba para
+    `/account/settings`; `log.createdAt.toLocaleString()` en el admin
+    formatea con el locale default del servidor, no con el de la página.
