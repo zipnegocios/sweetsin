@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { createOrder } from "@workspace/domain/orders";
-import { DrizzleOrderRepository, DrizzleProductRepository, DrizzleSettingsRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleProductRepository, DrizzleSettingsRepository, DrizzleEmailLogRepository } from "@workspace/db/repositories";
+import { SmtpNotificationAdapter, SmtpNotConfiguredError } from "@workspace/notifications";
+import { auth } from "@/auth";
 
 const checkoutSchema = z.object({
   fulfillmentType: z.enum(["pickup", "self_delivery"]),
@@ -12,6 +14,7 @@ const checkoutSchema = z.object({
   email: z.string().trim().email(),
   channel: z.enum(["web", "whatsapp"]),
   items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1),
+  locale: z.enum(["en", "es"]),
 });
 
 export interface PlaceOrderInput {
@@ -22,6 +25,7 @@ export interface PlaceOrderInput {
   email: string;
   channel: "web" | "whatsapp";
   items: { productId: string; quantity: number }[];
+  locale: "en" | "es";
 }
 
 export interface PlaceOrderResult {
@@ -51,5 +55,34 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
     },
   );
 
+  await notifyOrderConfirmation(order, parsed.locale);
+
   return { orderId: order.id, totalCents: order.totalCents };
+}
+
+async function notifyOrderConfirmation(
+  order: { id: string; customerEmail: string; totalCents: number },
+  pageLocale: "en" | "es",
+): Promise<void> {
+  const session = await auth();
+  const locale = session?.user.preferredLocale ?? pageLocale;
+  const emailLogs = new DrizzleEmailLogRepository();
+
+  try {
+    await new SmtpNotificationAdapter().sendOrderConfirmation(order, locale);
+    await emailLogs.create({ to: order.customerEmail, type: "order_confirmation", locale, status: "sent", errorMessage: null });
+  } catch (err) {
+    try {
+      await emailLogs.create({
+        to: order.customerEmail,
+        type: "order_confirmation",
+        locale,
+        status: err instanceof SmtpNotConfiguredError ? "blocked" : "failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+    } catch {
+      // El log de un fallo de envío es best-effort — si el propio insert
+      // falla, no debe romper el checkout por un problema de logging.
+    }
+  }
 }

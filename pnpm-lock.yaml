@@ -171,6 +171,9 @@ importers:
       '@workspace/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@workspace/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

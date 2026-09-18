@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useCart } from "@/lib/cart-store";
 import { placeOrderAction } from "@/app/actions/checkout";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
@@ -28,6 +28,7 @@ function getAddressComponent(
 
 export function CheckoutModal() {
   const t = useTranslations("cart");
+  const locale = useLocale() as "en" | "es";
   const { items, products, subtotalCents, savingsCents, clear, isCheckoutOpen, closeCheckout } = useCart();
 
   const [step, setStep] = useState<Step>("fulfillment");
@@ -137,6 +138,7 @@ export function CheckoutModal() {
         email: contact.email,
         channel: "whatsapp",
         items: orderItems,
+        locale,
       });
 
       const lines = items.map((i) => {
@@ -178,6 +180,7 @@ export function CheckoutModal() {
         email: contact.email,
         channel: "web",
         items: orderItems,
+        locale,
       });
 
       const response = await fetch("/api/checkout/payment-intent", {
