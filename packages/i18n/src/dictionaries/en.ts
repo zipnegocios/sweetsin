@@ -229,5 +229,13 @@ export const en: Dictionary = {
     noOrders: "You haven't placed any orders yet.",
     orderTotal: "Total",
     orderStatus: "Status",
+    navOrders: "My orders",
+    navSettings: "Settings",
+    settingsTitle: "Account settings",
+    settingsLanguageLabel: "Preferred language for emails",
+    settingsLanguageEn: "English",
+    settingsLanguageEs: "Spanish",
+    settingsSaveButton: "Save",
+    settingsSaved: "Saved.",
   },
 };

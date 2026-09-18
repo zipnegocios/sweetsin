@@ -1,6 +1,5 @@
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
-import { redirect } from "@/i18n/navigation";
 import { auth } from "@/auth";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 
@@ -10,14 +9,10 @@ export default async function AccountOrdersPage({ params }: { params: Promise<{ 
   const t = await getTranslations("account");
 
   const session = await auth();
-  if (!session) {
-    return redirect({ href: { pathname: "/login", query: { callbackUrl: "/account/orders" } }, locale });
-  }
-
-  const orders = await new DrizzleOrderRepository().listByCustomerId(session.user.id);
+  const orders = await new DrizzleOrderRepository().listByCustomerId(session!.user.id);
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-12">
+    <div>
       <h1 className="font-serif font-bold text-navy text-2xl mb-6">{t("ordersTitle")}</h1>
       {orders.length === 0 ? (
         <p className="text-navy/40 text-sm">{t("noOrders")}</p>
@@ -31,6 +26,6 @@ export default async function AccountOrdersPage({ params }: { params: Promise<{ 
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }

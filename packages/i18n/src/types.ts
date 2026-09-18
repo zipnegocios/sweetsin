@@ -227,5 +227,13 @@ export interface Dictionary {
     noOrders: string;
     orderTotal: string;
     orderStatus: string;
+    navOrders: string;
+    navSettings: string;
+    settingsTitle: string;
+    settingsLanguageLabel: string;
+    settingsLanguageEn: string;
+    settingsLanguageEs: string;
+    settingsSaveButton: string;
+    settingsSaved: string;
   };
 }
