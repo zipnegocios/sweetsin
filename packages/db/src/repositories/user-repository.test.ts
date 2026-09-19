@@ -37,3 +37,32 @@ describe("update", () => {
     expect(updated.preferredLocale).toBe("es");
   });
 });
+
+describe("recordFailedPinAttempt / resetPinAttempts", () => {
+  it("incrementa el contador y setea el lock", async () => {
+    const repo = new DrizzleUserRepository();
+    const user = await repo.create({
+      name: "Test Staff",
+      email: `staff-${Date.now()}@sweetsin.test`,
+      role: "despachador",
+      pinHash: "hash",
+      passwordHash: null,
+      isActive: true,
+      preferredLocale: "es",
+      failedPinAttempts: 0,
+      pinLockedUntil: null,
+    });
+
+    const lockedUntil = new Date(Date.now() + 60_000);
+    await repo.recordFailedPinAttempt(user.id, lockedUntil);
+
+    const found = await repo.findById(user.id);
+    expect(found?.failedPinAttempts).toBe(1);
+    expect(found?.pinLockedUntil?.getTime()).toBeCloseTo(lockedUntil.getTime(), -2);
+
+    await repo.resetPinAttempts(user.id);
+    const reset = await repo.findById(user.id);
+    expect(reset?.failedPinAttempts).toBe(0);
+    expect(reset?.pinLockedUntil).toBeNull();
+  });
+});

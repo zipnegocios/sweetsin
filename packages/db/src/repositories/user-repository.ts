@@ -35,10 +35,15 @@ export class DrizzleUserRepository implements UserRepository {
   }
 
   async recordFailedPinAttempt(id: string, lockedUntil: Date | null): Promise<void> {
-    throw new Error("not implemented"); // Task 3
+    const [current] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!current) return;
+    await db
+      .update(usersTable)
+      .set({ failedPinAttempts: current.failedPinAttempts + 1, pinLockedUntil: lockedUntil })
+      .where(eq(usersTable.id, id));
   }
 
   async resetPinAttempts(id: string): Promise<void> {
-    throw new Error("not implemented"); // Task 3
+    await db.update(usersTable).set({ failedPinAttempts: 0, pinLockedUntil: null }).where(eq(usersTable.id, id));
   }
 }
