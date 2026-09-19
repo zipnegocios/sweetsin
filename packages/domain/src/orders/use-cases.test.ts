@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   createOrder,
   confirmOrderPayment,
@@ -467,6 +467,22 @@ describe("assignDeliveryToOrder", () => {
   it("rechaza si la orden no esta ready_for_pickup", async () => {
     const repo = makeFakeOrderRepo([baseOrder]);
     await expect(assignDeliveryToOrder({ orders: repo }, "order-1", "delivery-1")).rejects.toThrow();
+  });
+});
+
+describe("assignDeliveryToOrder con notificacion", () => {
+  it("notifica al delivery asignado y no falla si la notificacion falla", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const notify = vi.fn().mockRejectedValue(new Error("push service down"));
+
+    const updated = await assignDeliveryToOrder(
+      { orders: repo, notifications: { notifyDeliveryAssigned: notify, notifyNewOrderInQueue: vi.fn() } },
+      "order-1",
+      "delivery-1",
+    );
+
+    expect(updated.assignedDeliveryUserId).toBe("delivery-1");
+    expect(notify).toHaveBeenCalledWith("delivery-1", expect.objectContaining({ id: "order-1" }));
   });
 });
 

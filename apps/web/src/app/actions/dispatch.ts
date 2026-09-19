@@ -4,7 +4,13 @@ import { markOrderInPrep, markOrderReady, assignDeliveryToOrder } from "@workspa
 import type { Order } from "@workspace/domain/orders";
 import { listActiveStaff } from "@workspace/domain/users";
 import type { User } from "@workspace/domain/users";
-import { DrizzleOrderRepository, DrizzleUserRepository } from "@workspace/db/repositories";
+import {
+  DrizzleOrderRepository,
+  DrizzleUserRepository,
+  DrizzlePushTokenRepository,
+  DrizzlePushLogRepository,
+} from "@workspace/db/repositories";
+import { ExpoNotificationAdapter } from "@workspace/notifications";
 import { requireStaff } from "@/lib/require-staff";
 
 export async function listQueueAction(): Promise<Order[]> {
@@ -29,5 +35,12 @@ export async function markReadyAction(orderId: string): Promise<void> {
 
 export async function assignDeliveryAction(orderId: string, deliveryUserId: string): Promise<void> {
   await requireStaff(["despachador"]);
-  await assignDeliveryToOrder({ orders: new DrizzleOrderRepository() }, orderId, deliveryUserId);
+  await assignDeliveryToOrder(
+    {
+      orders: new DrizzleOrderRepository(),
+      notifications: new ExpoNotificationAdapter(new DrizzlePushTokenRepository(), new DrizzlePushLogRepository()),
+    },
+    orderId,
+    deliveryUserId,
+  );
 }

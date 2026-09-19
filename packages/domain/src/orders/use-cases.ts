@@ -4,6 +4,7 @@ import type { Order, OrderItem } from "./entities";
 import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
 import { decrementStockOnSale } from "../stock/use-cases";
+import type { StaffNotificationPort } from "../notifications";
 
 export async function createOrder(
   deps: { products: ProductRepository; orders: OrderRepository },
@@ -104,7 +105,7 @@ export async function markOrderReady(deps: { orders: OrderRepository }, orderId:
 }
 
 export async function assignDeliveryToOrder(
-  deps: { orders: OrderRepository },
+  deps: { orders: OrderRepository; notifications?: StaffNotificationPort },
   orderId: string,
   deliveryUserId: string,
 ): Promise<Order> {
@@ -114,7 +115,18 @@ export async function assignDeliveryToOrder(
     throw new Error(`Cannot assign delivery from status: ${order.fulfillmentStatus}`);
   }
   await deps.orders.assignDelivery(orderId, deliveryUserId);
-  return { ...order, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" };
+  const updated: Order = { ...order, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" };
+
+  if (deps.notifications) {
+    try {
+      await deps.notifications.notifyDeliveryAssigned(deliveryUserId, updated);
+    } catch {
+      // Un fallo de push nunca bloquea la asignacion — el intento ya quedo
+      // registrado por el propio adaptador en push_logs.
+    }
+  }
+
+  return updated;
 }
 
 export async function markOrderDelivered(
