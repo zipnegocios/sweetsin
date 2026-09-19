@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assignDeliveryToOrder } from "@workspace/domain/orders";
-import { DrizzleOrderRepository, DrizzlePushTokenRepository, DrizzlePushLogRepository } from "@workspace/db/repositories";
+import {
+  DrizzleOrderRepository,
+  DrizzleUserRepository,
+  DrizzlePushTokenRepository,
+  DrizzlePushLogRepository,
+} from "@workspace/db/repositories";
 import { ExpoNotificationAdapter } from "@workspace/notifications";
 import { requireMobileAuth } from "../../../_lib/require-mobile-auth";
 
@@ -20,6 +25,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const order = await assignDeliveryToOrder(
       {
         orders: new DrizzleOrderRepository(),
+        users: new DrizzleUserRepository(),
         notifications: new ExpoNotificationAdapter(new DrizzlePushTokenRepository(), new DrizzlePushLogRepository()),
       },
       id,

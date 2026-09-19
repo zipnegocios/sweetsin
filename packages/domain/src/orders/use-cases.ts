@@ -5,6 +5,7 @@ import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
 import { decrementStockOnSale } from "../stock/use-cases";
 import type { StaffNotificationPort } from "../notifications";
+import type { UserRepository } from "../users/ports";
 
 export async function createOrder(
   deps: { products: ProductRepository; orders: OrderRepository },
@@ -105,7 +106,7 @@ export async function markOrderReady(deps: { orders: OrderRepository }, orderId:
 }
 
 export async function assignDeliveryToOrder(
-  deps: { orders: OrderRepository; notifications?: StaffNotificationPort },
+  deps: { orders: OrderRepository; users: UserRepository; notifications?: StaffNotificationPort },
   orderId: string,
   deliveryUserId: string,
 ): Promise<Order> {
@@ -113,6 +114,10 @@ export async function assignDeliveryToOrder(
   if (!order) throw new Error(`Order not found: ${orderId}`);
   if (order.fulfillmentStatus !== "ready_for_pickup") {
     throw new Error(`Cannot assign delivery from status: ${order.fulfillmentStatus}`);
+  }
+  const deliveryUser = await deps.users.findById(deliveryUserId);
+  if (!deliveryUser || deliveryUser.role !== "delivery" || !deliveryUser.isActive) {
+    throw new Error(`Invalid delivery user: ${deliveryUserId}`);
   }
   await deps.orders.assignDelivery(orderId, deliveryUserId);
   const updated: Order = { ...order, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" };

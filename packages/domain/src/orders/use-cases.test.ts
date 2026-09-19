@@ -14,6 +14,8 @@ import type { Product } from "../products/entities";
 import type { ProductRepository } from "../products/ports";
 import type { StockRepository } from "../stock/ports";
 import type { StopProductStock, StockEvent } from "../stock/entities";
+import type { UserRepository } from "../users/ports";
+import type { User } from "../users/entities";
 
 function fakeProduct(overrides: Partial<Product> = {}): Product {
   return {
@@ -454,11 +456,55 @@ describe("markOrderInPrep / markOrderReady", () => {
   });
 });
 
+function fakeUser(overrides: Partial<User> = {}): User {
+  return {
+    id: "delivery-1",
+    name: "Delivery Uno",
+    email: "delivery1@example.com",
+    role: "delivery",
+    pinHash: "hash",
+    passwordHash: null,
+    isActive: true,
+    preferredLocale: "en",
+    failedPinAttempts: 0,
+    pinLockedUntil: null,
+    ...overrides,
+  };
+}
+
+function fakeUserRepo(users: User[]): UserRepository {
+  return {
+    async findById(id) {
+      return users.find((u) => u.id === id) ?? null;
+    },
+    async findByEmail(email) {
+      return users.find((u) => u.email === email) ?? null;
+    },
+    async listActiveByRole(role) {
+      return users.filter((u) => u.role === role && u.isActive);
+    },
+    async listByRole(role) {
+      return users.filter((u) => u.role === role);
+    },
+    async create(user) {
+      return { ...user, id: `user-${users.length + 1}` };
+    },
+    async update(id, data) {
+      const user = users.find((u) => u.id === id);
+      if (!user) throw new Error("not found");
+      return { ...user, ...data };
+    },
+    async recordFailedPinAttempt() {},
+    async resetPinAttempts() {},
+  };
+}
+
 describe("assignDeliveryToOrder", () => {
   it("asigna y pasa a out_for_delivery cuando esta ready_for_pickup", async () => {
     const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const users = fakeUserRepo([fakeUser()]);
 
-    const updated = await assignDeliveryToOrder({ orders: repo }, "order-1", "delivery-1");
+    const updated = await assignDeliveryToOrder({ orders: repo, users }, "order-1", "delivery-1");
 
     expect(updated.assignedDeliveryUserId).toBe("delivery-1");
     expect(updated.fulfillmentStatus).toBe("out_for_delivery");
@@ -466,17 +512,43 @@ describe("assignDeliveryToOrder", () => {
 
   it("rechaza si la orden no esta ready_for_pickup", async () => {
     const repo = makeFakeOrderRepo([baseOrder]);
-    await expect(assignDeliveryToOrder({ orders: repo }, "order-1", "delivery-1")).rejects.toThrow();
+    const users = fakeUserRepo([fakeUser()]);
+    await expect(assignDeliveryToOrder({ orders: repo, users }, "order-1", "delivery-1")).rejects.toThrow();
+  });
+
+  it("rechaza si el deliveryUserId no existe", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const users = fakeUserRepo([]);
+    await expect(assignDeliveryToOrder({ orders: repo, users }, "order-1", "missing-user")).rejects.toThrow(
+      "Invalid delivery user: missing-user",
+    );
+  });
+
+  it("rechaza si el usuario existe pero su role no es delivery", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const users = fakeUserRepo([fakeUser({ role: "despachador" })]);
+    await expect(assignDeliveryToOrder({ orders: repo, users }, "order-1", "delivery-1")).rejects.toThrow(
+      "Invalid delivery user: delivery-1",
+    );
+  });
+
+  it("rechaza si el usuario delivery esta inactivo", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const users = fakeUserRepo([fakeUser({ isActive: false })]);
+    await expect(assignDeliveryToOrder({ orders: repo, users }, "order-1", "delivery-1")).rejects.toThrow(
+      "Invalid delivery user: delivery-1",
+    );
   });
 });
 
 describe("assignDeliveryToOrder con notificacion", () => {
   it("notifica al delivery asignado y no falla si la notificacion falla", async () => {
     const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    const users = fakeUserRepo([fakeUser()]);
     const notify = vi.fn().mockRejectedValue(new Error("push service down"));
 
     const updated = await assignDeliveryToOrder(
-      { orders: repo, notifications: { notifyDeliveryAssigned: notify, notifyNewOrderInQueue: vi.fn() } },
+      { orders: repo, users, notifications: { notifyDeliveryAssigned: notify, notifyNewOrderInQueue: vi.fn() } },
       "order-1",
       "delivery-1",
     );

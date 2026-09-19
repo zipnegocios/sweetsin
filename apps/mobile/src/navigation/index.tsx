@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as Notifications from "expo-notifications";
 import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
@@ -8,6 +9,22 @@ import { getToken, clearToken } from "../auth/session";
 import { apiFetch } from "../api/client";
 
 const Stack = createNativeStackNavigator();
+
+async function registerPushToken(): Promise<void> {
+  try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== "granted") return;
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    await apiFetch("/api/mobile/push-token", {
+      method: "POST",
+      body: JSON.stringify({ token: tokenData.data }),
+    });
+  } catch {
+    // Un fallo al registrar el push token (permiso denegado, error de red)
+    // nunca debe romper la navegacion — la notificacion simplemente queda
+    // "blocked" del lado del servidor.
+  }
+}
 
 export function RootNavigator() {
   const [role, setRole] = useState<"despachador" | "delivery" | null | "loading">("loading");
@@ -25,6 +42,12 @@ export function RootNavigator() {
       setRole(data.role);
     })();
   }, []);
+
+  useEffect(() => {
+    if (role === "despachador" || role === "delivery") {
+      void registerPushToken();
+    }
+  }, [role]);
 
   if (role === "loading") return null;
 

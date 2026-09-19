@@ -38,6 +38,7 @@ export async function assignDeliveryAction(orderId: string, deliveryUserId: stri
   await assignDeliveryToOrder(
     {
       orders: new DrizzleOrderRepository(),
+      users: new DrizzleUserRepository(),
       notifications: new ExpoNotificationAdapter(new DrizzlePushTokenRepository(), new DrizzlePushLogRepository()),
     },
     orderId,
