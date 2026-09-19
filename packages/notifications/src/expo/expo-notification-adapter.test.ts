@@ -20,6 +20,27 @@ function makeDeps() {
   return { pushTokens, pushLogs, sentPushes, logs };
 }
 
+describe("ExpoNotificationAdapter.notifyNewOrderInQueue", () => {
+  it("loguea blocked para un despachador de la lista que no tiene push token", async () => {
+    const deps = makeDeps();
+    deps.pushTokens.findByUserIds = async (ids) =>
+      ids.filter((id) => id !== "despachador-2").map((userId) => ({ userId, token: "ExponentPushToken[fake]" }));
+    const adapter = new ExpoNotificationAdapter(deps.pushTokens, deps.pushLogs);
+
+    await adapter.notifyNewOrderInQueue(["despachador-1", "despachador-2"], {
+      id: "order-1",
+      customerName: "Juan",
+    });
+
+    const blockedLog = deps.logs.find((log) => (log as { to: string }).to === "despachador-2") as
+      | { status: string; errorMessage: string | null }
+      | undefined;
+    expect(blockedLog).toBeDefined();
+    expect(blockedLog?.status).toBe("blocked");
+    expect(blockedLog?.errorMessage).toBe("No push token registered");
+  });
+});
+
 describe("ExpoNotificationAdapter.notifyDeliveryAssigned", () => {
   it("loguea failed si el usuario no tiene push token registrado", async () => {
     const deps = makeDeps();

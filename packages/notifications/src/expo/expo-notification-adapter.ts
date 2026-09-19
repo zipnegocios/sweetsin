@@ -31,7 +31,18 @@ export class ExpoNotificationAdapter implements NotificationPort, StaffNotificat
     order: { id: string; customerName: string },
   ): Promise<void> {
     const tokens = await this.pushTokens.findByUserIds(despachadorUserIds);
-    for (const { userId, token } of tokens) {
+    const tokenByUserId = new Map(tokens.map(({ userId, token }) => [userId, token]));
+    for (const userId of despachadorUserIds) {
+      const token = tokenByUserId.get(userId);
+      if (!token) {
+        await this.pushLogs.create({
+          to: userId,
+          type: "new_order_in_queue",
+          status: "blocked",
+          errorMessage: "No push token registered",
+        });
+        continue;
+      }
       await this.sendOne(userId, token, "new_order_in_queue", {
         title: "Nueva orden en cola",
         body: `Pedido de ${order.customerName} listo para preparar`,
