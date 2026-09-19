@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { registerCustomer, listActiveStaff, authenticateUser, updateUserPreferredLocale } from "./use-cases";
+import {
+  registerCustomer,
+  listActiveStaff,
+  authenticateUser,
+  updateUserPreferredLocale,
+  authenticateStaffByPin,
+  registerStaffUser,
+  resetStaffPin,
+  generatePin,
+} from "./use-cases";
 import { hashPassword } from "./auth";
 import type { User, UserRole } from "./entities";
 import type { UserRepository } from "./ports";
@@ -141,10 +150,135 @@ describe("updateUserPreferredLocale", () => {
   });
 });
 
-// describe("authenticateStaffByPin", () => {
-//   it("rechaza si el usuario no existe", async () => {
-//     const repo = makeFakeUserRepo([]);
-//     await expect(authenticateStaffByPin(repo, "nadie@sweetsin.com", "123456")).resolves.toBeNull();
-//   });
-// });
-// completado en Task 3
+function makeFakeUserRepo(users: User[]): UserRepository {
+  const store = new Map(users.map((u) => [u.id, u]));
+  return {
+    findById: async (id) => store.get(id) ?? null,
+    findByEmail: async (email) => [...store.values()].find((u) => u.email === email) ?? null,
+    listActiveByRole: async (role) => [...store.values()].filter((u) => u.role === role && u.isActive),
+    create: async (data) => {
+      const user = { ...data, id: `user-${store.size + 1}` };
+      store.set(user.id, user);
+      return user;
+    },
+    update: async (id, data) => {
+      const user = store.get(id);
+      if (!user) throw new Error("not found");
+      const updated = { ...user, ...data };
+      store.set(id, updated);
+      return updated;
+    },
+    recordFailedPinAttempt: async (id, lockedUntil) => {
+      const user = store.get(id);
+      if (!user) return;
+      store.set(id, { ...user, failedPinAttempts: user.failedPinAttempts + 1, pinLockedUntil: lockedUntil });
+    },
+    resetPinAttempts: async (id) => {
+      const user = store.get(id);
+      if (!user) return;
+      store.set(id, { ...user, failedPinAttempts: 0, pinLockedUntil: null });
+    },
+  };
+}
+
+const baseStaff: User = {
+  id: "staff-1",
+  name: "Ana Despachadora",
+  email: "ana@sweetsin.com",
+  role: "despachador",
+  pinHash: null,
+  passwordHash: null,
+  isActive: true,
+  preferredLocale: "es",
+  failedPinAttempts: 0,
+  pinLockedUntil: null,
+};
+
+describe("authenticateStaffByPin", () => {
+  it("autentica con PIN correcto", async () => {
+    const { hashPassword } = await import("./auth");
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash }]);
+
+    const user = await authenticateStaffByPin(repo, "ana@sweetsin.com", "123456");
+
+    expect(user?.id).toBe("staff-1");
+  });
+
+  it("rechaza PIN incorrecto e incrementa el contador", async () => {
+    const { hashPassword } = await import("./auth");
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash }]);
+
+    const user = await authenticateStaffByPin(repo, "ana@sweetsin.com", "000000");
+
+    expect(user).toBeNull();
+    const stored = await repo.findByEmail("ana@sweetsin.com");
+    expect(stored?.failedPinAttempts).toBe(1);
+  });
+
+  it("bloquea tras 5 intentos fallidos", async () => {
+    const { hashPassword } = await import("./auth");
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash, failedPinAttempts: 4 }]);
+
+    await authenticateStaffByPin(repo, "ana@sweetsin.com", "000000");
+    const lockedResult = await authenticateStaffByPin(repo, "ana@sweetsin.com", "123456");
+
+    expect(lockedResult).toBeNull();
+    const stored = await repo.findByEmail("ana@sweetsin.com");
+    expect(stored?.pinLockedUntil).not.toBeNull();
+  });
+
+  it("rechaza si isActive es false", async () => {
+    const { hashPassword } = await import("./auth");
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash, isActive: false }]);
+
+    await expect(authenticateStaffByPin(repo, "ana@sweetsin.com", "123456")).resolves.toBeNull();
+  });
+
+  it("rechaza rol customer", async () => {
+    const { hashPassword } = await import("./auth");
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, role: "customer", pinHash }]);
+
+    await expect(authenticateStaffByPin(repo, "ana@sweetsin.com", "123456")).resolves.toBeNull();
+  });
+});
+
+describe("registerStaffUser / resetStaffPin", () => {
+  it("crea un despachador con PIN de 6 digitos y lo devuelve en texto plano una sola vez", async () => {
+    const repo = makeFakeUserRepo([]);
+
+    const { user, plainPin } = await registerStaffUser(repo, {
+      name: "Ana",
+      email: "ana@sweetsin.com",
+      role: "despachador",
+      password: "hunter2hunter2",
+    });
+
+    expect(plainPin).toMatch(/^\d{6}$/);
+    expect(user.pinHash).not.toBeNull();
+    expect(user.pinHash).not.toBe(plainPin);
+  });
+
+  it("resetStaffPin genera un PIN nuevo y resetea el lockout", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, failedPinAttempts: 3, pinLockedUntil: new Date() }]);
+
+    const plainPin = await resetStaffPin(repo, "staff-1");
+
+    expect(plainPin).toMatch(/^\d{6}$/);
+    const stored = await repo.findById("staff-1");
+    expect(stored?.failedPinAttempts).toBe(0);
+    expect(stored?.pinLockedUntil).toBeNull();
+  });
+});
+
+describe("generatePin", () => {
+  it("genera siempre 6 digitos numericos, incluso con ceros a la izquierda", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(generatePin()).toMatch(/^\d{6}$/);
+    }
+  });
+});
