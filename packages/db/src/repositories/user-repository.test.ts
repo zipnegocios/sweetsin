@@ -28,6 +28,8 @@ describe("update", () => {
       passwordHash: "irrelevant",
       isActive: true,
       preferredLocale: "en",
+      failedPinAttempts: 0,
+      pinLockedUntil: null,
     });
 
     const updated = await repo.update(created.id, { preferredLocale: "es" });

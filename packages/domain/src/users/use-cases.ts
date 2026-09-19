@@ -25,6 +25,8 @@ export async function registerCustomer(
     passwordHash,
     isActive: true,
     preferredLocale: input.preferredLocale,
+    failedPinAttempts: 0,
+    pinLockedUntil: null,
   });
 }
 

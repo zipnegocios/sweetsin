@@ -28,9 +28,17 @@ export class DrizzleUserRepository implements UserRepository {
     return { ...inserted, preferredLocale: inserted.preferredLocale as Locale };
   }
 
-  async update(id: string, data: Partial<Pick<User, "preferredLocale">>): Promise<User> {
+  async update(id: string, data: Partial<Pick<User, "preferredLocale" | "pinHash" | "isActive">>): Promise<User> {
     const [updated] = await db.update(usersTable).set(data).where(eq(usersTable.id, id)).returning();
     if (!updated) throw new Error(`User not found: ${id}`);
     return { ...updated, preferredLocale: updated.preferredLocale as Locale };
+  }
+
+  async recordFailedPinAttempt(id: string, lockedUntil: Date | null): Promise<void> {
+    throw new Error("not implemented"); // Task 3
+  }
+
+  async resetPinAttempts(id: string): Promise<void> {
+    throw new Error("not implemented"); // Task 3
   }
 }

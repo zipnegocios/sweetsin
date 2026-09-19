@@ -45,7 +45,7 @@ describe("registerCustomer", () => {
 
   it("throws when the email is already registered", async () => {
     const repo = fakeUserRepo([
-      { id: "u1", name: "Existing", email: "jane@example.com", role: "customer", pinHash: null, passwordHash: null, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Existing", email: "jane@example.com", role: "customer", pinHash: null, passwordHash: null, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     await expect(
@@ -67,9 +67,9 @@ describe("registerCustomer", () => {
 describe("listActiveStaff", () => {
   it("returns only active users with the given role", async () => {
     const repo = fakeUserRepo([
-      { id: "u1", name: "Active Despachador", email: null, role: "despachador", pinHash: "x", passwordHash: null, isActive: true, preferredLocale: "en" },
-      { id: "u2", name: "Inactive Despachador", email: null, role: "despachador", pinHash: "x", passwordHash: null, isActive: false, preferredLocale: "en" },
-      { id: "u3", name: "Delivery", email: null, role: "delivery", pinHash: "x", passwordHash: null, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Active Despachador", email: null, role: "despachador", pinHash: "x", passwordHash: null, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
+      { id: "u2", name: "Inactive Despachador", email: null, role: "despachador", pinHash: "x", passwordHash: null, isActive: false, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
+      { id: "u3", name: "Delivery", email: null, role: "delivery", pinHash: "x", passwordHash: null, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     const result = await listActiveStaff(repo, "despachador");
@@ -82,7 +82,7 @@ describe("authenticateUser", () => {
   it("returns the user when email and password match an active account", async () => {
     const passwordHash = await hashPassword("s3cret!");
     const repo = fakeUserRepo([
-      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     const user = await authenticateUser(repo, "jane@sweetsin.com.au", "s3cret!");
@@ -93,7 +93,7 @@ describe("authenticateUser", () => {
   it("returns null when the password does not match", async () => {
     const passwordHash = await hashPassword("s3cret!");
     const repo = fakeUserRepo([
-      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     expect(await authenticateUser(repo, "jane@sweetsin.com.au", "wrong")).toBeNull();
@@ -102,7 +102,7 @@ describe("authenticateUser", () => {
   it("returns null for an inactive user even with the correct password", async () => {
     const passwordHash = await hashPassword("s3cret!");
     const repo = fakeUserRepo([
-      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: false, preferredLocale: "en" },
+      { id: "u1", name: "Jane Admin", email: "jane@sweetsin.com.au", role: "admin", pinHash: null, passwordHash, isActive: false, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     expect(await authenticateUser(repo, "jane@sweetsin.com.au", "s3cret!")).toBeNull();
@@ -110,7 +110,7 @@ describe("authenticateUser", () => {
 
   it("returns null for a user with no password set (staff PIN accounts)", async () => {
     const repo = fakeUserRepo([
-      { id: "u1", name: "Delivery Bot", email: null, role: "delivery", pinHash: "some-pin-hash", passwordHash: null, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Delivery Bot", email: null, role: "delivery", pinHash: "some-pin-hash", passwordHash: null, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     expect(await authenticateUser(repo, "unused@example.com", "anything")).toBeNull();
@@ -126,7 +126,7 @@ describe("authenticateUser", () => {
 describe("updateUserPreferredLocale", () => {
   it("updates the user's preferred locale", async () => {
     const repo = fakeUserRepo([
-      { id: "u1", name: "Jane Doe", email: "jane@example.com", role: "customer", pinHash: null, passwordHash: null, isActive: true, preferredLocale: "en" },
+      { id: "u1", name: "Jane Doe", email: "jane@example.com", role: "customer", pinHash: null, passwordHash: null, isActive: true, preferredLocale: "en", failedPinAttempts: 0, pinLockedUntil: null },
     ]);
 
     const updated = await updateUserPreferredLocale(repo, "u1", "es");
@@ -140,3 +140,11 @@ describe("updateUserPreferredLocale", () => {
     await expect(updateUserPreferredLocale(repo, "missing", "es")).rejects.toThrow("User not found: missing");
   });
 });
+
+// describe("authenticateStaffByPin", () => {
+//   it("rechaza si el usuario no existe", async () => {
+//     const repo = makeFakeUserRepo([]);
+//     await expect(authenticateStaffByPin(repo, "nadie@sweetsin.com", "123456")).resolves.toBeNull();
+//   });
+// });
+// completado en Task 3

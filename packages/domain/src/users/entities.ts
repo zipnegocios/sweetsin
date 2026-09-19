@@ -11,4 +11,6 @@ export interface User {
   passwordHash: string | null;
   isActive: boolean;
   preferredLocale: Locale;
+  failedPinAttempts: number;
+  pinLockedUntil: Date | null;
 }
