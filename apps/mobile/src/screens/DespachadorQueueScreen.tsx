@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { View, Text, Button, FlatList } from "react-native";
+import { View, Text, Button, FlatList, StyleSheet } from "react-native";
 import { apiFetch } from "../api/client";
 
 type QueueOrder = { id: string; customerName: string; fulfillmentStatus: string };
+type DeliveryStaff = { id: string; name: string };
 
 export function DespachadorQueueScreen() {
   const [orders, setOrders] = useState<QueueOrder[]>([]);
+  const [deliveryStaff, setDeliveryStaff] = useState<DeliveryStaff[]>([]);
 
   async function loadQueue() {
     const res = await apiFetch("/api/mobile/orders/queue");
@@ -15,12 +17,29 @@ export function DespachadorQueueScreen() {
     }
   }
 
+  async function loadDeliveryStaff() {
+    const res = await apiFetch("/api/mobile/delivery-staff");
+    if (res.ok) {
+      const data = (await res.json()) as { staff: DeliveryStaff[] };
+      setDeliveryStaff(data.staff);
+    }
+  }
+
   useEffect(() => {
     loadQueue();
+    loadDeliveryStaff();
   }, []);
 
   async function advance(orderId: string, status: "in_prep" | "ready_for_pickup") {
     await apiFetch(`/api/mobile/orders/${orderId}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+    loadQueue();
+  }
+
+  async function assign(orderId: string, deliveryUserId: string) {
+    await apiFetch(`/api/mobile/orders/${orderId}/assign`, {
+      method: "PATCH",
+      body: JSON.stringify({ deliveryUserId }),
+    });
     loadQueue();
   }
 
@@ -29,12 +48,26 @@ export function DespachadorQueueScreen() {
       data={orders}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <View>
+        <View style={styles.row}>
           <Text>{item.customerName} — {item.fulfillmentStatus}</Text>
           {item.fulfillmentStatus === "received" && <Button title="Empezar preparacion" onPress={() => advance(item.id, "in_prep")} />}
           {item.fulfillmentStatus === "in_prep" && <Button title="Marcar listo" onPress={() => advance(item.id, "ready_for_pickup")} />}
+          {item.fulfillmentStatus === "ready_for_pickup" && (
+            <View>
+              <Text style={styles.label}>Asignar repartidor:</Text>
+              {deliveryStaff.length === 0 && <Text>No hay repartidores activos</Text>}
+              {deliveryStaff.map((staffMember) => (
+                <Button key={staffMember.id} title={staffMember.name} onPress={() => assign(item.id, staffMember.id)} />
+              ))}
+            </View>
+          )}
         </View>
       )}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  row: { padding: 12, gap: 8 },
+  label: { marginTop: 4, fontWeight: "bold" },
+});
