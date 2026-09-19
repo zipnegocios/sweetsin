@@ -27,8 +27,11 @@ export function NewStaffForm() {
       setEmail("");
       setPassword("");
       router.refresh();
-    } catch {
-      setSubmitError(t("staffFormSubmitError"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setSubmitError(
+        message.includes("already exists") ? t("staffFormEmailExists") : message || t("staffFormSubmitError"),
+      );
     } finally {
       setIsSubmitting(false);
     }

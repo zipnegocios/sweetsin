@@ -189,6 +189,7 @@ export interface Dictionary {
     staffFormRoleDelivery: string;
     staffFormSubmit: string;
     staffFormSubmitError: string;
+    staffFormEmailExists: string;
     emailLogsTitle: string;
     emailLogsColumnTo: string;
     emailLogsColumnType: string;

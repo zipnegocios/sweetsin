@@ -192,6 +192,7 @@ export const es: Dictionary = {
     staffFormRoleDelivery: "Delivery",
     staffFormSubmit: "Crear miembro de staff",
     staffFormSubmitError: "No se pudo crear el miembro de staff.",
+    staffFormEmailExists: "Ya existe un miembro de staff con este email.",
     emailLogsTitle: "Logs de emails",
     emailLogsColumnTo: "Destinatario",
     emailLogsColumnType: "Tipo",
