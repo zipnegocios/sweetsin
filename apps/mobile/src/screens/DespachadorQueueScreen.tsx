@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { View, Text, Button, FlatList, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { apiFetch } from "../api/client";
+import { useAuth } from "../auth/context";
 
 type QueueOrder = { id: string; customerName: string; fulfillmentStatus: string };
 type DeliveryStaff = { id: string; name: string };
@@ -8,6 +10,12 @@ type DeliveryStaff = { id: string; name: string };
 export function DespachadorQueueScreen() {
   const [orders, setOrders] = useState<QueueOrder[]>([]);
   const [deliveryStaff, setDeliveryStaff] = useState<DeliveryStaff[]>([]);
+  const navigation = useNavigation();
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <Button title="Salir" onPress={logout} /> });
+  }, [navigation, logout]);
 
   async function loadQueue() {
     const res = await apiFetch("/api/mobile/orders/queue");

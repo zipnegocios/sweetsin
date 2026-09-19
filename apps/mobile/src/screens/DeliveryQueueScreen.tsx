@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { View, Text, Button, FlatList } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { apiFetch } from "../api/client";
+import { useAuth } from "../auth/context";
 
 type AssignedOrder = { id: string; deliveryAddress: string | null };
 
 export function DeliveryQueueScreen() {
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
+  const navigation = useNavigation();
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <Button title="Salir" onPress={logout} /> });
+  }, [navigation, logout]);
 
   async function loadAssigned() {
     const res = await apiFetch("/api/mobile/orders/assigned");

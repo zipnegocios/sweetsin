@@ -5,6 +5,7 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
 import { getToken, clearToken } from "../auth/session";
+import { AuthContext } from "../auth/context";
 import { apiFetch } from "../api/client";
 
 const Stack = createNativeStackNavigator();
@@ -60,13 +61,20 @@ export function RootNavigator() {
 
   if (role === "loading") return null;
 
+  async function logout(): Promise<void> {
+    await clearToken();
+    setRole(null);
+  }
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        {role === null && <Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoggedIn={setRole} />}</Stack.Screen>}
-        {role === "despachador" && <Stack.Screen name="Cola" component={DespachadorQueueScreen} />}
-        {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} />}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <AuthContext.Provider value={{ logout }}>
+      <NavigationContainer>
+        <Stack.Navigator>
+          {role === null && <Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoggedIn={setRole} />}</Stack.Screen>}
+          {role === "despachador" && <Stack.Screen name="Cola" component={DespachadorQueueScreen} />}
+          {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} />}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </AuthContext.Provider>
   );
 }
