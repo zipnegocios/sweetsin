@@ -35,6 +35,7 @@ export const ordersTable = pgTable("orders", {
   totalCents: integer("total_cents").notNull(),
   channel: orderChannelEnum("channel").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  assignedDeliveryUserId: uuid("assigned_delivery_user_id").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
