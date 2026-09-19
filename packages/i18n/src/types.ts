@@ -243,6 +243,21 @@ export interface Dictionary {
     calendarLegendStop: string;
     calendarLegendBooking: string;
   };
+  dispatch: {
+    queueTitle: string;
+    queueEmpty: string;
+    columnCustomer: string;
+    columnStatus: string;
+    columnItems: string;
+    markInPrepButton: string;
+    markReadyButton: string;
+    assignDeliveryLabel: string;
+    assignDeliveryPlaceholder: string;
+    assignDeliveryButton: string;
+    deliveryTitle: string;
+    deliveryEmpty: string;
+    markDeliveredButton: string;
+  };
   account: {
     registerTitle: string;
     namePlaceholder: string;

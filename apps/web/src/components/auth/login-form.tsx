@@ -40,7 +40,15 @@ export function LoginForm() {
       }
 
       const callbackUrl = searchParams.get("callbackUrl");
-      router.push(result.role === "admin" ? "/admin" : callbackUrl || "/");
+      const roleHome =
+        result.role === "admin"
+          ? "/admin"
+          : result.role === "despachador"
+            ? "/dispatch"
+            : result.role === "delivery"
+              ? "/delivery"
+              : null;
+      router.push(roleHome ?? callbackUrl ?? "/");
       router.refresh();
     } finally {
       setIsSubmitting(false);
