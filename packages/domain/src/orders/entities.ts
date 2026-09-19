@@ -36,5 +36,6 @@ export interface Order {
   totalCents: number;
   channel: OrderChannel;
   stripePaymentIntentId: string | null;
+  assignedDeliveryUserId: string | null;
   items: OrderItem[];
 }

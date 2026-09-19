@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { createOrder, confirmOrderPayment, listOrders } from "./use-cases";
+import {
+  createOrder,
+  confirmOrderPayment,
+  listOrders,
+  assignDeliveryToOrder,
+  markOrderInPrep,
+  markOrderReady,
+  markOrderDelivered,
+} from "./use-cases";
 import type { Order } from "./entities";
 import type { OrderRepository, OrderFilters } from "./ports";
 import type { Product } from "../products/entities";
@@ -59,6 +67,13 @@ function fakeOrderRepo(): OrderRepository & { created: Omit<Order, "id">[] } {
     },
     async updateFulfillmentStatus() {},
     async updatePaymentStatus() {},
+    async findQueueForDespachador() {
+      return [];
+    },
+    async findAssignedToDelivery() {
+      return [];
+    },
+    async assignDelivery() {},
   };
 }
 
@@ -189,6 +204,13 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
     },
     async updateFulfillmentStatus() {},
     async updatePaymentStatus() {},
+    async findQueueForDespachador() {
+      return [];
+    },
+    async findAssignedToDelivery() {
+      return [];
+    },
+    async assignDelivery() {},
   };
 }
 
@@ -231,6 +253,7 @@ describe("confirmOrderPayment", () => {
       totalCents: 1000,
       channel: "web",
       stripePaymentIntentId: "pi_123",
+      assignedDeliveryUserId: null,
       items: [{ productId: "p1", quantity: 1, unitPriceCents: 1000, lineDiscountCents: 0 }],
     };
     const orders = fakeOrderRepoWithOrder(order);
@@ -260,6 +283,7 @@ describe("confirmOrderPayment", () => {
       totalCents: 2000,
       channel: "web",
       stripePaymentIntentId: "pi_456",
+      assignedDeliveryUserId: null,
       items: [{ productId: "p1", quantity: 2, unitPriceCents: 1000, lineDiscountCents: 0 }],
     };
     const orders = fakeOrderRepoWithOrder(order);
@@ -290,6 +314,7 @@ describe("confirmOrderPayment", () => {
       totalCents: 1000,
       channel: "web",
       stripePaymentIntentId: "pi_789",
+      assignedDeliveryUserId: null,
       items: [{ productId: "p1", quantity: 1, unitPriceCents: 1000, lineDiscountCents: 0 }],
     };
     const orders = fakeOrderRepoWithOrder(order);
@@ -323,6 +348,13 @@ function fakeOrderRepoForListing(orders: Order[]): OrderRepository & { listAllCa
     },
     async updateFulfillmentStatus() {},
     async updatePaymentStatus() {},
+    async findQueueForDespachador() {
+      return [];
+    },
+    async findAssignedToDelivery() {
+      return [];
+    },
+    async assignDelivery() {},
   };
 }
 
@@ -349,5 +381,111 @@ describe("listOrders", () => {
 
     await expect(listOrders(repo, { dateFrom: "2026-09-01" })).resolves.toEqual([]);
     await expect(listOrders(repo, { dateTo: "2026-09-01" })).resolves.toEqual([]);
+  });
+});
+
+function makeFakeOrderRepo(orders: Order[]): OrderRepository {
+  const store = new Map(orders.map((o) => [o.id, o]));
+  return {
+    create: async (data) => {
+      const order = { ...data, id: `order-${store.size + 1}` };
+      store.set(order.id, order);
+      return order;
+    },
+    findById: async (id) => store.get(id) ?? null,
+    attachPaymentIntent: async () => {},
+    markAsPaid: async (id) => {
+      const o = store.get(id);
+      if (o) store.set(id, { ...o, paymentStatus: "paid" });
+    },
+    listAll: async () => [...store.values()],
+    listByCustomerId: async () => [],
+    updateFulfillmentStatus: async (id, status) => {
+      const o = store.get(id);
+      if (o) store.set(id, { ...o, fulfillmentStatus: status });
+    },
+    updatePaymentStatus: async () => {},
+    findQueueForDespachador: async () =>
+      [...store.values()].filter((o) => o.paymentStatus === "paid" && ["received", "in_prep"].includes(o.fulfillmentStatus)),
+    findAssignedToDelivery: async (userId) =>
+      [...store.values()].filter((o) => o.assignedDeliveryUserId === userId && o.fulfillmentStatus === "out_for_delivery"),
+    assignDelivery: async (id, deliveryUserId) => {
+      const o = store.get(id);
+      if (o) store.set(id, { ...o, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" });
+    },
+  };
+}
+
+const baseOrder: Order = {
+  id: "order-1",
+  customerId: null,
+  customerName: "Cliente",
+  customerEmail: "cliente@example.com",
+  customerPhone: "555-0100",
+  fulfillmentType: "self_delivery",
+  deliveryAddress: "Calle Falsa 123",
+  stopId: null,
+  paymentStatus: "paid",
+  fulfillmentStatus: "received",
+  subtotalCents: 1000,
+  discountCents: 0,
+  deliveryFeeCents: 0,
+  totalCents: 1000,
+  channel: "web",
+  stripePaymentIntentId: null,
+  assignedDeliveryUserId: null,
+  items: [],
+};
+
+describe("markOrderInPrep / markOrderReady", () => {
+  it("mueve received -> in_prep -> ready_for_pickup", async () => {
+    const repo = makeFakeOrderRepo([baseOrder]);
+
+    await markOrderInPrep({ orders: repo }, "order-1");
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("in_prep");
+
+    await markOrderReady({ orders: repo }, "order-1");
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("ready_for_pickup");
+  });
+
+  it("rechaza marcar ready si no esta in_prep", async () => {
+    const repo = makeFakeOrderRepo([baseOrder]);
+    await expect(markOrderReady({ orders: repo }, "order-1")).rejects.toThrow();
+  });
+});
+
+describe("assignDeliveryToOrder", () => {
+  it("asigna y pasa a out_for_delivery cuando esta ready_for_pickup", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+
+    const updated = await assignDeliveryToOrder({ orders: repo }, "order-1", "delivery-1");
+
+    expect(updated.assignedDeliveryUserId).toBe("delivery-1");
+    expect(updated.fulfillmentStatus).toBe("out_for_delivery");
+  });
+
+  it("rechaza si la orden no esta ready_for_pickup", async () => {
+    const repo = makeFakeOrderRepo([baseOrder]);
+    await expect(assignDeliveryToOrder({ orders: repo }, "order-1", "delivery-1")).rejects.toThrow();
+  });
+});
+
+describe("markOrderDelivered", () => {
+  it("marca delivered si el actingUserId es el asignado", async () => {
+    const repo = makeFakeOrderRepo([
+      { ...baseOrder, fulfillmentStatus: "out_for_delivery", assignedDeliveryUserId: "delivery-1" },
+    ]);
+
+    const updated = await markOrderDelivered({ orders: repo }, "order-1", "delivery-1");
+
+    expect(updated.fulfillmentStatus).toBe("delivered");
+  });
+
+  it("rechaza si el actingUserId no es el asignado", async () => {
+    const repo = makeFakeOrderRepo([
+      { ...baseOrder, fulfillmentStatus: "out_for_delivery", assignedDeliveryUserId: "delivery-1" },
+    ]);
+
+    await expect(markOrderDelivered({ orders: repo }, "order-1", "delivery-2")).rejects.toThrow();
   });
 });

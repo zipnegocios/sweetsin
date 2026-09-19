@@ -81,3 +81,54 @@ export async function listOrders(repo: OrderRepository, filters: OrderFilters): 
   }
   return repo.listAll(filters);
 }
+
+export async function markOrderInPrep(deps: { orders: OrderRepository }, orderId: string): Promise<Order> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.fulfillmentStatus !== "received") {
+    throw new Error(`Cannot move to in_prep from status: ${order.fulfillmentStatus}`);
+  }
+  await deps.orders.updateFulfillmentStatus(orderId, "in_prep");
+  return { ...order, fulfillmentStatus: "in_prep" };
+}
+
+export async function markOrderReady(deps: { orders: OrderRepository }, orderId: string): Promise<Order> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.fulfillmentStatus !== "in_prep") {
+    throw new Error(`Cannot move to ready_for_pickup from status: ${order.fulfillmentStatus}`);
+  }
+  await deps.orders.updateFulfillmentStatus(orderId, "ready_for_pickup");
+  return { ...order, fulfillmentStatus: "ready_for_pickup" };
+}
+
+export async function assignDeliveryToOrder(
+  deps: { orders: OrderRepository },
+  orderId: string,
+  deliveryUserId: string,
+): Promise<Order> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.fulfillmentStatus !== "ready_for_pickup") {
+    throw new Error(`Cannot assign delivery from status: ${order.fulfillmentStatus}`);
+  }
+  await deps.orders.assignDelivery(orderId, deliveryUserId);
+  return { ...order, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" };
+}
+
+export async function markOrderDelivered(
+  deps: { orders: OrderRepository },
+  orderId: string,
+  actingUserId: string,
+): Promise<Order> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.fulfillmentStatus !== "out_for_delivery") {
+    throw new Error(`Cannot mark delivered from status: ${order.fulfillmentStatus}`);
+  }
+  if (order.assignedDeliveryUserId !== actingUserId) {
+    throw new Error("Only the assigned delivery user can mark this order as delivered");
+  }
+  await deps.orders.updateFulfillmentStatus(orderId, "delivered");
+  return { ...order, fulfillmentStatus: "delivered" };
+}

@@ -33,4 +33,7 @@ export interface OrderRepository {
   listByCustomerId(customerId: string): Promise<Order[]>;
   updateFulfillmentStatus(orderId: string, status: FulfillmentStatus): Promise<void>;
   updatePaymentStatus(orderId: string, status: PaymentStatus): Promise<void>;
+  findQueueForDespachador(): Promise<Order[]>;
+  findAssignedToDelivery(deliveryUserId: string): Promise<Order[]>;
+  assignDelivery(orderId: string, deliveryUserId: string): Promise<void>;
 }
