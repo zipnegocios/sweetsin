@@ -32,6 +32,7 @@ export default async function AdminLayout({
             <Link href="/admin/event-bookings" className="hover:text-sin-red">{t("navEventBookings")}</Link>
             <Link href="/admin/calendar" className="hover:text-sin-red">{t("navCalendar")}</Link>
             <Link href="/admin/email-logs" className="hover:text-sin-red">{t("navEmailLogs")}</Link>
+            <Link href="/admin/staff" className="hover:text-sin-red">{t("navStaff")}</Link>
           </nav>
         </div>
         <form action={async () => { "use server"; await signOutAction(); redirect({ href: "/login", locale }); }}>

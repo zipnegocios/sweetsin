@@ -23,6 +23,11 @@ export class DrizzleUserRepository implements UserRepository {
     return rows.map((row) => ({ ...row, preferredLocale: row.preferredLocale as Locale }));
   }
 
+  async listByRole(role: UserRole): Promise<User[]> {
+    const rows = await db.select().from(usersTable).where(eq(usersTable.role, role));
+    return rows.map((row) => ({ ...row, preferredLocale: row.preferredLocale as Locale }));
+  }
+
   async create(user: Omit<User, "id">): Promise<User> {
     const [inserted] = await db.insert(usersTable).values(user).returning();
     return { ...inserted, preferredLocale: inserted.preferredLocale as Locale };
