@@ -27,7 +27,15 @@ bite-sized de Fase 6 (Notificaciones nativas,
 `docs/superpowers/plans/2026-09-18-fase-6-notificaciones-nativas.md`, 16
 tareas) ejecutado con `superpowers:subagent-driven-development` — mismo
 patrón que Fase 5, más una revisión final de todo el branch en Opus y un
-fix wave único al cierre.
+fix wave único al cierre. Sesión 7 (esta): spec + plan bite-sized de Fase 7
+(Apps de despachador/delivery en Expo + gestión de staff,
+`docs/superpowers/specs/2026-09-18-fase7-mobile-staff-design.md` +
+`docs/superpowers/plans/2026-09-18-fase7-mobile-staff.md`, 15 tareas) vía
+`superpowers:brainstorming` + `superpowers:writing-plans`, ejecutado con
+`superpowers:subagent-driven-development` sobre `main` sin worktree
+(decisión explícita del owner en esta sesión, ver Intentos fallidos #45),
+más revisión final de todo el branch en Opus y un fix wave único al
+cierre.
 
 ## Estado actual
 
@@ -283,6 +291,62 @@ fallidos #17/#26, mismo patrón de siempre).
   especialmente importante porque hoy no hay credenciales reales para
   probarlo, así que sin el fix habría fallado (o colgado el checkout) el
   día que lleguen. Ver Intentos fallidos #40-44 para el detalle completo.
+
+**Fase 7 — Apps de despachador/delivery (Expo) + gestión de staff: las 15
+tareas del plan completas y commiteadas en `main` (20 commits, incluye 2
+fixes de bugs reales descubiertos a mitad de plan), revisión final de todo
+el branch corrida en Opus y con los 4 findings Important ya corregidos y
+re-verificados.** Verificación final: `pnpm run typecheck` limpio en todo
+el monorepo, 71 tests de dominio en verde (DB de integración no corrida en
+la verificación final por compartir la Postgres real de producción, sí
+corrida tarea por tarea durante la ejecución).
+
+- `apps/mobile` (Expo, scaffold nuevo con `create-expo-app`): login por PIN
+  de 6 dígitos con lockout (5 intentos → 15 min de bloqueo), pantallas de
+  cola de despachador (`received`→`in_prep`→`ready_for_pickup`+asignar
+  repartidor) y de delivery (`out_for_delivery`→`delivered`), JWT propio
+  (`MOBILE_JWT_SECRET`, TTL 12h) en `expo-secure-store`, HMAC de build
+  (`EXPO_PUBLIC_APP_SECRET`) solo en el login.
+- API mobile REST nueva bajo `apps/web/src/app/api/mobile/**` (Route
+  Handlers, no un backend separado — decisión congelada desde la spec):
+  login, `auth/me`, cola, asignación, transiciones de estado, registro de
+  push token — todos delgados, delegan a los mismos casos de uso de
+  `packages/domain` que usan las Server Actions web.
+- `/dispatch` y `/delivery` (páginas web nuevas, separadas de
+  `/admin/orders`): mismo flujo que la app mobile pero con sesión Auth.js
+  (password, no PIN) y `requireStaff(["despachador"|"delivery"])` nuevo.
+- `/admin/staff` (panel admin nuevo): alta de despachador/delivery con
+  password + PIN generado (mostrado una sola vez), reset de PIN, toggle de
+  `isActive` — reusa el mismo Credentials provider de Auth.js que ya
+  usaba `/admin`.
+- Notificaciones push (`ExpoNotificationAdapter` real, antes scaffold
+  vacío): `notifyDeliveryAssigned` conectado a `assignDeliveryToOrder`
+  (con try/catch mudo, mismo principio que SMTP en Fase 6 — un fallo de
+  push nunca bloquea la asignación); `push_logs` como tabla separada de
+  `email_logs` (desviación deliberada de la spec, documentada, para no
+  tocar código de Fase 6 sin necesidad).
+- **Revisión final de todo el branch (Opus, 19 commits) encontró 4
+  findings Important reales (0 Critical), todos corregidos en un único fix
+  wave y re-verificados**: (1) `apps/mobile` nunca registraba el push
+  token — las notificaciones estaban construidas y testeadas del lado
+  servidor pero completamente inertes en producción; fix: registro real
+  vía `expo-notifications` tras login/restauración de sesión. (2)
+  `notifyNewOrderInQueue` sin ningún caller en producción, sin documentar
+  — fix: documentado en `CLAUDE.md` como trabajo futuro explícito
+  (candidato natural: `confirmOrderPayment`). (3) el más serio:
+  `assignDeliveryToOrder` no validaba que el usuario asignado fuera
+  realmente un `delivery` activo — un despachador podía asignar una orden
+  a un customer/admin/delivery desactivado, dejándola varada para siempre
+  (inalcanzable tanto para `findAssignedToDelivery` como para
+  `markOrderDelivered`); fix: guarda de dominio nueva + 4 tests. (4)
+  `/admin/orders` (Fase 4, sin cambios) puede llevar una orden a un estado
+  inconsistente con la máquina de estados nueva de Fase 7 (fuera del
+  alcance del plan) — documentado como Gotcha, no corregido.
+- Un hallazgo de una tarea intermedia (Tarea 12, `/dispatch`/`/delivery`
+  sin guard de middleware a diferencia de `/admin`) quedó parqueado
+  deliberadamente — no es un hueco de seguridad (el acceso ya está
+  bloqueado por `requireStaff`), solo UX menos prolija, y el plan nunca
+  pidió esa cobertura.
 
 ## Archivos y cambios
 
@@ -585,6 +649,72 @@ Fase 6 (nuevo en esta sesión):
   live (`packages/notifications` ya no vacío), Architecture decisions
   (preferencia de idioma + log de emails + decisión de `router.refresh()`
   en vez de `SessionProvider`).
+
+Fase 7 (nuevo en esta sesión):
+
+- `docs/superpowers/specs/2026-09-18-fase7-mobile-staff-design.md` —
+  spec (8 secciones), y
+  `docs/superpowers/plans/2026-09-18-fase7-mobile-staff.md` — plan
+  bite-sized (15 tareas), ambos vía `superpowers:brainstorming` +
+  `superpowers:writing-plans` antes de ejecutar con
+  `superpowers:subagent-driven-development`.
+- `packages/db/src/schema/{orders,users}.ts` —
+  `orders.assignedDeliveryUserId`, `users.failedPinAttempts`,
+  `users.pinLockedUntil` (migraciones aplicadas contra la DB real
+  compartida dev=prod). `packages/db/src/schema/{push-tokens,push-logs}.ts`
+  (nuevos) — tablas para registrar tokens de Expo y auditar envíos push.
+- `packages/domain/src/users/{entities,ports,use-cases,use-cases.test}.ts`
+  — `User.failedPinAttempts`/`pinLockedUntil`; `UserRepository.update`
+  ampliado (`pinHash`/`isActive`), `recordFailedPinAttempt`/
+  `resetPinAttempts` nuevos; casos de uso `authenticateStaffByPin` (con
+  lockout), `registerStaffUser`, `resetStaffPin`, `generatePin`.
+- `packages/domain/src/orders/{entities,ports,use-cases,use-cases.test}.ts`
+  — `Order.assignedDeliveryUserId`; `OrderRepository` ampliado
+  (`findQueueForDespachador`/`findAssignedToDelivery`/`assignDelivery`);
+  casos de uso `markOrderInPrep`/`markOrderReady`/`assignDeliveryToOrder`
+  (con guarda de rol de delivery activo, agregada en la revisión final,
+  ver Intentos fallidos #48)/`markOrderDelivered` (ownership real, no solo
+  rol); fix de un bug real de compilación en `createOrder` (ver Intentos
+  fallidos #46).
+- `packages/domain/src/notifications/staff-ports.ts` (nuevo) —
+  `StaffNotificationPort`, `PushTokenRepository`, `PushLogRepository`.
+- `packages/notifications/src/expo/expo-notification-adapter.ts` (+ test)
+  — reemplaza el scaffold que tiraba "Not implemented" desde Fase 6;
+  implementa `StaffNotificationPort` real vía `expo-server-sdk`, con fix
+  de un bug real de logging incompleto en el path bulk (ver Intentos
+  fallidos #47).
+- `packages/db/src/repositories/{user-repository,order-repository,
+  push-token-repository,push-log-repository}.ts` (+ tests) — lockout de
+  PIN, cola de despachador/asignación de delivery, repos Drizzle de push
+  tokens/logs (nuevos).
+- `apps/web/src/lib/{mobile-auth,require-staff}.ts` (nuevos) —
+  firma/verificación de JWT mobile (`jose`) + HMAC de build
+  (`timingSafeEqual`), guard de sesión para `despachador`/`delivery`
+  (separado de `requireAdmin`, sin tocarlo).
+- `apps/web/src/app/api/mobile/**` (nuevo, 8 Route Handlers + middleware
+  compartido) — login, `auth/me`, cola, asignados, transición de estado,
+  asignar delivery, marcar entregado, registro de push token.
+- `apps/web/src/app/actions/{admin-staff,dispatch,delivery}.ts` (nuevos),
+  `apps/web/src/app/[locale]/admin/staff/**`,
+  `apps/web/src/app/[locale]/{dispatch,delivery}/**` (nuevos) — panel
+  admin de staff (alta/reset de PIN/toggle activo, con fix de propagación
+  de error real en producción, ver Intentos fallidos #47.5) y páginas web
+  de despachador/delivery.
+- `apps/web/src/components/auth/login-form.tsx` — redirect post-login
+  ramificado por rol (admin→`/admin`, despachador→`/dispatch`,
+  delivery→`/delivery`).
+- `apps/mobile/**` (paquete nuevo completo, scaffold Expo vía
+  `create-expo-app` + código a medida): `App.tsx`, `src/api/client.ts`
+  (HMAC solo en login), `src/auth/session.ts` (`expo-secure-store`),
+  `src/screens/{LoginScreen,DespachadorQueueScreen,DeliveryQueueScreen}.tsx`,
+  `src/navigation/index.tsx` (incluye el registro real de push token,
+  agregado en el fix wave de la revisión final).
+- `packages/i18n/src/types.ts`, `dictionaries/{en,es}.ts` — namespaces
+  `dispatch` y ampliación de `admin` (staff) nuevos.
+- `CLAUDE.md` — Run & Operate (`MOBILE_JWT_SECRET`/`EXPO_PUBLIC_APP_SECRET`),
+  Architecture decisions (arquitectura de Fase 7 completa + nota de
+  `notifyNewOrderInQueue` sin caller), Gotchas (`/admin/orders` desconectado
+  de la máquina de estados de despachador/delivery).
 
 ## Intentos fallidos
 
@@ -980,6 +1110,77 @@ Fase 6 (nuevo en esta sesión):
     mismo test, corrido solo, pasó en ~4.1s (el límite default de vitest
     es 5s); en una segunda corrida completa de la suite, sin cambios de
     por medio, pasó limpio.
+45. **Conflicto real entre la skill `subagent-driven-development` y la
+    regla no-negociable de branching de `CLAUDE.md`** ("trabajar
+    directamente sobre `main`, no crear branches"): la skill asume por
+    defecto un worktree/branch aislado y termina con
+    `finishing-a-development-branch` (que implica merge). Resuelto con el
+    owner antes de arrancar: se ejecutó todo directo sobre `main`, sin
+    worktree, y se omitió el paso de merge al cierre (no había branch que
+    mergear). Mismo patrón de "detenerse y preguntar ante un conflicto
+    real de proceso" que el incidente #29 de Fase 5, esta vez detectado
+    antes de despachar la primera tarea en vez de en el medio.
+46. **Bug real de compilación introducido por el propio plan (Tarea 5),
+    descubierto a mitad de la Tarea 7**: `createOrder` en
+    `packages/domain/src/orders/use-cases.ts` armaba el objeto para
+    `deps.orders.create(...)` sin el campo `assignedDeliveryUserId`, que
+    la propia Tarea 5 había vuelto obligatorio al ampliar `Order`. No lo
+    agarró la review de la Tarea 5 porque solo corrió `vitest`, no
+    `tsc --build` — recién lo agarró el controller corriendo el typecheck
+    completo del monorepo antes de dispatchar la Tarea 7 (mismo patrón que
+    el incidente #40 de Fase 6, con un origen distinto). Fix: se resumió
+    al implementador original de la Tarea 5 para el fix de una línea
+    (`assignedDeliveryUserId: null`), verificado con
+    `pnpm run typecheck:libs` limpio antes de seguir.
+47. **Bug real de logging incompleto en el fix round 1 de la Tarea 7**: el
+    path bulk (`notifyNewOrderInQueue`) del `ExpoNotificationAdapter`
+    solo iteraba sobre los usuarios que SÍ tenían push token registrado
+    (`findByUserIds` filtra con `inArray`, omite silenciosamente a los
+    que no tienen fila) — un despachador sin token quedaba sin ningún
+    registro en `push_logs`, violando la regla de "todo intento se
+    loguea, incluido el bloqueo por falta de token" (ya establecida desde
+    Fase 6 para SMTP). Detectado por el revisor de tarea, no por el
+    implementador ni el controller. Fix: iterar sobre la lista completa
+    de `despachadorUserIds` pedida, no sobre el resultado de la query, y
+    loguear `blocked` explícito para cada uno sin token — con test nuevo
+    que cubre exactamente ese caso.
+47.5. **Bug real de manejo de errores en producción, encontrado en el fix
+    round 1 de la Tarea 11 y solo confirmado correcto en el round 2**: el
+    primer intento de propagar el mensaje real de "email duplicado" al
+    admin (buscar el substring `"already exists"` en `error.message` del
+    lado cliente) funciona en `pnpm dev` pero nunca en producción — Next.js
+    App Router redacta el `error.message` de cualquier excepción que
+    escapa de una Server Action cuando corre con `next start` (que es como
+    deploya este proyecto), reemplazándolo por un texto genérico + digest
+    opaco. El re-revisor detectó esto verificando que `createStaffAction`
+    dejaba el `throw` de `registerStaffUser` sin capturar. Fix correcto
+    (round 2): `createStaffAction` devuelve un resultado tipado
+    `{ ok: true, plainPin } | { ok: false, message }` en vez de tirar — el
+    mensaje real viaja como dato serializado del retorno, que Next.js no
+    redacta, en vez de como `Error.message` de una excepción que cruza el
+    límite server/client.
+48. **Hallazgo real de integridad de datos en la revisión final de todo el
+    branch de Fase 7 (Opus, 19 commits)**: `assignDeliveryToOrder` nunca
+    validaba que el `deliveryUserId` recibido correspondiera realmente a
+    un usuario con `role === "delivery"` y `isActive === true` — solo
+    verificaba que la orden estuviera `ready_for_pickup`. Un despachador
+    (autenticado legítimamente, vía mobile o manipulando el dropdown web)
+    podía asignar la orden a un customer, un admin, o un delivery
+    desactivado; la orden pasaba a `out_for_delivery` y quedaba
+    inalcanzable para siempre (`findAssignedToDelivery` solo la muestra al
+    asignado, y `markOrderDelivered` solo la acepta de ese mismo usuario,
+    que si no es realmente un delivery activo nunca puede reclamarla) —
+    recuperable solo con un edit directo de DB. No es una escalación de
+    privilegios (el despachador ya está autenticado y autorizado a
+    asignar), es un hueco de integridad. Junto con otros 3 findings
+    Important (push notifications inertes del lado mobile, un caso de
+    código muerto sin documentar, y una costura sin documentar entre
+    `/admin/orders` y la máquina de estados nueva), se corrigieron los 4
+    en un único fix wave: guarda de dominio nueva
+    (`deps.users.findById(deliveryUserId)` + chequeo de rol/`isActive`,
+    con 4 tests nuevos) para este hallazgo, código real para el de push,
+    y documentación en `CLAUDE.md` para los otros dos. Re-verificado sin
+    nueva rotura antes de cerrar la fase.
 
 ## Próximos pasos
 
@@ -1133,3 +1334,59 @@ Fase 6 (nuevo en esta sesión):
     cualquier redirect a login, incluso si el usuario iba para
     `/account/settings`; `log.createdAt.toLocaleString()` en el admin
     formatea con el locale default del servidor, no con el de la página.
+- **Fase 7 — Apps de despachador/delivery (Expo) + gestión de staff:
+  código completo, commiteado (20 commits en `main`) y con revisión final
+  de todo el branch ya corregida. Falta lo siguiente:**
+  - **Deploy a producción: pendiente.** No se corrió ningún deploy en esta
+    sesión — antes de deployar, agregar `MOBILE_JWT_SECRET` y
+    `EXPO_PUBLIC_APP_SECRET` como variables de runtime del servicio
+    `apps/web` en EasyPanel (ninguna de las dos es `NEXT_PUBLIC_*`, así que
+    no hace falta pasarlas como `ARG`/`ENV` de build).
+  - **`apps/mobile`: nunca se probó contra un dispositivo/emulador real ni
+    contra un backend accesible** — ningún subagente de esta sesión tuvo
+    entorno para eso (ver reportes de las Tareas 14 y del fix wave final).
+    Antes de dar la app por funcional: `pnpm --filter apps/mobile run
+    start`, apuntar `EXPO_PUBLIC_API_BASE_URL` a un backend real accesible
+    desde el dispositivo (no `localhost` — usar la IP de la red local o un
+    túnel), crear un despachador y un delivery de prueba desde
+    `/admin/staff`, y probar de punta a punta: login con PIN, avanzar una
+    orden `received`→`in_prep`→`ready_for_pickup`, asignar el delivery de
+    prueba, loguear como ese delivery y marcarla `delivered`. Confirmar
+    también que el permiso de notificaciones push se pide correctamente y
+    que el token llega a `push_tokens` (agregado en el fix wave final, ver
+    Intentos fallidos #48).
+  - **`apps/mobile` queda fuera del gate de typecheck del monorepo** —
+    finding Minor de la revisión final, no corregido a propósito: no tiene
+    un script `"typecheck"` en su `package.json`, así que `pnpm run
+    typecheck` (raíz) nunca lo ejercita. Agregar
+    `"typecheck": "tsc --noEmit"` ahí es la corrección más barata del
+    lote de Minors diferidos.
+  - **`/dispatch` y `/delivery` sin guard de middleware** (a diferencia de
+    `/admin`, ver Intentos fallidos y el ledger de la Tarea 12) — un
+    acceso sin sesión o con rol equivocado hoy cae en la página de error
+    genérica de Next en vez de un redirect a `/login`. No es un hueco de
+    seguridad (`requireStaff` igual bloquea el acceso), solo UX menos
+    prolija; extender el middleware existente a estas dos rutas si se
+    quiere paridad completa con `/admin`.
+  - **Otros findings Minor de la revisión final, documentados pero no
+    corregidos por no ser bloqueantes** (ver el detalle completo en el
+    reporte de la revisión final si hace falta, no persistido como
+    archivo — solo quedó en la transcripción de esta sesión): HMAC del
+    cliente mobile firma solo el body del login sin timestamp (replay
+    posible pero de impacto bajo, la propia spec ya trata el HMAC como
+    filtro débil con el rate-limiting server-side como defensa real);
+    falta un índice en `orders.assigned_delivery_user_id` (la spec lo
+    pedía explícitamente); dos casos de `JSON.parse`/`verifyAppSignature`
+    en el login mobile devuelven un 500 crudo en vez de un 4xx prolijo;
+    `PushLogRepository.listAll()` implementado pero sin ninguna página
+    admin que lo muestre (a diferencia de `/admin/email-logs` para SMTP);
+    `resetStaffPinAction`/`toggleStaffActiveAction` aceptan cualquier
+    `userId` sin filtrar que sea realmente staff (alcance admin-only, bajo
+    riesgo); el nombre `EXPO_PUBLIC_APP_SECRET` es server-side-only en la
+    práctica pero el prefijo `EXPO_PUBLIC_` invita a confundirlo con algo
+    expuesto al cliente — vale un comentario aclaratorio la próxima vez
+    que se toque ese archivo.
+  - **Revisión de copy pendiente, mismo patrón que Fases 2/5**: los textos
+    nuevos de `dispatch`/`admin.staff` en `packages/i18n` (namespaces
+    agregados en esta sesión) son un primer borrador de Claude, no
+    revisados por Oscar.
