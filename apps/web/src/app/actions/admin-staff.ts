@@ -20,10 +20,14 @@ export async function createStaffAction(input: {
   email: string;
   role: Extract<UserRole, "despachador" | "delivery">;
   password: string;
-}): Promise<{ plainPin: string }> {
+}): Promise<{ ok: true; plainPin: string } | { ok: false; message: string }> {
   await requireAdmin();
-  const { plainPin } = await registerStaffUser(new DrizzleUserRepository(), input);
-  return { plainPin };
+  try {
+    const { plainPin } = await registerStaffUser(new DrizzleUserRepository(), input);
+    return { ok: true, plainPin };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
 
 export async function resetStaffPinAction(userId: string): Promise<{ plainPin: string }> {

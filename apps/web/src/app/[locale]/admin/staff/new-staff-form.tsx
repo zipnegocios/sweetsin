@@ -21,17 +21,20 @@ export function NewStaffForm() {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      const { plainPin } = await createStaffAction({ name, email, role, password });
-      setNewPin(plainPin);
+      const result = await createStaffAction({ name, email, role, password });
+      if (!result.ok) {
+        setSubmitError(
+          result.message.includes("already exists") ? t("staffFormEmailExists") : result.message || t("staffFormSubmitError"),
+        );
+        return;
+      }
+      setNewPin(result.plainPin);
       setName("");
       setEmail("");
       setPassword("");
       router.refresh();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      setSubmitError(
-        message.includes("already exists") ? t("staffFormEmailExists") : message || t("staffFormSubmitError"),
-      );
+    } catch {
+      setSubmitError(t("staffFormSubmitError"));
     } finally {
       setIsSubmitting(false);
     }
