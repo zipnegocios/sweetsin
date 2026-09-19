@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import * as Notifications from "expo-notifications";
 import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
@@ -12,6 +11,16 @@ const Stack = createNativeStackNavigator();
 
 async function registerPushToken(): Promise<void> {
   try {
+    // Expo Go (SDK 53+) eliminó el soporte de push remotas — el modulo
+    // expo-notifications dispara un error de runtime apenas se importa
+    // bajo Expo Go, no solo al invocarlo. Import dinamico + chequeo de
+    // appOwnership para no crashear toda la navegacion en ese entorno;
+    // en un development build/standalone (appOwnership !== "expo") esto
+    // no aplica y el registro real corre normal.
+    const Constants = (await import("expo-constants")).default;
+    if (Constants.appOwnership === "expo") return;
+
+    const Notifications = await import("expo-notifications");
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== "granted") return;
     const tokenData = await Notifications.getExpoPushTokenAsync();
