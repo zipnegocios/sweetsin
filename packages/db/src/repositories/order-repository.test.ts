@@ -1,10 +1,31 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import type { Order } from "@workspace/domain/orders";
 import { createOrder } from "@workspace/domain/orders";
 import { DrizzleProductRepository } from "./product-repository";
 import { DrizzleOrderRepository } from "./order-repository";
 import { DrizzleUserRepository } from "./user-repository";
 import { db } from "../index";
 import { productsTable } from "../schema";
+
+const minimalOrderInput: Omit<Order, "id"> = {
+  customerId: null,
+  customerName: "Test",
+  customerEmail: `test-${Date.now()}@example.com`,
+  customerPhone: "+61400000000",
+  fulfillmentType: "pickup",
+  deliveryAddress: null,
+  stopId: null,
+  paymentStatus: "pending",
+  fulfillmentStatus: "pending",
+  subtotalCents: 0,
+  discountCents: 0,
+  deliveryFeeCents: 0,
+  totalCents: 0,
+  channel: "web",
+  stripePaymentIntentId: null,
+  assignedDeliveryUserId: null,
+  items: [],
+};
 
 describe("DrizzleOrderRepository", () => {
   let productId: string;
@@ -195,5 +216,54 @@ describe("DrizzleOrderRepository", () => {
     const history = await orders.listByCustomerId(customer.id);
     expect(history).toHaveLength(1);
     expect(history[0].customerId).toBe(customer.id);
+  });
+
+  describe("findQueueForDespachador", () => {
+    it("devuelve solo ordenes paid + received/in_prep", async () => {
+      const repo = new DrizzleOrderRepository();
+      const paidReceived = await repo.create({
+        ...minimalOrderInput,
+        paymentStatus: "paid",
+        fulfillmentStatus: "received",
+      });
+      await repo.create({ ...minimalOrderInput, paymentStatus: "pending", fulfillmentStatus: "received" });
+      await repo.create({ ...minimalOrderInput, paymentStatus: "paid", fulfillmentStatus: "delivered" });
+
+      const queue = await repo.findQueueForDespachador();
+
+      expect(queue.map((o) => o.id)).toContain(paidReceived.id);
+      expect(queue.every((o) => o.paymentStatus === "paid")).toBe(true);
+      expect(queue.every((o) => ["received", "in_prep"].includes(o.fulfillmentStatus))).toBe(true);
+    });
+  });
+
+  describe("assignDelivery / findAssignedToDelivery", () => {
+    it("asigna un delivery y lo devuelve en su listado", async () => {
+      const repo = new DrizzleOrderRepository();
+      const users = new DrizzleUserRepository();
+      const deliveryUser = await users.create({
+        name: "Delivery Test",
+        email: `delivery-test-${Date.now()}@example.com`,
+        role: "delivery",
+        pinHash: null,
+        passwordHash: null,
+        isActive: true,
+        preferredLocale: "en",
+        failedPinAttempts: 0,
+        pinLockedUntil: null,
+      });
+
+      const order = await repo.create({
+        ...minimalOrderInput,
+        paymentStatus: "paid",
+        fulfillmentStatus: "ready_for_pickup",
+      });
+
+      await repo.assignDelivery(order.id, deliveryUser.id);
+      await repo.updateFulfillmentStatus(order.id, "out_for_delivery");
+
+      const assigned = await repo.findAssignedToDelivery(deliveryUser.id);
+      expect(assigned.map((o) => o.id)).toContain(order.id);
+    });
   });
 });

@@ -109,6 +109,41 @@ export class DrizzleOrderRepository implements OrderRepository {
     await db.update(ordersTable).set({ paymentStatus: status }).where(eq(ordersTable.id, orderId));
   }
 
+  async findQueueForDespachador(): Promise<Order[]> {
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.paymentStatus, "paid"),
+          or(eq(ordersTable.fulfillmentStatus, "received"), eq(ordersTable.fulfillmentStatus, "in_prep")),
+        ),
+      )
+      .orderBy(asc(ordersTable.createdAt));
+    return Promise.all(rows.map((row) => this.attachItems(row)));
+  }
+
+  async findAssignedToDelivery(deliveryUserId: string): Promise<Order[]> {
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.assignedDeliveryUserId, deliveryUserId),
+          eq(ordersTable.fulfillmentStatus, "out_for_delivery"),
+        ),
+      )
+      .orderBy(asc(ordersTable.createdAt));
+    return Promise.all(rows.map((row) => this.attachItems(row)));
+  }
+
+  async assignDelivery(orderId: string, deliveryUserId: string): Promise<void> {
+    await db
+      .update(ordersTable)
+      .set({ assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" })
+      .where(eq(ordersTable.id, orderId));
+  }
+
   private async attachItems(row: typeof ordersTable.$inferSelect): Promise<Order> {
     const itemRows = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, row.id));
     return {
