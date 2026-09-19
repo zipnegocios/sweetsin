@@ -219,12 +219,17 @@ describe("DrizzleOrderRepository", () => {
   });
 
   describe("findQueueForDespachador", () => {
-    it("devuelve solo ordenes paid + received/in_prep", async () => {
+    it("devuelve ordenes paid + received/in_prep/ready_for_pickup", async () => {
       const repo = new DrizzleOrderRepository();
       const paidReceived = await repo.create({
         ...minimalOrderInput,
         paymentStatus: "paid",
         fulfillmentStatus: "received",
+      });
+      const paidReadyForPickup = await repo.create({
+        ...minimalOrderInput,
+        paymentStatus: "paid",
+        fulfillmentStatus: "ready_for_pickup",
       });
       await repo.create({ ...minimalOrderInput, paymentStatus: "pending", fulfillmentStatus: "received" });
       await repo.create({ ...minimalOrderInput, paymentStatus: "paid", fulfillmentStatus: "delivered" });
@@ -232,8 +237,9 @@ describe("DrizzleOrderRepository", () => {
       const queue = await repo.findQueueForDespachador();
 
       expect(queue.map((o) => o.id)).toContain(paidReceived.id);
+      expect(queue.map((o) => o.id)).toContain(paidReadyForPickup.id);
       expect(queue.every((o) => o.paymentStatus === "paid")).toBe(true);
-      expect(queue.every((o) => ["received", "in_prep"].includes(o.fulfillmentStatus))).toBe(true);
+      expect(queue.every((o) => ["received", "in_prep", "ready_for_pickup"].includes(o.fulfillmentStatus))).toBe(true);
     });
   });
 

@@ -116,7 +116,11 @@ export class DrizzleOrderRepository implements OrderRepository {
       .where(
         and(
           eq(ordersTable.paymentStatus, "paid"),
-          or(eq(ordersTable.fulfillmentStatus, "received"), eq(ordersTable.fulfillmentStatus, "in_prep")),
+          or(
+            eq(ordersTable.fulfillmentStatus, "received"),
+            eq(ordersTable.fulfillmentStatus, "in_prep"),
+            eq(ordersTable.fulfillmentStatus, "ready_for_pickup"),
+          ),
         ),
       )
       .orderBy(asc(ordersTable.createdAt));
