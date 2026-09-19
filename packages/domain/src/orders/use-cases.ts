@@ -54,6 +54,7 @@ export async function createOrder(
     totalCents,
     channel: input.channel,
     stripePaymentIntentId: null,
+    assignedDeliveryUserId: null,
     items,
   });
 }
