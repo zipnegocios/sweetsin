@@ -1181,6 +1181,100 @@ Fase 7 (nuevo en esta sesión):
     con 4 tests nuevos) para este hallazgo, código real para el de push,
     y documentación en `CLAUDE.md` para los otros dos. Re-verificado sin
     nueva rotura antes de cerrar la fase.
+49. **Deploy real de `apps/web` a EasyPanel y validación de `apps/mobile`
+    contra dispositivo real con Expo Go, en una sesión posterior a la de
+    ejecución del plan** — encontró 4 bugs reales que ningún typecheck/test
+    automatizado podía agarrar (todos de UI/runtime de React Native, fuera
+    del alcance de lo que corre `pnpm run typecheck`/`vitest`):
+    - `MOBILE_JWT_SECRET` faltaba en las variables de entorno del servicio
+      `platforms/sweetsin-web` de EasyPanel (el owner solo había declarado
+      `EXPO_PUBLIC_APP_SECRET`) — el login mobile fallaba con 500 recién
+      después de validar credenciales, porque el Route Handler de login no
+      tiene try/catch alrededor de `signMobileJwt` (finding Minor ya
+      documentado en la revisión final de Fase 7, #7 de esa lista).
+      Corregido por el owner agregando la variable y redeployando.
+    - `expo-notifications` tira un error de runtime fatal ("[runtime not
+      ready]") apenas se importa de forma estática bajo Expo Go (SDK 53+
+      eliminó soporte de push remotas en el cliente Expo Go, solo funciona
+      en development builds) — crasheaba toda la app al arrancar, no solo
+      la función de registro de push. Fix: import dinámico de
+      `expo-notifications` + chequeo de `Constants.appOwnership === "expo"`
+      (deprecado pero más preciso que `executionEnvironment`, que agrupa
+      Expo Go y development builds bajo el mismo valor pese a que estos
+      últimos sí soportan push) antes de importar el módulo.
+    - `LoginScreen` no tenía ningún estilo — sin `SafeAreaView` ni padding,
+      el campo de email quedaba literalmente debajo de la barra de estado
+      del celular, inalcanzable. Fix: `SafeAreaView` (de
+      `react-native-safe-area-context`, ya era dependencia) + estilos
+      básicos, y `SafeAreaProvider` agregado en la raíz de `App.tsx`
+      (nunca se había agregado, requerido para que los insets se calculen
+      bien).
+    - `apps/mobile/.env` local (creado para esta prueba) apuntaba a
+      `EXPO_PUBLIC_API_BASE_URL=https://sweetsin.com.au`, con
+      `EXPO_PUBLIC_APP_SECRET` idéntico al declarado en
+      `apps/web/.env.local` — ambos gitignoreados, confirmado con
+      `git check-ignore -v`, nunca llegaron a stagear.
+50. **Modo túnel de Expo (`--tunnel`, necesario porque celular y compu
+    comparten la misma VPN que sale por la IP del VPS, así que el modo LAN
+    normal —`exp://10.9.0.10:8081`— es inalcanzable desde el celular)
+    falló dos veces con causas distintas**: primero `@expo/ngrok` no pudo
+    instalarse globalmente en Windows (símbolo `×` sin detalle de Expo
+    CLI) — resuelto instalándolo como devDependency local
+    (`pnpm --filter mobile add -D @expo/ngrok`) en vez de depender del
+    auto-install global. Después, con el paquete ya instalado local, el
+    túnel siguió fallando con `TypeError [ERR_INVALID_ARG_TYPE]: The
+    "file" argument must be of type string. Received null` — bug conocido
+    de `@expo/ngrok` con la estructura de `node_modules` que arma pnpm
+    (symlinks, distinta a la de npm) al intentar localizar su propio
+    binario. En vez de seguir depurando ese incompatibilidad de tooling,
+    se resolvió el problema de fondo: el owner desconectó la VPN del
+    celular para esta prueba puntual, dejándolo en el mismo Wi-Fi físico
+    que la compu, y el modo LAN sin túnel funcionó directo. Queda como
+    nota para el futuro: si hace falta el túnel de verdad (celular en otra
+    red), esta combinación pnpm+Windows+ngrok necesita más investigación o
+    un proveedor de túnel alternativo.
+51. **Bug real de diseño descubierto al probar el flujo completo en
+    dispositivo**: `findQueueForDespachador()` (Tarea 6 del plan de Fase
+    7) solo filtraba `fulfillmentStatus in (received, in_prep)` — una
+    orden que el despachador acababa de marcar "lista" (`ready_for_pickup`)
+    desaparecía de la cola entera antes de que hubiera forma de asignarle
+    un repartidor, tanto en `apps/mobile` como en `/dispatch` (misma
+    función de repositorio para ambas superficies). Ninguna revisión de
+    tarea ni la revisión final de todo el branch lo agarró porque el
+    scaffold de `apps/mobile` (Tarea 14) tampoco tenía la UI de asignación
+    todavía — el gap solo se manifestó al conectar ambas piezas en una
+    prueba end-to-end real. Fix: `findQueueForDespachador()` amplía el
+    filtro a incluir también `ready_for_pickup` (seguro por construcción,
+    una orden en ese estado nunca tiene `assignedDeliveryUserId` todavía);
+    test de repositorio actualizado para cubrir el caso.
+52. **Dos features completas faltaban en el scaffold de `apps/mobile`
+    (Tarea 14), ninguna señalada como hallazgo en su revisión de tarea
+    porque el código coincidía exactamente con lo que pedía el brief — el
+    brief mismo nunca las incluyó**: (1) `DespachadorQueueScreen` no tenía
+    ninguna UI para asignar repartidor cuando una orden llegaba a
+    `ready_for_pickup` (el brief de la Tarea 14 solo daba código para
+    `received`/`in_prep`) — fix: nuevo endpoint
+    `GET /api/mobile/delivery-staff` (listado de deliveries activos,
+    mismo patrón `requireMobileAuth` que el resto de la API mobile) +
+    selector de botones en la pantalla. (2) Ninguna pantalla tenía forma
+    de cerrar sesión — fix: `AuthContext` nuevo
+    (`apps/mobile/src/auth/context.tsx`) que expone `logout()`, provisto
+    en `RootNavigator` y consumido vía `navigation.setOptions({
+    headerRight: ... })` en ambas pantallas de cola.
+53. **Datos de prueba limpiados de la Postgres real** tras la validación
+    completa: 132 órdenes con "Test" en `customerName`/`customerEmail`
+    (acumuladas de corridas repetidas de `order-repository.test.ts` a lo
+    largo de varias sesiones — mismo patrón que #21/#22/#44), la orden
+    `QA Fase7 Flow Test` creada para el smoke test end-to-end, 3 órdenes
+    de test residuales que quedaron con `assignedDeliveryUserId` apuntando
+    al usuario QA delivery (bloqueaban el borrado del usuario por FK —
+    probablemente asignadas sin querer mientras se navegaba la cola real
+    en el celular, mezcladas con las órdenes de test que dejó la vitest
+    suite corrida en el medio de esta sesión), y los 2 usuarios de staff
+    QA (`qa-fase7-despachador@example.com`,
+    `qa-fase7-delivery@example.com`). Todos los scripts usados para
+    crear/borrar estos datos fueron temporales, nunca se stagearon ni
+    commitearon (mismo patrón que `reset-qa-password.ts` de Fase 4).
 
 ## Próximos pasos
 
@@ -1337,24 +1431,31 @@ Fase 7 (nuevo en esta sesión):
 - **Fase 7 — Apps de despachador/delivery (Expo) + gestión de staff:
   código completo, commiteado (20 commits en `main`) y con revisión final
   de todo el branch ya corregida. Falta lo siguiente:**
-  - **Deploy a producción: pendiente.** No se corrió ningún deploy en esta
-    sesión — antes de deployar, agregar `MOBILE_JWT_SECRET` y
-    `EXPO_PUBLIC_APP_SECRET` como variables de runtime del servicio
-    `apps/web` en EasyPanel (ninguna de las dos es `NEXT_PUBLIC_*`, así que
-    no hace falta pasarlas como `ARG`/`ENV` de build).
-  - **`apps/mobile`: nunca se probó contra un dispositivo/emulador real ni
-    contra un backend accesible** — ningún subagente de esta sesión tuvo
-    entorno para eso (ver reportes de las Tareas 14 y del fix wave final).
-    Antes de dar la app por funcional: `pnpm --filter apps/mobile run
-    start`, apuntar `EXPO_PUBLIC_API_BASE_URL` a un backend real accesible
-    desde el dispositivo (no `localhost` — usar la IP de la red local o un
-    túnel), crear un despachador y un delivery de prueba desde
-    `/admin/staff`, y probar de punta a punta: login con PIN, avanzar una
-    orden `received`→`in_prep`→`ready_for_pickup`, asignar el delivery de
-    prueba, loguear como ese delivery y marcarla `delivered`. Confirmar
-    también que el permiso de notificaciones push se pide correctamente y
-    que el token llega a `push_tokens` (agregado en el fix wave final, ver
-    Intentos fallidos #48).
+  - **Deploy a producción: completo, sesión posterior.** `apps/web` con
+    los 20 commits de Fase 7 deployado en EasyPanel (`platforms/sweetsin-web`)
+    y verificado (`MOBILE_JWT_SECRET`/`EXPO_PUBLIC_APP_SECRET` declaradas
+    en el servicio, build exitoso, `/dispatch`/`/delivery`/`/admin/staff`
+    confirmados `force-dynamic` — no congelados pese al símbolo `●` del
+    resumen de `next build`, mismo gotcha que #12 de Fase 2). Deploys de
+    seguimiento aplicados en la misma sesión para los 2 commits del fix de
+    `findQueueForDespachador` y el endpoint `delivery-staff` (Intentos
+    fallidos #51/#52).
+  - **`apps/mobile` — probada de punta a punta en dispositivo real con
+    Expo Go (sesión posterior, ver Intentos fallidos #49-53) y
+    funcionando: login por PIN → JWT → cola → `in_prep` →
+    `ready_for_pickup` → asignar delivery → `out_for_delivery` → login como
+    delivery → `delivered`, confirmado en cada paso contra la Postgres
+    real.** En el camino se encontraron y corrigieron 4 bugs reales
+    invisibles a typecheck/tests (crash de `expo-notifications` en Expo
+    Go, layout roto de `LoginScreen`, `findQueueForDespachador` sin
+    `ready_for_pickup`, y dos features completas faltantes en el scaffold
+    — asignación de delivery y logout, ninguna de las dos estaba en el
+    brief original de la Tarea 14). **Push notifications reales
+    (`expo-notifications` en un development build, no Expo Go) siguen sin
+    probarse** — Expo Go dejó de soportar push remotas desde el SDK 53,
+    así que esa parte del flujo (`notifyDeliveryAssigned` de punta a
+    punta) solo se puede validar con un EAS development build real, fuera
+    de alcance de esta sesión.
   - **`apps/mobile` queda fuera del gate de typecheck del monorepo** —
     finding Minor de la revisión final, no corregido a propósito: no tiene
     un script `"typecheck"` en su `package.json`, así que `pnpm run
