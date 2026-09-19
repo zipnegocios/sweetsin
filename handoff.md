@@ -1275,6 +1275,29 @@ Fase 7 (nuevo en esta sesión):
     `qa-fase7-delivery@example.com`). Todos los scripts usados para
     crear/borrar estos datos fueron temporales, nunca se stagearon ni
     commitearon (mismo patrón que `reset-qa-password.ts` de Fase 4).
+54. **Validación del flujo web (`/dispatch`/`/delivery`), misma sesión**:
+    encontró un quinto gap real, mismo patrón que el logout de `apps/mobile`
+    (#52) — ninguna de las dos páginas tenía forma de cerrar sesión. Fix:
+    botón "Sign out" agregado directo en `dispatch/page.tsx` y
+    `delivery/page.tsx`, reusando `signOutAction` ya existente (mismo
+    patrón que `admin/layout.tsx`, sin crear un layout nuevo). Con el fix,
+    el flujo completo `received→in_prep→ready_for_pickup→asignar
+    delivery→out_for_delivery→delivered` se confirmó de punta a punta
+    contra producción real, verificado en la DB en cada paso (incluido un
+    falso positivo propio: la primera verificación corrió antes de que el
+    owner terminara de hacer los clicks, llevando a reportar erróneamente
+    que la orden no había cambiado — corregido re-consultando después).
+    Limpieza final: la orden `QA Fase7 Web Flow Test`, los 2 usuarios
+    `qa-fase7-web-*@example.com`, y 7 órdenes de test adicionales
+    (`Test`/`List Test A/B`/`Customer History Test`) que habían quedado de
+    otra corrida de `order-repository.test.ts` en el medio de esta sesión.
+    **Sin tocar**: 66 órdenes `Jane Doe`/`jane@example.com` en `pending`
+    detectadas en la misma limpieza — ruido preexistente no relacionado
+    con Fase 7 (ya se había limpiado una vez en Fase 4, mismo patrón que
+    #21/#22/#44, volvió a acumularse por corridas de tests desde
+    entonces); no interfieren con la cola del despachador porque nunca
+    llegan a `paid`, así que se dejaron sin borrar a la espera de que el
+    owner confirme si quiere limpiarlas.
 
 ## Próximos pasos
 
@@ -1456,6 +1479,10 @@ Fase 7 (nuevo en esta sesión):
     así que esa parte del flujo (`notifyDeliveryAssigned` de punta a
     punta) solo se puede validar con un EAS development build real, fuera
     de alcance de esta sesión.
+  - **`/dispatch` y `/delivery` (web) — probados de punta a punta contra
+    producción real y funcionando** (ver Intentos fallidos #54): mismo
+    flujo completo que mobile, con un quinto gap encontrado y corregido en
+    el camino (ninguna de las dos páginas tenía botón de logout).
   - **`apps/mobile` queda fuera del gate de typecheck del monorepo** —
     finding Minor de la revisión final, no corregido a propósito: no tiene
     un script `"typecheck"` en su `package.json`, así que `pnpm run
