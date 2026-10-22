@@ -77,6 +77,15 @@ jobs:
           echo "Using build-tools at $BT_DIR"
           echo "$BT_DIR" >> "$GITHUB_PATH"
 
+      - name: Verify release has no dev client
+        run: |
+          set -euo pipefail
+          aapt2 dump xmltree --file AndroidManifest.xml apps/mobile/android/app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/manifest.txt"
+          if grep -E 'expo\.modules\.(devlauncher|devmenu)' "$RUNNER_TEMP/manifest.txt"; then
+            echo "::error::el APK de release incluye el cliente de desarrollo (expo-dev-client)"
+            exit 1
+          fi
+
       - name: Decode release keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

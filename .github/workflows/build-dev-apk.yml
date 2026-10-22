@@ -1,0 +1,95 @@
+name: Build APK (staff, desarrollo)
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: URL base de la API de apps/web que consumira la app
+        required: true
+        default: https://sweetsin.com.au
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      API_BASE_URL: ${{ inputs.api_base_url }}
+      APP_VARIANT: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Gate (typecheck y tests)
+        run: |
+          pnpm run typecheck
+          pnpm --filter mobile run test
+          pnpm --filter @workspace/domain run test
+
+      - name: Guards
+        run: |
+          if [ -z "${API_BASE_URL// /}" ]; then
+            echo "::error::api_base_url esta vacio"
+            exit 1
+          fi
+          if grep -rn "APP_SECRET" apps/mobile/src; then
+            echo "::error::APP_SECRET no debe aparecer en apps/mobile/src"
+            exit 1
+          fi
+
+      - name: Expo prebuild (android)
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url }}
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Gradle assembleDebug
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url }}
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Add Android build-tools to PATH
+        run: |
+          BT_DIR="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
+          echo "Using build-tools at $BT_DIR"
+          echo "$BT_DIR" >> "$GITHUB_PATH"
+
+      - name: Inspect APK
+        run: |
+          set -euo pipefail
+          APK=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          aapt2 dump badging "$APK" > "$RUNNER_TEMP/badging.txt"
+          fail=0
+
+          pkg=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/badging.txt")
+          label=$(sed -n "s/^application-label:'\(.*\)'$/\1/p" "$RUNNER_TEMP/badging.txt" | head -n1)
+          echo "package=$pkg label=$label"
+
+          [ "$pkg" = "au.com.sweetsin.staff.dev" ] || { echo "::error::package name inesperado: $pkg"; fail=1; }
+          [ "$label" = "Sweet Sin Staff (Dev)" ] || { echo "::error::application-label inesperado: $label"; fail=1; }
+
+          exit $fail
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sweetsin-staff-dev-${{ github.run_number }}
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
