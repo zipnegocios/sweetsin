@@ -16,7 +16,8 @@
     "./notifications": "./src/notifications/index.ts",
     "./settings": "./src/settings/index.ts",
     "./cart": "./src/cart/index.ts",
-    "./delivery-tracking": "./src/delivery-tracking/index.ts"
+    "./delivery-tracking": "./src/delivery-tracking/index.ts",
+    "./routing": "./src/routing/index.ts"
   },
   "scripts": {
     "test": "vitest run"
