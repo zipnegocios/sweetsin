@@ -1,8 +1,8 @@
 # Design system mobile — Sweet Sin Staff (APK Android)
 
-> **Fuente única de verdad del diseño de `apps/mobile`.** Código: `apps/mobile/src/theme/` (tokens) y `apps/mobile/src/ui/` (kit).
+> **Fuente única de verdad del diseño de `apps/mobile`.** Código: `apps/mobile/src/design-system/` (tokens, temas y kit; ver sección 10).
 > **Versión reconciliada**, derivada de `docs/design/mobile-design-system-justificacion.md` (documento del owner: paleta de 6 colores, Atkinson Hyperlegible, las 12 decisiones aprobadas). Donde este documento y la justificación difieran, **gana la justificación**. Es **independiente** del design system de la web (que no se toca): no importa nada de ella ni verifica paridad.
-> Estado: **para revisión del owner** (Task 9a, Step 0). El kit (Task 9b) no se implementa hasta su aprobación; las decisiones abiertas están en la sección 9.
+> Estado: **implementado** (Task 9b). Las decisiones abiertas de la sección 9 se resolvieron con los valores propuestos en este documento.
 
 Contexto de uso: herramienta de trabajo de campo para despachador (trailer), delivery (calle, a pleno sol, a una mano) y, en el Plan 2, admin. El **delivery es el caso más exigente**: el sistema se diseña para ese caso y los demás lo heredan. Solo tema claro, solo vertical. Todos los textos visibles salen de `packages/i18n` (`staffApp.*`); este documento solo da ideas de texto, no el copy final.
 
@@ -220,7 +220,7 @@ Texto deshabilitado queda exento de WCAG; aun así `textQuiet` sobre `tintPresse
 
 ## 4. Kit de componentes
 
-Presentacionales (sin datos ni red), en `apps/mobile/src/ui/`, solo con tokens. Ningún alto es fijo: siempre `minHeight` (principio 9). El kit **no incluye `TextField`**.
+Presentacionales (sin datos ni red), en `apps/mobile/src/design-system/` (capas en la sección 10), solo con tokens. Ningún alto es fijo: siempre `minHeight` (principio 9). El kit **no incluye `TextField`**.
 
 ### Button
 - **Props:** `{ label: string; onPress: () => void; variant?: "primary" | "secondary" | "ghost"; loading?: boolean; disabled?: boolean; accessibilityHint?: string }` (default `primary`).
@@ -347,7 +347,7 @@ Reglas: nunca humor en errores, confirmaciones destructivas ni textos de accesib
 
 ## 9. Decisiones abiertas para el revisor
 
-Las 12 decisiones de la justificación están aprobadas y se aplican tal cual. Queda abierto:
+Las 12 decisiones de la justificación están aprobadas y se aplican tal cual. **Resueltas en la Task 9b con el valor provisorio de la tabla** (Q3 Fraunces Black Italic, Q-A primaria navy, C1 se mantiene `#2F7D5B` y se prohíbe texto success sobre cream, C2 borde gold solo dentro de `Card`, Q-D ícono `#0F1B3D` sin tocar, Q-F glifo `→`, Q-G y Q-H como se proponen):
 
 | # | Tema | Qué se decidió provisoriamente | Qué se pide |
 |---|------|-------------------------------|-------------|
@@ -360,3 +360,86 @@ Las 12 decisiones de la justificación están aprobadas y se aplican tal cual. Q
 | Q-F | **Glifo `→` de `out_for_delivery`** | La lista del owner (○ ◐ ● ✓ ✕ ↻ ↑ ⊘) no incluye un glifo para "en camino"; se conserva `→` del borrador | Aprobar `→` y sumarlo a la QA de glifos en más de un fabricante, o indicar otro. |
 | Q-G | **Valores derivados sin color propio** | `border` = navy 16 %, `tintPressed` = navy 8 %, primaria presionada = opacidad 0,85 (derivados de navy, no entran a la tabla base de 6) | Confirmar. |
 | Q-H | **Ubicación de `text.quiet` / `text.brand`** | `textQuiet` es token semántico de color; `text.quiet` (estilo) lo usa; `text.brand` es el estilo del wordmark. `textMuted` del borrador desaparece | Confirmar. |
+
+---
+
+## 10. Arquitectura atómica
+
+Todo vive en `apps/mobile/src/design-system/`. Diseño Atómico sobre tokens por capas: **la dependencia solo va hacia abajo**, y un ajuste visual (color, tamaño, espacio) se hace en un token o en un tema, nunca en una pantalla.
+
+| Capa | Carpeta | Contenido | Puede importar |
+|---|---|---|---|
+| 1. Tokens primitivos | `tokens/` | `palette` (6 colores base) y `brandPalette`, `space`, `radius`, `type` (familias, tamaños, alturas de línea), `motion`, `touch`: valores sin significado | nada |
+| 2. Temas (semánticos) | `themes/` | tipo `Theme` y los temas `outdoor`, `indoor`, `brand`: colores semánticos (2.2), `textPairs`, tipografía, densidad táctil, movimiento; `contrastRatio` (WCAG 2.x) | `tokens/` |
+| 3. Tokens de componente | `themes/components.ts` | `buildComponentTokens(theme)`: qué token usa cada componente en cada estado (2.3 y 5), con medidas | `tokens/`, `themes/` |
+| Núcleo | raíz | `ThemeProvider`, `useTheme()`, `useReduceMotion()` | capas 1-3 |
+| Átomos | `atoms/` | `Text`, `Glyph`, `Touchable`, `Surface`, `Spacer` | capas anteriores, React, react-native |
+| Moléculas | `molecules/` | `Button`, `StatusPill`, `Card`, `Banner`, `BrandMark` | átomos y capas anteriores |
+| Organismos | `organisms/` | `ScreenHeader`, `EmptyState`, `OfflineBanner` | moléculas, átomos y capas anteriores |
+| Plantillas | `templates/` | `ScreenLayout({ header?, banner?, bottomBar?, scroll?, children })`: área segura, cabecera, banner, contenido y barra de acción inferior en la zona del pulgar. Con `scroll` (por defecto `true`) el contenido va en un `ScrollView` con padding `lg` y separación `md`; con `scroll={false}` va en un `View` `flex: 1` sin padding, para que una `FlatList` con `RefreshControl` haga su propio scroll (nunca una lista virtualizada dentro de un `ScrollView`) | todo lo anterior |
+| API pública | `index.ts` | temas, núcleo y componentes | — |
+
+Reglas (las hace cumplir `src/design-system/architecture.test.ts`, que lee los `import` de cada archivo):
+
+- Dirección de capas de la tabla; `tokens/` no importa nada; nadie de adentro importa `index.ts`; **solo los temas leen `palette`**.
+- Frontera: dentro de `design-system/` solo se importan los paquetes de una lista cerrada: `react`, `react-native`, `react-native-safe-area-context`, `expo-image` y `expo-status-bar` (así no entran `@expo/vector-icons` ni módulos de almacenamiento o efectos como `expo-secure-store`, `expo-sqlite` o `expo-notifications`). Única salida permitida: las imágenes de `assets/brand/` (las usa `BrandMark`). Nada de `packages/i18n`, la API, el almacenamiento ni `src/screens`: los textos llegan por props, así la carpeta se puede extraer a un paquete compartido con un `git mv`.
+- Ningún archivo del núcleo, átomos, moléculas, organismos ni plantillas contiene colores literales (`#RRGGBB`, `rgb(`, `rgba(`) ni `fontFamily:` con un nombre literal: todo sale de `useTheme()`.
+- Las pantallas importan UI solo desde `design-system` (su `index.ts`), sin colores ni `fontFamily:` literales (`src/design-rules.test.ts`, con una lista explícita de excepciones heredadas).
+
+`App.tsx` carga Atkinson Hyperlegible (regular y bold, `@expo-google-fonts/atkinson-hyperlegible`; los nombres de familia son las claves del tema), retiene `expo-splash-screen` hasta que las fuentes cargan **o fallan** (con fallo abre con la fuente del sistema) y envuelve la app en `ThemeProvider theme={outdoor}`.
+
+## 11. Temas
+
+Los tres temas cumplen **el mismo tipo `Theme`** (paridad de claves probada en `themes.test.ts`) y cada par de `textPairs` cumple su umbral (`contrast.test.ts`). Solo `outdoor` tiene consumidores hoy; `indoor` y `brand` se definen y se prueban para que una APK futura los elija sin tocar componentes.
+
+| tema | para quién | colores | tocables | tipografía | movimiento |
+|------|-----------|---------|----------|------------|------------|
+| `outdoor` | delivery a pleno sol (APK actual) | paleta base de 6 (2.1 y 2.2) | `min` 48, `primary` **56** | Atkinson; píldora 13 sp bold, botón 18, título 24 | sección 6 |
+| `indoor` | despachador y admin (sin consumidores) | **idénticos** a `outdoor` (mismos pares, mismos contrastes, sección 3) | `min` 48, `primary` 48 (densidad relajada) | Atkinson; título 22/28 y botón 16/24, el resto como `outdoor` | igual |
+| `brand` | APK de clientes (sin consumidores) | paleta de marca (abajo) | `min` 48, `primary` 48 | **Fraunces** (display: `brand` y `title`) + **DM Sans** (cuerpo), declaradas por nombre y **no empaquetadas**: la APK que use el tema las carga | igual |
+
+En `outdoor` la variante `brand` (Fraunces Black Italic, 32/36) queda reservada para el wordmark del login; la APK de delivery todavía no empaqueta Fraunces.
+
+### Paleta del tema `brand`
+
+Copiada una sola vez de la identidad de marca (no se importa nada de la web). Formato distinto al de la tabla base a propósito: el test de coherencia lee solo las 6 filas de 2.1.
+
+| token `brandPalette` | nombre de marca | valor | rol semántico |
+|----------------------|-----------------|-------|---------------|
+| sinRed | Sin Red | `#E63946` | `actionFill`, `danger` |
+| midnightNavy | Midnight Navy | `#0F1B3D` | `textPrimary`, `link`, `info` |
+| cream | Cream | `#F7F3EE` | `background` |
+| vanilla | Vanilla | `#FDFAF7` | `surface`, `actionLabel` |
+| arequipeGold | Arequipe Gold | `#C9943A` | `warning` (relleno, nunca texto) |
+| success | Verde éxito | `#2F7D5B` | `success` |
+
+`textQuiet` sigue en `#5A6378`; `border` y `tintPressed` son Midnight Navy al 16 % y al 8 %.
+
+### Contraste del tema `brand` (calculado con `contrastRatio`)
+
+Pares permitidos (`brand.textPairs`):
+
+| texto | fondo | ratio | tamaño | uso |
+|-------|-------|-------|--------|-----|
+| midnightNavy | cream | 15,28 | normal | texto general |
+| midnightNavy | vanilla | 16,23 | normal | texto en tarjetas |
+| midnightNavy | arequipeGold | 6,25 | normal | banner, píldoras doradas |
+| vanilla | midnightNavy | 16,23 | normal | cabecera, píldora en camino |
+| vanilla | sinRed | 4,01 | **grande** (≥ 18 sp bold) | botón primario |
+| sinRed | cream | 3,77 | **grande** | titular rojo grande |
+| sinRed | vanilla | 4,01 | **grande** | titular rojo grande en tarjeta |
+| vanilla | success | 4,80 | normal | píldora entregado |
+| success | vanilla | 4,80 | normal | píldora evidencia enviada |
+| success | cream | 4,52 | normal | texto de éxito (en `brand` sí pasa) |
+| quiet | cream | 5,45 | normal | texto secundario |
+| quiet | vanilla | 5,79 | normal | texto secundario en tarjeta |
+
+Pares prohibidos en `brand` (evidenciados en `contrast.test.ts`):
+
+| texto | fondo | ratio | por qué se prohíbe |
+|-------|-------|-------|--------------------|
+| vanilla | sinRed | 4,01 | falla 4,5 con texto pequeño: **la píldora `cancelled` (13 sp) y cualquier etiqueta chica sobre rojo no se usan con `brand`** hasta que la APK de clientes lo resuelva (p. ej. etiqueta ≥ 18 sp bold) |
+| sinRed | cream / vanilla | 3,77 / 4,01 | nunca texto rojo pequeño sobre claro: errores en texto normal no pueden ir en `danger` con este tema |
+| arequipeGold | cream / vanilla | 2,44 / 2,60 | el dorado nunca es texto; como borde de `pending_sync` sobre vanilla **no llega a 3:1** (2,60): ahí es solo decoración, el glifo ↻ y el texto llevan el significado |
+| quiet | midnightNavy | 2,80 | sobre navy solo vanilla |
+| midnightNavy | success | 3,38 | sobre success solo vanilla |
