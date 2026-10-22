@@ -34,6 +34,16 @@ describe("makeDeliverSender", () => {
     expect(await send(command)).toEqual({ kind: "retry" });
   });
 
+  it.each([408, 429])("%i -> retry (fallo transitorio, no borra el comando)", async (status) => {
+    const send = makeDeliverSender(async () => new Response("", { status }));
+    expect(await send(command)).toEqual({ kind: "retry" });
+  });
+
+  it.each([400, 403, 404, 409])("%i sigue siendo conflict", async (status) => {
+    const send = makeDeliverSender(async () => new Response("{}", { status }));
+    expect(await send(command)).toEqual({ kind: "conflict", reason: `HTTP ${status}` });
+  });
+
   it("TypeError de red -> retry", async () => {
     const send = makeDeliverSender(async () => {
       throw new TypeError("Network request failed");

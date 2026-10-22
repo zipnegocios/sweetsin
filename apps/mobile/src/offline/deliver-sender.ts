@@ -14,7 +14,7 @@ export function makeDeliverSender(
     }
     if (res.ok) return { kind: "ok" };
     if (res.status === 401) return { kind: "unauthorized" };
-    if (res.status >= 500) return { kind: "retry" };
+    if (res.status === 408 || res.status === 429 || res.status >= 500) return { kind: "retry" };
     const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
     return {
       kind: "conflict",
