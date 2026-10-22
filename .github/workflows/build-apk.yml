@@ -63,7 +63,13 @@ jobs:
         working-directory: apps/mobile
         env:
           EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url }}
-        run: npx expo prebuild --platform android --clean --no-install
+          # Clave publica restringida por paquete y SHA-1; solo la lee app.config.ts durante el prebuild.
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+        run: |
+          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
+            echo "::warning::Falta el secreto GOOGLE_MAPS_ANDROID_API_KEY: el mapa de la ruta no cargara en este APK"
+          fi
+          npx expo prebuild --platform android --clean --no-install
 
       - name: Gradle assembleRelease
         working-directory: apps/mobile/android

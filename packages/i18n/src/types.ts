@@ -328,6 +328,12 @@ export interface Dictionary {
     shiftForegroundOnly: string;
     shiftLocationDenied: string;
     shiftFailed: string;
+    routeShow: string;
+    routeHide: string;
+    etaLabel: string;
+    routeLocationDenied: string;
+    routeUnavailable: string;
+    routeLoading: string;
     shiftNotificationTitle: string;
     shiftNotificationBody: string;
   };

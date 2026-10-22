@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Linking, RefreshControl } from "react-native";
+import { getLocales } from "expo-localization";
+import * as Location from "expo-location";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
 import { useAuth } from "../auth/context";
@@ -20,9 +22,13 @@ import {
   useTheme,
 } from "../design-system";
 import { makeCoalescer } from "../hooks/coalesce";
-import { withTimeout } from "../hooks/with-timeout";
+import { rejectAfter, withTimeout } from "../hooks/with-timeout";
 import { usePolling } from "../hooks/use-polling";
-import { strings } from "../i18n";
+import { resolveLocale, strings } from "../i18n";
+import { formatEta } from "../maps/format-eta";
+import { ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQUEST_TIMEOUT_MS } from "../maps/limits";
+import { RouteMap } from "../maps/RouteMap";
+import type { RouteInfo } from "../maps/types";
 import { clearAssigned, loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
 import { captureEvidence, type CaptureResult } from "../evidence/capture-evidence";
 import { evidenceDeps } from "../evidence/evidence-deps";
@@ -34,7 +40,27 @@ import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent
 
 const POLL_MS = 30_000;
 const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
+const ROUTE_MAP_HEIGHT = 200;
 const s = strings.staffApp;
+const locale = resolveLocale(getLocales()[0]?.languageCode);
+
+type RouteState =
+  | { orderId: string; status: "loading" }
+  | { orderId: string; status: "ok"; route: RouteInfo }
+  | { orderId: string; status: "unavailable" | "denied" };
+
+/** Origen del repartidor. Con `ask` pide el permiso (solo al tocar "Ver ruta"); sin `ask` exige que ya esté concedido. */
+async function readOrigin(ask: boolean): Promise<{ lat: number; lng: number } | "denied" | "unavailable"> {
+  const permission = ask
+    ? await Location.requestForegroundPermissionsAsync()
+    : await Location.getForegroundPermissionsAsync();
+  if (!permission.granted) return "denied";
+  const pos = await rejectAfter(
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    ROUTE_LOCATION_TIMEOUT_MS,
+  ).catch(() => Location.getLastKnownPositionAsync());
+  return pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : "unavailable";
+}
 
 export function DeliveryQueueScreen() {
   const theme = useTheme();
@@ -55,6 +81,10 @@ export function DeliveryQueueScreen() {
   ordersRef.current = orders;
   const cancelled = useRef(false);
   const evidenceBusy = useRef(false);
+  const [routeState, setRouteState] = useState<RouteState | null>(null);
+  const [mapOrderId, setMapOrderId] = useState<string | null>(null);
+  const routeSeq = useRef(0);
+  const selectedIdRef = useRef<string | undefined>(undefined);
 
   const run = useCallback(async () => {
     if (cancelled.current) return;
@@ -105,10 +135,62 @@ export function DeliveryQueueScreen() {
     resumeShift().then(setShiftOn, () => {});
   }, []);
 
+  // Nunca lanza: cualquier fallo deja la tarjeta sin ETA. Una respuesta tardía de otra orden se descarta.
+  const loadRoute = useCallback(async (orderId: string, ask: boolean): Promise<"denied" | undefined> => {
+    const seq = ++routeSeq.current;
+    const apply = (next: RouteState | null) => {
+      if (seq === routeSeq.current && selectedIdRef.current === orderId) setRouteState(next);
+    };
+    try {
+      if (ask) apply({ orderId, status: "loading" });
+      const origin = await readOrigin(ask);
+      if (origin === "denied") {
+        apply(ask ? { orderId, status: "denied" } : null); // sin permiso previo: sin ETA y sin error
+        return "denied";
+      }
+      if (origin === "unavailable") {
+        apply({ orderId, status: "unavailable" });
+        return;
+      }
+      const res = await rejectAfter(
+        apiFetch(`/api/mobile/orders/${orderId}/route?lat=${origin.lat}&lng=${origin.lng}`),
+        ROUTE_REQUEST_TIMEOUT_MS,
+      );
+      if (!res.ok) {
+        apply({ orderId, status: "unavailable" });
+        return;
+      }
+      apply({ orderId, status: "ok", route: (await res.json()) as RouteInfo });
+    } catch {
+      apply({ orderId, status: "unavailable" });
+    }
+  }, []);
+
+  const currentSelectedId = (orders.find((o) => o.id === selectedId) ?? orders[0])?.id;
+  selectedIdRef.current = currentSelectedId;
+
+  // ETA de la orden seleccionada: al cambiar la selección (sin temporizador y sin pedir permisos).
+  useEffect(() => {
+    routeSeq.current++; // invalida cualquier respuesta en vuelo de la orden anterior
+    setRouteState(null);
+    if (currentSelectedId) void loadRoute(currentSelectedId, false);
+  }, [currentSelectedId, loadRoute]);
+
   const pullToRefresh = async () => {
     setRefreshing(true);
+    const id = selectedIdRef.current;
+    if (id) void loadRoute(id, false);
     await refresh();
     setRefreshing(false);
+  };
+
+  const toggleRoute = async (orderId: string) => {
+    if (mapOrderId === orderId) {
+      setMapOrderId(null);
+      return;
+    }
+    setMapOrderId(orderId);
+    if ((await loadRoute(orderId, true)) === "denied") alertSettings(s.routeLocationDenied, s.routeShow);
   };
 
   const deliver = async (orderId: string) => {
@@ -126,8 +208,8 @@ export function DeliveryQueueScreen() {
     await refresh();
   };
 
-  const alertSettings = (message: string) =>
-    Alert.alert(s.evidenceAdd, message, [
+  const alertSettings = (message: string, title: string = s.evidenceAdd) =>
+    Alert.alert(title, message, [
       { text: s.cancelLabel, style: "cancel" },
       { text: s.openSettings, onPress: () => void Linking.openSettings() },
     ]);
@@ -299,7 +381,7 @@ export function DeliveryQueueScreen() {
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
-        extraData={[selected?.id, pendingIds, evidenceSentIds]}
+        extraData={[selected?.id, pendingIds, evidenceSentIds, routeState, mapOrderId]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void pullToRefresh()} colors={[theme.colors.actionFill]} />
         }
@@ -367,6 +449,32 @@ export function DeliveryQueueScreen() {
                     {item.customerPhone}
                   </Text>
                 </Touchable>
+                {isSelected && routeState?.orderId === item.id && routeState.status === "ok" ? (
+                  <Text variant="title">
+                    {s.etaLabel}: {formatEta(routeState.route.etaSeconds, routeState.route.distanceMeters, locale)}
+                  </Text>
+                ) : null}
+                {isSelected && address ? (
+                  <Button
+                    label={mapOrderId === item.id ? s.routeHide : s.routeShow}
+                    variant="ghost"
+                    accessibilityHint={item.customerName}
+                    onPress={() => void toggleRoute(item.id)}
+                  />
+                ) : null}
+                {isSelected && mapOrderId === item.id && routeState?.orderId === item.id ? (
+                  routeState.status === "ok" ? (
+                    <RouteMap route={routeState.route} height={ROUTE_MAP_HEIGHT} />
+                  ) : (
+                    <Text variant="quiet">
+                      {routeState.status === "loading"
+                        ? s.routeLoading
+                        : routeState.status === "denied"
+                          ? s.routeLocationDenied
+                          : s.routeUnavailable}
+                    </Text>
+                  )
+                ) : null}
                 {isSelected ? <Text variant="label">{s.selected}</Text> : null}
               </Card>
             </Touchable>
