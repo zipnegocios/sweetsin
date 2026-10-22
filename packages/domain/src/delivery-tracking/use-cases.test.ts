@@ -44,6 +44,14 @@ describe("recordDeliveryLocation", () => {
     expect(rows.get("d1")).toMatchObject({ lat: 25.7, lng: -80.2, accuracyMeters: 12 });
   });
 
+  it("acepta accuracyMeters null y 0", async () => {
+    const { repo, rows } = fakeLocations();
+    const deps = { locations: repo, users: fakeUsers({}) };
+    await recordDeliveryLocation(deps, input({ accuracyMeters: null }), NOW);
+    await recordDeliveryLocation(deps, input({ accuracyMeters: 0 }), NOW);
+    expect(rows.get("d1")).toMatchObject({ accuracyMeters: 0 });
+  });
+
   it.each(["customer", "admin", "despachador"] as const)("rechaza el rol %s", async (role) => {
     const { repo, rows } = fakeLocations();
     await expect(
@@ -67,6 +75,9 @@ describe("recordDeliveryLocation", () => {
     ["lng < -180", { lng: -180.1 }],
     ["lat NaN", { lat: NaN }],
     ["lng NaN", { lng: NaN }],
+    ["accuracy negativa", { accuracyMeters: -1 }],
+    ["accuracy NaN", { accuracyMeters: NaN }],
+    ["accuracy Infinity", { accuracyMeters: Infinity }],
   ])("rechaza coordenadas invalidas: %s", async (_n, o) => {
     const { repo, rows } = fakeLocations();
     await expect(recordDeliveryLocation({ locations: repo, users: fakeUsers({}) }, input(o), NOW)).rejects.toThrow();

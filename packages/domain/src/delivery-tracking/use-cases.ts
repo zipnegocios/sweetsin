@@ -15,6 +15,9 @@ export async function recordDeliveryLocation(
   }
   if (!(input.lat >= -90 && input.lat <= 90)) throw new Error("Latitude out of range");
   if (!(input.lng >= -180 && input.lng <= 180)) throw new Error("Longitude out of range");
+  if (input.accuracyMeters !== null && !(Number.isFinite(input.accuracyMeters) && input.accuracyMeters >= 0)) {
+    throw new Error("Accuracy must be a non-negative finite number");
+  }
   const age = now.getTime() - input.recordedAt.getTime();
   if (!(age >= -MAX_FUTURE_MS)) throw new Error("Location timestamp is in the future");
   if (!(age <= MAX_AGE_MS)) throw new Error("Location timestamp is too old");

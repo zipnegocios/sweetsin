@@ -55,6 +55,7 @@ describe("PUT /api/mobile/location", () => {
     expect((await PUT(req("PUT", { ...valid(), recordedAt: "nope" }))).status).toBe(400);
     expect((await PUT(req("PUT", { ...valid(), lng: null }))).status).toBe(400);
     expect((await PUT(req("PUT", { lat: 1, lng: 1 }))).status).toBe(400);
+    expect((await PUT(req("PUT", { ...valid(), accuracyMeters: -5 }))).status).toBe(400);
     expect(state.saved).toHaveLength(0);
   });
 

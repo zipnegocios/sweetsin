@@ -2,7 +2,8 @@ import type { LatLng, RouteInfo, RoutePlanner } from "@workspace/domain/routing"
 
 // Cada calculo con trafico es una llamada paga: se memoriza por destino + origen a ~100 m.
 export class CachingRoutePlanner implements RoutePlanner {
-  private readonly entries = new Map<string, { route: RouteInfo; expiresAt: number }>();
+  // Se guarda la promesa: dos fallos de cache simultaneos con la misma clave comparten una sola llamada.
+  private readonly entries = new Map<string, { route: Promise<RouteInfo>; expiresAt: number }>();
   private readonly now: () => number;
 
   constructor(
@@ -24,8 +25,13 @@ export class CachingRoutePlanner implements RoutePlanner {
     const hit = this.entries.get(key);
     if (hit) return hit.route;
 
-    const route = await this.inner.computeRoute(origin, destinationAddress);
-    this.entries.set(key, { route, expiresAt: now + this.opts.ttlMs });
+    const route = this.inner.computeRoute(origin, destinationAddress);
+    const entry = { route, expiresAt: now + this.opts.ttlMs };
+    this.entries.set(key, entry);
+    // Los errores nunca se cachean.
+    route.catch(() => {
+      if (this.entries.get(key) === entry) this.entries.delete(key);
+    });
     return route;
   }
 }

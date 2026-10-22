@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
   planner: null as null | ((...a: unknown[]) => Promise<unknown>),
   dbCalls: 0,
   plannerCalls: 0,
+  findError: null as Error | null,
 }));
 
 const errors = vi.hoisted(() => {
@@ -19,7 +20,12 @@ const errors = vi.hoisted(() => {
       super("No route found for this destination.");
     }
   }
-  return { RoutesNotConfiguredError, RouteNotFoundError };
+  class RoutesUpstreamError extends Error {
+    constructor() {
+      super("Routes upstream failed with secret-key-text");
+    }
+  }
+  return { RoutesNotConfiguredError, RouteNotFoundError, RoutesUpstreamError };
 });
 
 vi.mock("../../../_lib/require-mobile-auth", () => ({ requireMobileAuth: async () => state.session }));
@@ -27,6 +33,7 @@ vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {
     async findById() {
       state.dbCalls++;
+      if (state.findError) throw state.findError;
       return state.order;
     }
   },
@@ -41,7 +48,7 @@ vi.mock("@/infra/google-routes-planner", () => {
   return { GoogleRoutesPlanner, ...errors };
 });
 
-const { RoutesNotConfiguredError, RouteNotFoundError } = errors;
+const { RoutesNotConfiguredError, RouteNotFoundError, RoutesUpstreamError } = errors;
 let GET: typeof import("./route").GET;
 
 const ctx = { params: Promise.resolve({ id: "o1" }) };
@@ -69,6 +76,7 @@ beforeEach(async () => {
   };
   state.planner = async () => route;
   state.dbCalls = 0;
+  state.findError = null;
 });
 
 afterEach(() => {
@@ -109,6 +117,33 @@ describe("GET /api/mobile/orders/[id]/route", () => {
       throw new RouteNotFoundError();
     };
     expect((await GET(req("?lat=25.7&lng=-80.2"), ctx)).status).toBe(409);
+  });
+
+  it("502 neutro ante un fallo de Google, sin texto upstream", async () => {
+    state.planner = async () => {
+      throw new RoutesUpstreamError();
+    };
+    const res = await GET(req("?lat=25.7&lng=-80.2"), ctx);
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body).toEqual({ error: "Routes service unavailable." });
+    expect(JSON.stringify(body)).not.toContain("secret-key-text");
+  });
+
+  it("500 generico ante un error inesperado, sin filtrar su mensaje", async () => {
+    state.planner = async () => {
+      throw new Error("connection to db-internal:5432 refused");
+    };
+    const res = await GET(req("?lat=25.7&lng=-80.2"), ctx);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal error" });
+  });
+
+  it("500 si falla la lectura de la orden", async () => {
+    state.findError = new Error("pg exploded");
+    const res = await GET(req("?lat=25.7&lng=-80.2"), ctx);
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain("pg exploded");
   });
 
   it("503 sin clave de Routes", async () => {

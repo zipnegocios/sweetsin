@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getRouteForOrder } from "./use-cases";
+import { DomainRuleError, getRouteForOrder, OrderNotFoundError } from "./use-cases";
 import type { RouteInfo, RoutePlanner } from "./entities";
 import type { Order } from "../orders/entities";
 import type { OrderRepository } from "../orders/ports";
@@ -37,23 +37,29 @@ describe("getRouteForOrder", () => {
 
   it("rechaza una orden inexistente", async () => {
     const { deps } = setup(null);
-    await expect(getRouteForOrder(deps, "o1", actor, origin)).rejects.toThrow("Order not found");
+    await expect(getRouteForOrder(deps, "o1", actor, origin)).rejects.toBeInstanceOf(OrderNotFoundError);
   });
 
   it("rechaza a otro delivery", async () => {
     const { deps, planner } = setup();
-    await expect(getRouteForOrder(deps, "o1", { ...actor, userId: "d2" }, origin)).rejects.toThrow(/assigned delivery/);
+    const p = getRouteForOrder(deps, "o1", { ...actor, userId: "d2" }, origin);
+    await expect(p).rejects.toThrow(/assigned delivery/);
+    await expect(p).rejects.toBeInstanceOf(DomainRuleError);
     expect(planner.computeRoute).not.toHaveBeenCalled();
   });
 
   it.each(["pending", "ready_for_pickup", "delivered", "cancelled"] as const)("rechaza el estado %s", async (s) => {
     const { deps } = setup({ fulfillmentStatus: s });
-    await expect(getRouteForOrder(deps, "o1", actor, origin)).rejects.toThrow(/status/);
+    const p = getRouteForOrder(deps, "o1", actor, origin);
+    await expect(p).rejects.toThrow(/status/);
+    await expect(p).rejects.toBeInstanceOf(DomainRuleError);
   });
 
   it("rechaza deliveryAddress nula", async () => {
     const { deps } = setup({ deliveryAddress: null });
-    await expect(getRouteForOrder(deps, "o1", actor, origin)).rejects.toThrow(/address/);
+    const p = getRouteForOrder(deps, "o1", actor, origin);
+    await expect(p).rejects.toThrow(/address/);
+    await expect(p).rejects.toBeInstanceOf(DomainRuleError);
   });
 
   it.each([
@@ -65,7 +71,9 @@ describe("getRouteForOrder", () => {
     [{ lat: 0, lng: NaN }, /Longitude/],
   ])("rechaza el origen %j", async (o, msg) => {
     const { deps, planner } = setup();
-    await expect(getRouteForOrder(deps, "o1", actor, o)).rejects.toThrow(msg);
+    const p = getRouteForOrder(deps, "o1", actor, o);
+    await expect(p).rejects.toThrow(msg);
+    await expect(p).rejects.toBeInstanceOf(DomainRuleError);
     expect(planner.computeRoute).not.toHaveBeenCalled();
   });
 });

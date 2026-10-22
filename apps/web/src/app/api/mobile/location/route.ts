@@ -7,7 +7,7 @@ import { requireMobileAuth } from "../_lib/require-mobile-auth";
 const bodySchema = z.object({
   lat: z.number().finite(),
   lng: z.number().finite(),
-  accuracyMeters: z.number().finite().nullish(),
+  accuracyMeters: z.number().finite().nonnegative().nullish(),
   recordedAt: z.iso.datetime(),
 });
 

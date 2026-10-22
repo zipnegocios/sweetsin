@@ -64,6 +64,23 @@ describe("CachingRoutePlanner", () => {
     expect(inner.computeRoute).toHaveBeenCalledTimes(2);
   });
 
+  it("dos llamadas simultaneas con la misma clave llaman una sola vez al interno", async () => {
+    const { inner, planner } = setup();
+    const [a, b] = await Promise.all([planner.computeRoute(o, "A"), planner.computeRoute(o, "A")]);
+    expect(b).toBe(a);
+    expect(inner.computeRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it("si la llamada en vuelo falla, ambas fallan y la siguiente reintenta", async () => {
+    const { inner, planner } = setup();
+    vi.mocked(inner.computeRoute).mockRejectedValueOnce(new Error("boom"));
+    const results = await Promise.allSettled([planner.computeRoute(o, "A"), planner.computeRoute(o, "A")]);
+    expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+    expect(inner.computeRoute).toHaveBeenCalledTimes(1);
+    await planner.computeRoute(o, "A");
+    expect(inner.computeRoute).toHaveBeenCalledTimes(2);
+  });
+
   it("acota el tamano del mapa descartando entradas vencidas", async () => {
     const { planner, advance } = setup();
     for (let i = 0; i < 5; i++) await planner.computeRoute(o, `addr${i}`);

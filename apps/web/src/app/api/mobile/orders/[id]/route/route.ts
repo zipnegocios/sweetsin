@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
-import { getRouteForOrder } from "@workspace/domain/routing";
+import { DomainRuleError, getRouteForOrder, OrderNotFoundError } from "@workspace/domain/routing";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 import { CachingRoutePlanner } from "@/infra/caching-route-planner";
-import { GoogleRoutesPlanner, RoutesNotConfiguredError } from "@/infra/google-routes-planner";
+import {
+  GoogleRoutesPlanner,
+  RouteNotFoundError,
+  RoutesNotConfiguredError,
+  RoutesUpstreamError,
+} from "@/infra/google-routes-planner";
 import { requireMobileAuth } from "../../../_lib/require-mobile-auth";
 
 // Singleton de modulo: la cache persiste entre requests dentro del mismo proceso.
@@ -40,9 +45,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (error instanceof RoutesNotConfiguredError) {
       return NextResponse.json({ error: error.message }, { status: 503 });
     }
-    // Reglas de dominio y "sin ruta" (RouteNotFoundError): 404 si la orden no existe, 409 en el resto.
-    const message = error instanceof Error ? error.message : "Conflict";
-    const status = message.startsWith("Order not found") ? 404 : 409;
-    return NextResponse.json({ error: message }, { status });
+    // Texto neutro: el error upstream podria reflejar detalles del proveedor.
+    if (error instanceof RoutesUpstreamError) {
+      return NextResponse.json({ error: "Routes service unavailable." }, { status: 502 });
+    }
+    if (error instanceof OrderNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    // Reglas de dominio y "sin ruta para esa direccion": mensajes propios, seguros de mostrar.
+    if (error instanceof DomainRuleError || error instanceof RouteNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    // Cualquier otro error (DB, bug) no se expone al cliente.
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

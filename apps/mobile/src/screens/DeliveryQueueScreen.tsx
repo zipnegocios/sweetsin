@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Linking, RefreshControl } from "react-native";
-import { getLocales } from "expo-localization";
 import * as Location from "expo-location";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
@@ -24,9 +23,10 @@ import {
 import { makeCoalescer } from "../hooks/coalesce";
 import { rejectAfter, withTimeout } from "../hooks/with-timeout";
 import { usePolling } from "../hooks/use-polling";
-import { resolveLocale, strings } from "../i18n";
+import { locale, strings } from "../i18n";
 import { formatEta } from "../maps/format-eta";
-import { ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQUEST_TIMEOUT_MS } from "../maps/limits";
+import { ROUTE_LOCATION_LOOKUP_TIMEOUT_MS, ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQUEST_TIMEOUT_MS } from "../maps/limits";
+import { parseRouteInfo } from "../maps/parse-route-info";
 import { RouteMap } from "../maps/RouteMap";
 import type { RouteInfo } from "../maps/types";
 import { clearAssigned, loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
@@ -42,7 +42,6 @@ const POLL_MS = 30_000;
 const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
 const ROUTE_MAP_HEIGHT = 200;
 const s = strings.staffApp;
-const locale = resolveLocale(getLocales()[0]?.languageCode);
 
 type RouteState =
   | { orderId: string; status: "loading" }
@@ -51,14 +50,15 @@ type RouteState =
 
 /** Origen del repartidor. Con `ask` pide el permiso (solo al tocar "Ver ruta"); sin `ask` exige que ya esté concedido. */
 async function readOrigin(ask: boolean): Promise<{ lat: number; lng: number } | "denied" | "unavailable"> {
+  // El dialogo del sistema (request) queda sin plazo: el repartidor puede tardar en contestarlo. Solo el `get` no interactivo lo lleva.
   const permission = ask
     ? await Location.requestForegroundPermissionsAsync()
-    : await Location.getForegroundPermissionsAsync();
+    : await rejectAfter(Location.getForegroundPermissionsAsync(), ROUTE_LOCATION_LOOKUP_TIMEOUT_MS);
   if (!permission.granted) return "denied";
   const pos = await rejectAfter(
     Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
     ROUTE_LOCATION_TIMEOUT_MS,
-  ).catch(() => Location.getLastKnownPositionAsync());
+  ).catch(() => withTimeout(Location.getLastKnownPositionAsync(), ROUTE_LOCATION_LOOKUP_TIMEOUT_MS));
   return pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : "unavailable";
 }
 
@@ -83,6 +83,8 @@ export function DeliveryQueueScreen() {
   const evidenceBusy = useRef(false);
   const [routeState, setRouteState] = useState<RouteState | null>(null);
   const [mapOrderId, setMapOrderId] = useState<string | null>(null);
+  const routeStateRef = useRef(routeState);
+  routeStateRef.current = routeState;
   const routeSeq = useRef(0);
   const selectedIdRef = useRef<string | undefined>(undefined);
 
@@ -139,13 +141,16 @@ export function DeliveryQueueScreen() {
   const loadRoute = useCallback(async (orderId: string, ask: boolean): Promise<"denied" | undefined> => {
     const seq = ++routeSeq.current;
     const apply = (next: RouteState | null) => {
-      if (seq === routeSeq.current && selectedIdRef.current === orderId) setRouteState(next);
+      if (!cancelled.current && seq === routeSeq.current && selectedIdRef.current === orderId) setRouteState(next);
     };
     try {
       if (ask) apply({ orderId, status: "loading" });
       const origin = await readOrigin(ask);
       if (origin === "denied") {
-        apply(ask ? { orderId, status: "denied" } : null); // sin permiso previo: sin ETA y sin error
+        // Sin permiso previo: sin ETA y sin error; un refresco no interactivo no pisa un aviso "denied" visible.
+        const current = routeStateRef.current;
+        if (ask) apply({ orderId, status: "denied" });
+        else if (!(current?.orderId === orderId && current.status === "denied")) apply(null);
         return "denied";
       }
       if (origin === "unavailable") {
@@ -160,7 +165,8 @@ export function DeliveryQueueScreen() {
         apply({ orderId, status: "unavailable" });
         return;
       }
-      apply({ orderId, status: "ok", route: (await res.json()) as RouteInfo });
+      const route = parseRouteInfo(await res.json());
+      apply(route ? { orderId, status: "ok", route } : { orderId, status: "unavailable" });
     } catch {
       apply({ orderId, status: "unavailable" });
     }
@@ -173,6 +179,7 @@ export function DeliveryQueueScreen() {
   useEffect(() => {
     routeSeq.current++; // invalida cualquier respuesta en vuelo de la orden anterior
     setRouteState(null);
+    setMapOrderId(null); // el mapa abierto pertenecia a la orden anterior
     if (currentSelectedId) void loadRoute(currentSelectedId, false);
   }, [currentSelectedId, loadRoute]);
 

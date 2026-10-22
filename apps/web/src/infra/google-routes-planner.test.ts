@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GoogleRoutesPlanner, RoutesNotConfiguredError, RouteNotFoundError } from "./google-routes-planner";
+import { GoogleRoutesPlanner, RoutesNotConfiguredError, RouteNotFoundError, RoutesUpstreamError } from "./google-routes-planner";
 
 const KEY = "test-routes-key-123";
 const okBody = {
@@ -76,5 +76,56 @@ describe("GoogleRoutesPlanner", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.message).toContain("403");
     expect(err.message).not.toContain(KEY);
+  });
+
+  it("envia una senal de timeout a fetch", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(okBody), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await new GoogleRoutesPlanner().computeRoute(origin, "x");
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it.each(["TimeoutError", "AbortError"])("un %s se convierte en RoutesUpstreamError", async (name) => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new DOMException("late", name); }));
+    await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).rejects.toBeInstanceOf(RoutesUpstreamError);
+  });
+
+  it("un fallo de red se convierte en RoutesUpstreamError", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).rejects.toBeInstanceOf(RoutesUpstreamError);
+  });
+
+  it("un HTTP no 2xx es RoutesUpstreamError", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 500 })));
+    await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).rejects.toBeInstanceOf(RoutesUpstreamError);
+  });
+
+  it("sin distanceMeters (proto3 omite el 0) devuelve distancia 0", async () => {
+    const route = { ...okBody.routes[0], duration: "0s", distanceMeters: undefined };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ routes: [route] }), { status: 200 })));
+    await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).resolves.toMatchObject({
+      distanceMeters: 0,
+      etaSeconds: 0,
+    });
+  });
+
+  it("un 200 que no es JSON es RoutesUpstreamError sin texto del cuerpo", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>", { status: 200 })));
+    const err = await new GoogleRoutesPlanner().computeRoute(origin, "x").then(() => new Error("no lanzo"), (e: Error) => e);
+    expect(err).toBeInstanceOf(RoutesUpstreamError);
+    expect(err.message).not.toContain("html");
+  });
+
+  it.each([
+    ["sin polyline", { ...okBody.routes[0], polyline: undefined }],
+    ["duration no parseable", { ...okBody.routes[0], duration: "abc" }],
+    ["distanceMeters presente no numerico", { ...okBody.routes[0], distanceMeters: "abc" }],
+    ["sin duration", { ...okBody.routes[0], duration: undefined }],
+    ["legs es un objeto", { ...okBody.routes[0], legs: {} }],
+    ["legs sin endLocation", { ...okBody.routes[0], legs: [{}] }],
+  ])("un 200 con forma inesperada (%s) es RoutesUpstreamError", async (_n, route) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ routes: [route] }), { status: 200 })));
+    await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).rejects.toBeInstanceOf(RoutesUpstreamError);
   });
 });
