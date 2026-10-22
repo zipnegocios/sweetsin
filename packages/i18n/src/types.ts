@@ -282,4 +282,7 @@ export interface Dictionary {
     settingsSaved: string;
     settingsError: string;
   };
+  staffApp: {
+    offlineBanner: string;
+  };
 }

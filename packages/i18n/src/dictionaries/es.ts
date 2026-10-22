@@ -285,4 +285,7 @@ export const es: Dictionary = {
     settingsSaved: "Guardado.",
     settingsError: "No pudimos guardar tu preferencia. Intentá de nuevo.",
   },
+  staffApp: {
+    offlineBanner: "Sin conexión. Los cambios se sincronizarán al reconectar.",
+  },
 };

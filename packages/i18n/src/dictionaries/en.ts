@@ -284,4 +284,7 @@ export const en: Dictionary = {
     settingsSaved: "Saved.",
     settingsError: "Couldn't save your preference. Please try again.",
   },
+  staffApp: {
+    offlineBanner: "You are offline. Changes will sync when you reconnect.",
+  },
 };
