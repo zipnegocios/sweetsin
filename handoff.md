@@ -37,6 +37,10 @@ fix wave único al cierre. Sesión 7 (esta): spec + plan bite-sized de Fase 7
 más revisión final de todo el branch en Opus y un fix wave único al
 cierre.
 
+### Sesión APK de staff (2026-10-20/21)
+
+Dejar la APK de staff (`apps/mobile`) lista para un repartidor real **enfocada solo en el delivery**: login por PIN, cola offline, evidencia opcional, ruta/ETA con tráfico y turno con seguimiento. Plan: `docs/superpowers/plans/2026-10-20-apk-fundacion-delivery-offline.md`; spec: `docs/superpowers/specs/2026-10-20-apk-multirol-design.md`; decisiones y acciones del owner: `docs/superpowers/decisiones-pendientes-apk.md`; ledger de la ejecución (rulings R1-R25 y menores diferidos): `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/progress.md`. Push remoto descartado (D1). Diferidos: despachador, mapa de flota, admin, TV y pedidos presenciales.
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -347,6 +351,24 @@ corrida tarea por tarea durante la ejecución).
   deliberadamente — no es un hueco de seguridad (el acceso ya está
   bloqueado por `requireStaff`), solo UX menos prolija, y el plan nunca
   pidió esa cobertura.
+
+### Sesión APK de staff (2026-10-20/21)
+
+- **Código completo, sin commitear:** las 24 unidades de trabajo (Tasks 1-7, 9a, 9b, 10-18, 21, 22 y arreglo de la prueba de íconos) están en el índice de git (`git add`); el owner las commitea con `bash .superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/commit-por-tarea.sh` (24 commits, uno por tarea). Task 8 (push) descartada; Task 19 (mapa de flota) y la pantalla del despachador diferidas. Plan, spec, documento de justificación y `decisiones-pendientes-apk.md` se commitean aparte.
+- **Verificado por tests (no en teléfono):** domain 137, web (infra + `api/mobile`) 67, mobile 149, i18n 1 (cifras del ledger al cierre de la Task 22). **Nada se ha probado en un teléfono real ni con las claves reales** (R2, Google): eso es la Task 20 del owner, con `docs/superpowers/checklist-dispositivo-delivery.md`.
+- **Esquema aplicado a la base compartida** (dev = prod): columnas `delivery_evidence_*` en `orders`, flag `deliveryEvidenceRequired` en `settings` (inactivo) y tabla `delivery_locations` (aditivas, 0 filas de prueba al aplicarse).
+- **Workflows nunca ejecutados en GitHub:** `.github/workflows/build-apk.yml` (release firmada) y `build-dev-apk.yml` (build de desarrollo `.dev`). Faltan los secretos y el primer despacho.
+- **Sin credenciales reales aún:** R2 (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; bucket `sweet-delivery`) y Google (`GOOGLE_ROUTES_API_KEY` en el servidor; `GOOGLE_MAPS_ANDROID_API_KEY` como secreto de GitHub). Sin ellas la evidencia y la ruta responden 503, sin simular nada; el resto funciona.
+
+**Riesgos conocidos**
+- **Batería y datos durante el turno:** el seguimiento envía posición en segundo plano; el umbral de envío está en `apps/mobile/src/tracking/send-policy.ts`. Medir consumo real en un turno largo.
+- **Fabricantes que cierran procesos en segundo plano** (ahorro de batería agresivo de algunas marcas): el seguimiento puede cortarse; probar en al menos dos marcas y, si hace falta, indicar al repartidor cómo excluir la app del ahorro.
+- **Consentimiento legal del seguimiento (Q6):** lo define el equipo legal; el texto de consentimiento actual es un texto de trabajo, sujeto a revisión legal. No pasar a repartidores reales sin cerrarlo.
+- **Costos de Google Maps Platform:** cada ETA con tráfico es una llamada paga (Routes API) y el mapa consume Maps SDK. Se acota con caché de servidor de 60 s (en memoria, por instancia), ETA solo de la orden seleccionada y solo con permiso ya concedido. Configurar cuotas y alertas de presupuesto en Google Cloud.
+- **`DELETE /api/mobile/location` con sesión expirada:** si el JWT venció (o `signOut` borra el token antes de que salga el DELETE), la baja sale sin token y la fila queda; el servidor la descarta por antigüedad (más de 10 min) en las lecturas, pero no se borra. Menor recomendado: subir el límite de `signOut` a ~8 s.
+- **Retención de la evidencia:** hoy 7 días (ampliable a 30), **pendiente de confirmación legal**. No hay job de borrado implementado; definir la regla de ciclo de vida del bucket de R2 cuando legal confirme.
+- **La subida de la foto a R2 podría quedar vacía** (el endpoint de registro no hace HEAD del objeto): verificar tamaño > 0 en la Task 20; si falla, cambiar a `expo-file-system` con subida BINARY_CONTENT por PUT.
+- **El build de desarrollo nunca debe llegar a un repartidor real** (ver `CLAUDE.md`).
 
 ## Archivos y cambios
 
@@ -715,6 +737,14 @@ Fase 7 (nuevo en esta sesión):
   Architecture decisions (arquitectura de Fase 7 completa + nota de
   `notifyNewOrderInQueue` sin caller), Gotchas (`/admin/orders` desconectado
   de la máquina de estados de despachador/delivery).
+
+### Sesión APK de staff (2026-10-20/21)
+
+Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/progress.md` y en los `review-task*.diff` de esa carpeta. Resumen:
+- **Servidor (`apps/web`, `packages/domain`, `packages/db`):** `markOrderDelivered` idempotente; `confirmOrderPayment` notifica a staff (`notifyNewOrderInQueue`); `updateOrderStatusAction` coordinado con las transiciones del dominio; evidencia (`/api/mobile/orders/[id]/evidence` y `.../evidence/upload-url`, adaptador R2); ruta/ETA (`/api/mobile/orders/[id]/route`, planificador Google Routes con caché); seguimiento (`/api/mobile/location` PUT/DELETE, tabla `delivery_locations`); eliminado el HMAC de app (`EXPO_PUBLIC_APP_SECRET`).
+- **App (`apps/mobile`):** identidad (nombre "Sweet Sin Staff", íconos, splash), `app.config.ts` con variante `APP_VARIANT=development`, `src/offline/` (SQLite + cola), `src/evidence/`, `src/maps/`, `src/tracking/`, `src/design-system/` (atómico, temas outdoor/indoor/brand), `src/i18n`, `DeliveryQueueScreen` y `LoginScreen` reconstruidas sobre el design system.
+- **CI:** `.github/workflows/build-apk.yml` (release firmada, falla si el APK trae `devlauncher`/`devmenu`) y `.github/workflows/build-dev-apk.yml`.
+- **Docs:** `CLAUDE.md` (Run & Operate, Where things live y Architecture decisions actualizados; quitadas las notas ya resueltas de `notifyNewOrderInQueue` y de `/admin/orders`), `docs/design/mobile-design-system*.md`, `docs/superpowers/checklist-dispositivo-delivery.md`, este `handoff.md`.
 
 ## Intentos fallidos
 
@@ -1302,6 +1332,17 @@ Fase 7 (nuevo en esta sesión):
     desechable, DB real sin ninguna orden de test conocida al cierre de
     esta sesión.
 
+### Sesión APK de staff (2026-10-20/21)
+
+(Solo se agregan entradas; el detalle completo está en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/progress.md`.)
+- **El harness deniega `git commit`:** dos intentos de commit (con autorización del owner por chat) fueron denegados por permisos; no se esquivó. Se entregó `commit-por-tarea.sh` para que lo ejecute el owner (ahora 24 commits).
+- **Task 8 (push remoto) descartada** por decisión del owner (D1): dependía de Firebase, secretos y teléfono; no se implementó.
+- **`brand/assets.test.ts` fallaba siempre por timeout** (unos 9k `expect` por imagen con `sharp`): se corrigió con un solo contador y timeout explícito (Task 21), porque rompía el gate de CI.
+- **Conflictos del plan resueltos por rulings:** el test de i18n importaba un módulo con código nativo (R1); `design-rules.test.ts` fallaba con pantallas heredadas (R2); el layout del documento de diseño (barra inferior) ganó sobre el del plan (R20).
+- **Rondas de corrección por revisión:** carreras en el refresco de la lista offline y en `signOut` (Task 11); sin timeouts en la captura de evidencia (Task 13); posición residual tras "Terminar turno" y tarea de seguimiento viva sin bandera (Task 18B); caché compartida entre tests y errores de Google mapeados a 409 (Tasks 17A/22).
+- **Credenciales pegadas en el chat:** el secreto de R2 llegó enmascarado y no se escribió en ningún archivo; el token mostrado cubre todos los buckets (ver M4).
+- **Menores diferidos, aún abiertos:** en el ledger (p. ej. `db.ts` cachea un rechazo de `openDatabaseAsync`, guard de doble toque en la evidencia, `trim()` del email en el login).
+
 ## Próximos pasos
 
 - **Deploy a producción (Tarea 17 del plan de Fase 2): completo y
@@ -1521,3 +1562,21 @@ Fase 7 (nuevo en esta sesión):
     nuevos de `dispatch`/`admin.staff` en `packages/i18n` (namespaces
     agregados en esta sesión) son un primer borrador de Claude, no
     revisados por Oscar.
+
+### Sesión APK de staff (2026-10-20/21)
+
+**Acciones manuales del owner** (detalle en `docs/superpowers/decisiones-pendientes-apk.md`, sección C):
+1. **M1:** `bash .superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/commit-por-tarea.sh` (24 commits). Luego commitear aparte el plan, el spec, `docs/design/*`, `decisiones-pendientes-apk.md`, `CLAUDE.md`, `handoff.md` y el checklist.
+2. **M2:** generar el keystore (`keytool` en `C:\Program Files\Java\jre-1.8\bin\`) y cargar los secretos `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+3. **M3:** push a `main` y despachar los dos workflows (release y desarrollo).
+4. **M4:** `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY` (más `R2_ACCOUNT_ID` y `R2_BUCKET=sweet-delivery`) en `apps/web/.env.local` y EasyPanel; usar un token limitado al bucket, con solo lectura y escritura de objetos.
+5. **M5:** borrar `EXPO_PUBLIC_APP_SECRET` de `apps/web/.env.local` y de EasyPanel.
+6. **M6:** proyecto de Google Cloud con facturación; `GOOGLE_ROUTES_API_KEY` (servidor) y secreto de GitHub `GOOGLE_MAPS_ANDROID_API_KEY` (restringida por package + SHA-1; cubrir `au.com.sweetsin.staff` y `.dev`). Cuotas y alertas de presupuesto.
+7. **M7:** un teléfono Android real que permita instalar APK.
+8. Recompilar el build de desarrollo una vez (módulos nativos nuevos: SQLite, cámara, ubicación, mapas, tareas en segundo plano).
+
+**Después:** recorrer `docs/superpowers/checklist-dispositivo-delivery.md` en el teléfono (Task 20, Steps 2-3), limpiar los datos de prueba (órdenes, filas de `delivery_locations`, objetos de evidencia en R2 y su registro en la base) y cerrar la revisión final de toda la rama.
+
+**Decisiones abiertas** (sección A del documento de decisiones): Q-A (botón primario navy), C1/C2 (contraste del verde sobre Concha y del borde dorado), Q3 (Fraunces solo en el wordmark), Q-F (glifo "→" a validar en fabricantes), Q-E (mascota en SVG/PNG de al menos 1024 px), Q7 (botón de turno, ya implementado), Q8 y Q9. Q6 (consentimiento legal) y la retención de evidencia 7 a 30 días, con legal.
+
+**Diferido:** pantalla del despachador, mapa de flota (Task 19: `GET /fleet`, `listSince`, `listFleetPositions`), admin móvil, TV, pedidos presenciales, ETA del despachador; vista admin web que lea las fotos con URL prefirmada; job de retención de evidencia; menores recomendados antes del merge (ver ledger).
