@@ -2,6 +2,11 @@ import { isNetworkError } from "../api/network";
 
 export type LoginError = "invalid" | "offline" | "server";
 
+/** El email se envía y se evalúa sin espacios al borde; el campo conserva lo tipeado. */
+export function normalizeLoginEmail(email: string): string {
+  return email.trim();
+}
+
 /** Habilita el envío solo con un email con "@" y un PIN de exactamente 6 dígitos. */
 export function canSubmitLogin(email: string, pin: string): boolean {
   return email.includes("@") && /^\d{6}$/.test(pin);

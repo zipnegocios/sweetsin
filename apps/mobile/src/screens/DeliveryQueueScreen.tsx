@@ -33,6 +33,7 @@ import { sqliteCommandStore } from "../offline/sqlite-command-store";
 import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent, startShift } from "../tracking/shift";
 
 const POLL_MS = 30_000;
+const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
 const s = strings.staffApp;
 
 export function DeliveryQueueScreen() {
@@ -53,6 +54,7 @@ export function DeliveryQueueScreen() {
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
   const cancelled = useRef(false);
+  const evidenceBusy = useRef(false);
 
   const run = useCallback(async () => {
     if (cancelled.current) return;
@@ -74,6 +76,7 @@ export function DeliveryQueueScreen() {
           setOffline(false);
         } else {
           nextNotice = res.status === 401 ? s.sessionExpired : s.serverError;
+          setOffline(false); // cualquier respuesta HTTP prueba que hay red
           setOrders(await loadAssigned());
         }
       } catch (error) {
@@ -131,13 +134,18 @@ export function DeliveryQueueScreen() {
 
   // Opcional y no bloqueante: cualquier fallo solo avisa; "Marcar entregado" sigue disponible.
   const addEvidence = async (orderId: string) => {
+    if (evidenceBusy.current) return;
+    evidenceBusy.current = true;
     const proceed = await new Promise<boolean>((resolve) =>
       Alert.alert(s.evidenceAdd, s.evidenceWhy, [
         { text: s.cancelLabel, style: "cancel", onPress: () => resolve(false) },
         { text: s.continueLabel, onPress: () => resolve(true) },
       ], { cancelable: true, onDismiss: () => resolve(false) }),
     );
-    if (!proceed) return;
+    if (!proceed) {
+      evidenceBusy.current = false;
+      return;
+    }
     setUploadingId(orderId);
     try {
       let captured: CaptureResult;
@@ -156,6 +164,7 @@ export function DeliveryQueueScreen() {
       if (result.ok) setEvidenceSentIds((ids) => new Set(ids).add(orderId));
       else Alert.alert(s.evidenceAdd, s.evidenceUploadFailed);
     } finally {
+      evidenceBusy.current = false;
       setUploadingId(null);
     }
   };
@@ -204,7 +213,7 @@ export function DeliveryQueueScreen() {
   const signOut = async () => {
     cancelled.current = true; // la corrida en curso ya no escribe caché ni estado
     try {
-      await withTimeout(endShift(), 4000).catch(() => undefined); // detiene el seguimiento y borra la posición, sin bloquear
+      await withTimeout(endShift(), SIGN_OUT_END_SHIFT_MS).catch(() => undefined); // detiene el seguimiento y borra la posición, sin bloquear
       await withTimeout(runner.idle(), 3000); // sin red, la corrida podría no terminar nunca
       await clearAssigned();
     } finally {

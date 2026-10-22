@@ -39,7 +39,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Sweet Sin Staff uses the camera to take a delivery photo."
+          "cameraPermission": "Sweet Sin Staff uses the camera to take a delivery photo.",
+          "microphonePermission": false
         }
       ],
       [

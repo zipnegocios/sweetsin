@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { KeyboardAvoidingView, TextInput, type TextInputProps } from "react-native";
 import { apiFetch } from "../api/client";
 import { saveToken } from "../auth/session";
-import { canSubmitLogin, classifyLoginFailure, type LoginError } from "../auth/login-rules";
+import { canSubmitLogin, classifyLoginFailure, normalizeLoginEmail, type LoginError } from "../auth/login-rules";
 import { BrandMark, Button, ScreenLayout, Spacer, Surface, Text, useTheme } from "../design-system";
 import { strings } from "../i18n";
 
@@ -57,7 +57,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (role: "despachador" |
   const [error, setError] = useState<LoginError | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const pinRef = useRef<TextInput>(null);
-  const ready = canSubmitLogin(email, pin);
+  const trimmedEmail = normalizeLoginEmail(email);
+  const ready = canSubmitLogin(trimmedEmail, pin);
 
   async function handleSubmit() {
     if (!ready || submitting) return;
@@ -66,7 +67,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (role: "despachador" |
     try {
       const res = await apiFetch("/api/mobile/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, pin }),
+        body: JSON.stringify({ email: trimmedEmail, pin }),
       });
       if (!res.ok) {
         setError(classifyLoginFailure({ status: res.status }));
@@ -114,7 +115,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (role: "despachador" |
           onSubmitEditing={handleSubmit}
         />
         {error && (
-          <Text accessibilityRole="alert" color={theme.colors.danger}>
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" color={theme.colors.danger}>
             {ERROR_TEXT[error]}
           </Text>
         )}

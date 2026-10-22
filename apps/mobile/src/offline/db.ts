@@ -12,5 +12,9 @@ export function getDb(): Promise<SQLiteDatabase> {
     `);
     return db;
   });
+  // Si abrir/inicializar falla, el próximo llamado reintenta en vez de repetir el rechazo toda la sesión.
+  dbPromise.catch(() => {
+    dbPromise = null;
+  });
   return dbPromise;
 }

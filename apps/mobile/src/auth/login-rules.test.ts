@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubmitLogin, classifyLoginFailure } from "./login-rules";
+import { canSubmitLogin, classifyLoginFailure, normalizeLoginEmail } from "./login-rules";
 
 describe("canSubmitLogin", () => {
   it("exige @ y exactamente 6 dígitos", () => {
@@ -7,6 +7,12 @@ describe("canSubmitLogin", () => {
     expect(canSubmitLogin("ab.co", "123456")).toBe(false);
     expect(canSubmitLogin("a@b.co", "12345")).toBe(false);
     expect(canSubmitLogin("a@b.co", "12345a")).toBe(false);
+  });
+
+  it("un email con espacio final se normaliza antes de evaluarse y enviarse", () => {
+    expect(normalizeLoginEmail("a@b.co ")).toBe("a@b.co");
+    expect(canSubmitLogin(normalizeLoginEmail("a@b.co "), "123456")).toBe(true);
+    expect(canSubmitLogin(normalizeLoginEmail("  "), "123456")).toBe(false);
   });
 });
 

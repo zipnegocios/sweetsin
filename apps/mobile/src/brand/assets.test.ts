@@ -18,12 +18,14 @@ async function expectWhiteSilhouette(path: string) {
   const { data, info } = await raw(path);
   const total = info.width * info.height;
   let opaque = 0;
+  let mismatches = 0;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] > 0) {
       opaque++;
-      expect([data[i], data[i + 1], data[i + 2]]).toEqual([255, 255, 255]);
+      if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) mismatches++;
     }
   }
+  expect(mismatches).toBe(0);
   expect(opaque / total).toBeGreaterThan(0.05);
   expect(opaque / total).toBeLessThan(0.6);
 }

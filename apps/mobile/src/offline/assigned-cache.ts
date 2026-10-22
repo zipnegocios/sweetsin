@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { parseAssignedRows } from "./parse-assigned-rows";
 
 export type AssignedOrder = {
   id: string;
@@ -22,7 +23,7 @@ export async function replaceAssigned(orders: AssignedOrder[]): Promise<void> {
 export async function loadAssigned(): Promise<AssignedOrder[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ payload: string }>("SELECT payload FROM assigned_orders ORDER BY rowid ASC");
-  return rows.map((r) => JSON.parse(r.payload) as AssignedOrder);
+  return parseAssignedRows<AssignedOrder>(rows);
 }
 
 export async function clearAssigned(): Promise<void> {
