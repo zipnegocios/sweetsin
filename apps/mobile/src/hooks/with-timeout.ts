@@ -6,3 +6,12 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | und
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
+
+/** Como `withTimeout`, pero un timeout RECHAZA (para llamadas de red que deben fallar, no resolver en silencio). */
+export function rejectAfter<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timeout tras ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}

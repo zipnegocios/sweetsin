@@ -302,5 +302,16 @@ export interface Dictionary {
     serverError: string;
     retry: string;
     openFailed: string;
+    evidenceAdd: string;
+    evidenceUploading: string;
+    evidenceSent: string;
+    evidenceUploadFailed: string;
+    evidenceWhy: string;
+    cameraDenied: string;
+    locationDenied: string;
+    locationUnavailable: string;
+    openSettings: string;
+    continueLabel: string;
+    cancelLabel: string;
   };
 }

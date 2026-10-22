@@ -35,6 +35,18 @@
           "icon": "./assets/notification-icon.png",
           "color": "#E63946"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Sweet Sin Staff uses the camera to take a delivery photo."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Sweet Sin Staff uses your location to record where a delivery was made."
+        }
       ]
     ]
   }

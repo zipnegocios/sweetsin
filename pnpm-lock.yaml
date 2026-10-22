@@ -180,9 +180,15 @@ importers:
       expo-image:
         specifier: ~57.0.5
         version: 57.0.5(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      expo-image-picker:
+        specifier: ~57.0.20
+        version: 57.0.20(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))
       expo-localization:
         specifier: ~57.0.2
         version: 57.0.2(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react@19.2.3)
+      expo-location:
+        specifier: ~57.0.21
+        version: 57.0.21(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(typescript@6.0.3)
       expo-notifications:
         specifier: ^57.0.20
         version: 57.0.20(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -4206,6 +4212,16 @@ packages:
       react: '*'
       react-native: '*'
 
+  expo-image-loader@57.0.1:
+    resolution: {integrity: sha512-uhrZKLT/cTl2mXyR28kPpVkS5O+PK9N1QA/07IFM4f5T4g0lTW1JHT3NEWwEEsGFldPmVX4j7LwUVVZxE+woug==}
+    peerDependencies:
+      expo: '*'
+
+  expo-image-picker@57.0.20:
+    resolution: {integrity: sha512-plgcGuMZMWqDchjXQW6S/WepYLB5KqfbZOzwC6xe0+j5IhY4ipvVuRZcXeP/0NgKgU0Jiu/XoTK4Bi8crtZ+sQ==}
+    peerDependencies:
+      expo: '*'
+
   expo-image@57.0.5:
     resolution: {integrity: sha512-jOm5lofaIKXhQ7i0Hz3I5JuNULw/aghmpIPZXddwQcEtw8+wUhlozq3M7LbsOrcsBEapcG4jFs85DsfuFoz1tQ==}
     peerDependencies:
@@ -4231,6 +4247,11 @@ packages:
     peerDependencies:
       expo: '*'
       react: '*'
+
+  expo-location@57.0.21:
+    resolution: {integrity: sha512-up1e2Dqo4vzhyqzVB9ssRoP3p+VlIU6wJBHqipBenCijJYwnxAJjYv4nlBN0jRGk+4CixufCIkE9y2ZLH6594g==}
+    peerDependencies:
+      expo: '*'
 
   expo-manifests@57.0.2:
     resolution: {integrity: sha512-pPIIcKR73OShwlWMg8H90WRzKUd2krDdKlKAwuQV1FtUwE7H3hQEFw0ePFQY9yFoGMF/77ryYwNKfI5umMcCog==}
@@ -7270,7 +7291,7 @@ snapshots:
       '@expo/config-plugins': 57.0.9(typescript@5.9.3)
       '@expo/devcert': 1.2.1
       '@expo/env': 2.4.3
-      '@expo/image-utils': 0.11.5(typescript@5.9.3)
+      '@expo/image-utils': 0.11.6(typescript@5.9.3)
       '@expo/inline-modules': 0.1.7(typescript@5.9.3)
       '@expo/json-file': 11.0.1
       '@expo/log-box': 57.0.4(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -7347,7 +7368,7 @@ snapshots:
       '@expo/config-plugins': 57.0.9(typescript@6.0.3)
       '@expo/devcert': 1.2.1
       '@expo/env': 2.4.3
-      '@expo/image-utils': 0.11.5(typescript@6.0.3)
+      '@expo/image-utils': 0.11.6(typescript@6.0.3)
       '@expo/inline-modules': 0.1.7(typescript@6.0.3)
       '@expo/json-file': 11.0.1
       '@expo/log-box': 57.0.4(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -7566,20 +7587,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@expo/image-utils@0.11.5(typescript@5.9.3)':
-    dependencies:
-      '@expo/require-utils': 57.0.5(typescript@5.9.3)
-      '@expo/spawn-async': 1.8.0
-      chalk: 4.1.2
-      getenv: 2.0.0
-      jimp-compact: 0.16.1
-      parse-png: 2.1.0
-      semver: 7.8.5
-    transitivePeerDependencies:
-      - supports-color
-      - typescript
-    optional: true
-
   '@expo/image-utils@0.11.5(typescript@6.0.3)':
     dependencies:
       '@expo/require-utils': 57.0.5(typescript@6.0.3)
@@ -7592,6 +7599,20 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  '@expo/image-utils@0.11.6(typescript@5.9.3)':
+    dependencies:
+      '@expo/require-utils': 57.0.6(typescript@5.9.3)
+      '@expo/spawn-async': 1.8.0
+      chalk: 4.1.2
+      getenv: 2.0.0
+      jimp-compact: 0.16.1
+      parse-png: 2.1.0
+      semver: 7.8.5
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
+    optional: true
 
   '@expo/image-utils@0.11.6(typescript@6.0.3)':
     dependencies:
@@ -7799,7 +7820,7 @@ snapshots:
       '@expo/config': 57.0.9(typescript@5.9.3)
       '@expo/config-plugins': 57.0.9(typescript@5.9.3)
       '@expo/config-types': 57.0.2
-      '@expo/image-utils': 0.11.5(typescript@5.9.3)
+      '@expo/image-utils': 0.11.6(typescript@5.9.3)
       '@expo/json-file': 11.0.1
       '@react-native/normalize-colors': 0.86.3
       debug: 4.4.3
@@ -7816,7 +7837,7 @@ snapshots:
       '@expo/config': 57.0.9(typescript@6.0.3)
       '@expo/config-plugins': 57.0.9(typescript@6.0.3)
       '@expo/config-types': 57.0.2
-      '@expo/image-utils': 0.11.5(typescript@6.0.3)
+      '@expo/image-utils': 0.11.6(typescript@6.0.3)
       '@expo/json-file': 11.0.1
       '@react-native/normalize-colors': 0.86.3
       debug: 4.4.3
@@ -7847,6 +7868,17 @@ snapshots:
       typescript: 6.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@expo/require-utils@57.0.6(typescript@5.9.3)':
+    dependencies:
+      '@babel/code-frame': 7.29.7
+      '@babel/core': 7.29.7
+      '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.29.7)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
 
   '@expo/require-utils@57.0.6(typescript@6.0.3)':
     dependencies:
@@ -10772,7 +10804,7 @@ snapshots:
 
   expo-asset@57.0.18(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3):
     dependencies:
-      '@expo/image-utils': 0.11.5(typescript@5.9.3)
+      '@expo/image-utils': 0.11.6(typescript@5.9.3)
       expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       expo-constants: 57.0.19(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))
       react: 19.2.3
@@ -10784,7 +10816,7 @@ snapshots:
 
   expo-asset@57.0.18(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3):
     dependencies:
-      '@expo/image-utils': 0.11.5(typescript@6.0.3)
+      '@expo/image-utils': 0.11.6(typescript@6.0.3)
       expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
       expo-constants: 57.0.19(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))
       react: 19.2.3
@@ -10865,6 +10897,15 @@ snapshots:
       react: 19.2.3
       react-native: 0.86.3(@types/react@19.2.17)(react@19.2.3)
 
+  expo-image-loader@57.0.1(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)):
+    dependencies:
+      expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+
+  expo-image-picker@57.0.20(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)):
+    dependencies:
+      expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+      expo-image-loader: 57.0.1(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))
+
   expo-image@57.0.5(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3):
     dependencies:
       expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -10890,6 +10931,14 @@ snapshots:
       expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
       react: 19.2.3
       rtl-detect: 1.1.2
+
+  expo-location@57.0.21(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(typescript@6.0.3):
+    dependencies:
+      '@expo/image-utils': 0.11.6(typescript@6.0.3)
+      expo: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   expo-manifests@57.0.2(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)):
     dependencies:

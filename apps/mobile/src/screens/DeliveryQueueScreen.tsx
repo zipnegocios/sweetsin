@@ -24,6 +24,9 @@ import { withTimeout } from "../hooks/with-timeout";
 import { usePolling } from "../hooks/use-polling";
 import { strings } from "../i18n";
 import { clearAssigned, loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
+import { captureEvidence, type CaptureResult } from "../evidence/capture-evidence";
+import { evidenceDeps } from "../evidence/evidence-deps";
+import { runEvidenceUpload } from "../evidence/evidence-upload";
 import { enqueueDeliver, flushQueue } from "../offline/command-queue";
 import { makeDeliverSender } from "../offline/deliver-sender";
 import { sqliteCommandStore } from "../offline/sqlite-command-store";
@@ -41,6 +44,9 @@ export function DeliveryQueueScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [evidenceRequired, setEvidenceRequired] = useState(false);
+  const [evidenceSentIds, setEvidenceSentIds] = useState<Set<string>>(new Set());
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
   const cancelled = useRef(false);
@@ -57,10 +63,11 @@ export function DeliveryQueueScreen() {
       try {
         const res = await apiFetch("/api/mobile/orders/assigned");
         if (res.ok) {
-          const data = (await res.json()) as { orders: AssignedOrder[] };
+          const data = (await res.json()) as { orders: AssignedOrder[]; deliveryEvidenceRequired?: boolean };
           if (cancelled.current) return;
           await replaceAssigned(data.orders);
           setOrders(data.orders);
+          setEvidenceRequired(data.deliveryEvidenceRequired === true);
           setOffline(false);
         } else {
           nextNotice = res.status === 401 ? s.sessionExpired : s.serverError;
@@ -93,6 +100,10 @@ export function DeliveryQueueScreen() {
   };
 
   const deliver = async (orderId: string) => {
+    const order = ordersRef.current.find((o) => o.id === orderId);
+    if (order && evidenceRequired && !order.deliveryEvidenceKey) {
+      // PUNTO DE EXTENSIÓN: cuando se active la evidencia obligatoria, bloquear aquí (hoy no se bloquea).
+    }
     try {
       await enqueueDeliver(sqliteCommandStore, orderId);
     } catch {
@@ -101,6 +112,43 @@ export function DeliveryQueueScreen() {
     }
     setPendingIds((ids) => new Set(ids).add(orderId));
     await refresh();
+  };
+
+  const alertSettings = (message: string) =>
+    Alert.alert(s.evidenceAdd, message, [
+      { text: s.cancelLabel, style: "cancel" },
+      { text: s.openSettings, onPress: () => void Linking.openSettings() },
+    ]);
+
+  // Opcional y no bloqueante: cualquier fallo solo avisa; "Marcar entregado" sigue disponible.
+  const addEvidence = async (orderId: string) => {
+    const proceed = await new Promise<boolean>((resolve) =>
+      Alert.alert(s.evidenceAdd, s.evidenceWhy, [
+        { text: s.cancelLabel, style: "cancel", onPress: () => resolve(false) },
+        { text: s.continueLabel, onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) }),
+    );
+    if (!proceed) return;
+    setUploadingId(orderId);
+    try {
+      let captured: CaptureResult;
+      try {
+        captured = await captureEvidence();
+      } catch {
+        captured = { ok: false, reason: "location-unavailable" };
+      }
+      if (!captured.ok) {
+        if (captured.reason === "camera-denied") alertSettings(s.cameraDenied);
+        else if (captured.reason === "location-denied") alertSettings(s.locationDenied);
+        else if (captured.reason === "location-unavailable") Alert.alert(s.evidenceAdd, s.locationUnavailable);
+        return; // "cancelled": el repartidor decidió no sacar la foto
+      }
+      const result = await runEvidenceUpload(evidenceDeps, { orderId, ...captured });
+      if (result.ok) setEvidenceSentIds((ids) => new Set(ids).add(orderId));
+      else Alert.alert(s.evidenceAdd, s.evidenceUploadFailed);
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   const signOut = async () => {
@@ -122,6 +170,7 @@ export function DeliveryQueueScreen() {
   };
 
   const selected = orders.find((o) => o.id === selectedId) ?? orders[0];
+  const selectedHasEvidence = !!selected && (!!selected.deliveryEvidenceKey || evidenceSentIds.has(selected.id));
   const serverFailed = loaded && orders.length === 0 && notice === s.serverError;
 
   let empty;
@@ -157,19 +206,31 @@ export function DeliveryQueueScreen() {
       }
       bottomBar={
         selected ? (
-          <Button
-            label={strings.dispatch.markDeliveredButton}
-            accessibilityHint={selected.customerName}
-            disabled={pendingIds.has(selected.id)}
-            onPress={() => void deliver(selected.id)}
-          />
+          <>
+            {selectedHasEvidence ? null : (
+              <Button
+                label={uploadingId === selected.id ? s.evidenceUploading : s.evidenceAdd}
+                variant="secondary"
+                accessibilityHint={selected.customerName}
+                loading={uploadingId === selected.id}
+                disabled={uploadingId !== null && uploadingId !== selected.id}
+                onPress={() => void addEvidence(selected.id)}
+              />
+            )}
+            <Button
+              label={strings.dispatch.markDeliveredButton}
+              accessibilityHint={selected.customerName}
+              disabled={pendingIds.has(selected.id)}
+              onPress={() => void deliver(selected.id)}
+            />
+          </>
         ) : undefined
       }
     >
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
-        extraData={[selected?.id, pendingIds]}
+        extraData={[selected?.id, pendingIds, evidenceSentIds]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void pullToRefresh()} colors={[theme.colors.actionFill]} />
         }
@@ -207,6 +268,9 @@ export function DeliveryQueueScreen() {
                     label={isPending ? s.pendingSync : s.onTheWay}
                   />
                 </Touchable>
+                {item.deliveryEvidenceKey || evidenceSentIds.has(item.id) ? (
+                  <StatusPill status="evidence_sent" label={s.evidenceSent} />
+                ) : null}
                 {isPending ? <Text variant="quiet">{s.pendingSyncNote}</Text> : null}
                 {address ? (
                   <Touchable
