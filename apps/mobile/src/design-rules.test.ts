@@ -8,7 +8,6 @@ const screensDir = resolve(__dirname, "screens");
 const EXCEPTIONS = [
   "LoginScreen.tsx", // hasta la Task 14
   "DespachadorQueueScreen.tsx", // diferida por el alcance actual
-  "DeliveryQueueScreen.tsx", // la Task 11 la reescribe con el design system y QUITA esta entrada
 ];
 
 /** Primitivas visuales de react-native que una pantalla toma del design system, no directo. */

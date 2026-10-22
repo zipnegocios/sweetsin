@@ -72,7 +72,7 @@ export function RootNavigator() {
         <Stack.Navigator>
           {role === null && <Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoggedIn={setRole} />}</Stack.Screen>}
           {role === "despachador" && <Stack.Screen name="Cola" component={DespachadorQueueScreen} />}
-          {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} />}
+          {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} options={{ headerShown: false }} />}
         </Stack.Navigator>
       </NavigationContainer>
     </AuthContext.Provider>

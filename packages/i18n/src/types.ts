@@ -284,5 +284,23 @@ export interface Dictionary {
   };
   staffApp: {
     offlineBanner: string;
+    onTheWay: string;
+    deliverFailed: string;
+    pendingSync: string;
+    pendingSyncNote: string;
+    sessionExpired: string;
+    conflictTitle: string;
+    phoneLabel: string;
+    addressLabel: string;
+    addressMissing: string;
+    navigate: string;
+    call: string;
+    logout: string;
+    emptyTitle: string;
+    selected: string;
+    loading: string;
+    serverError: string;
+    retry: string;
+    openFailed: string;
   };
 }
