@@ -9,3 +9,4 @@ export * from "./settings";
 export * from "./email-logs";
 export * from "./push-tokens";
 export * from "./push-logs";
+export * from "./delivery-locations";

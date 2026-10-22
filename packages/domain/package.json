@@ -15,7 +15,8 @@
     "./payments": "./src/payments/index.ts",
     "./notifications": "./src/notifications/index.ts",
     "./settings": "./src/settings/index.ts",
-    "./cart": "./src/cart/index.ts"
+    "./cart": "./src/cart/index.ts",
+    "./delivery-tracking": "./src/delivery-tracking/index.ts"
   },
   "scripts": {
     "test": "vitest run"
