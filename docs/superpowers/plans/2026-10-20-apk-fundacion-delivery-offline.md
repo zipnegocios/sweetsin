@@ -1,32 +1,100 @@
-# APK Android — Fundación, diseño UI/UX, delivery offline y evidencia de entrega (Plan 1 de 3)
+# APK Android — Fundación, diseño UI/UX, delivery offline, evidencia, mapas y seguimiento (Plan 1 de 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dejar `apps/mobile` compilable como APK firmada en GitHub Actions, sin HMAC, con un design system propio de las apps móviles APK, independiente del de la web (íconos, splash, tokens, tipografía, componentes, estados de red y accesibilidad), con push validado, con un delivery que sigue operando durante cortes de red cortos y que puede adjuntar foto + GPS como evidencia de entrega.
+**Goal:** Dejar `apps/mobile` compilable como APK firmada en GitHub Actions (más un build de desarrollo permanente), sin HMAC, con un design system propio de las apps móviles APK (íconos, splash, tokens, tipografía, componentes, estados de red y accesibilidad), con un delivery que sigue operando durante cortes de red cortos, que puede adjuntar foto + GPS como evidencia de entrega, que ve su ruta y ETA con tráfico, y con un despachador que ve la flota en un mapa. Sin push remoto por ahora.
 
 **Architecture:** El servidor es la autoridad: el teléfono nunca decide estado. El delivery guarda una caché de solo lectura de sus órdenes asignadas y una cola local de comandos "entregada" (TypeScript puro con almacenamiento inyectado; `expo-sqlite` solo implementa la interfaz). La evidencia se sube **directo a R2 con una URL prefirmada que genera el servidor**, así la APK (pública) nunca contiene credenciales de R2.
 
-**Tech Stack:** Expo SDK 57 / React Native 0.86.3, `expo-sqlite`, `expo-image-picker`, `expo-location`, `expo-localization`, `expo-image` (GIF animados), `expo-font` + `@expo-google-fonts/{fraunces,dm-sans,dm-mono}`, `expo-splash-screen`, `Animated` de React Native (sin librerías de animación nuevas), `sharp` (script de íconos), Vitest, GitHub Actions (`expo prebuild` + Gradle + `apksigner`), Next.js route handlers, `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (R2), `packages/domain`, `packages/i18n`.
+**Tech Stack:** Expo SDK 57 / React Native 0.86.3, `expo-sqlite`, `expo-image-picker`, `expo-location`, `expo-localization`, `expo-image` (GIF animados), `expo-font` + `@expo-google-fonts/atkinson-hyperlegible`, `expo-dev-client`, `expo-task-manager`, un módulo de mapas (`react-native-maps` o `expo-maps`: verificar en los docs de Expo SDK 57), Google Routes API, `expo-splash-screen`, `Animated` de React Native (sin librerías de animación nuevas), `sharp` (script de íconos), Vitest, GitHub Actions (`expo prebuild` + Gradle + `apksigner`), Next.js route handlers, `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (R2), `packages/domain`, `packages/i18n`.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-apk-multirol-design.md` (incluye las enmiendas del 2026-10-20: decisiones nuevas de este plan y "diseño UI/UX y sistema de diseño en mobile"). Design systems: el de la web ya existe y **no se toca**; el de las apps móviles se funda en la Task 9 (`docs/design/mobile-design-system.md`).
 
 **Planes siguientes:** **Plan 2** — rol admin en la APK (login email+contraseña+biométrico, Route Handlers admin, pantallas de Órdenes con histórico de entregas y visualización de la evidencia, Paradas y stock, Eventos y calendario), índice en `orders.assigned_delivery_user_id` y guard de middleware de `/dispatch` y `/delivery`. **Plan 3** — ver "Fuera de alcance".
 
-## Decisiones que necesitan tu confirmación antes de ejecutar
+## Mapa de numeración y orden de ejecución
 
-1. **Una orden pagada hoy nunca entra sola a la cola.** `confirmOrderPayment`/`markAsPaid` solo cambian `paymentStatus`; nada mueve la orden de `pending` a `received` (solo el selector manual del panel admin). `CLAUDE.md` describe la intención ("una orden paga entra a `received`"). Task 3 hace que `confirmOrderPayment` la mueva a `received` y notifique. Task 4 hace que marcar `paid` desde el panel admin (el camino real hoy, porque Stripe no tiene credenciales) pase por `confirmOrderPayment`: **efecto nuevo: descuenta stock (si la orden tiene `stopId`), entra a la cola y dispara push.** No es retroactivo para órdenes ya pagadas.
-2. **R2:** busqué en el repo y no existe ningún cliente, variable ni credencial de R2 (solo se lo menciona como servicio externo en `docs/superpowers/SweetSin_Prompt_ClaudeCode.md`). Hay que proveer credenciales de servidor (Task 12, paso manual) y el acceso es por URL prefirmada.
-3. **La evidencia es un par foto + GPS** (ambos requeridos para registrarla) y **no se encola offline**: si falla, se avisa y la entrega se puede marcar igual.
-4. Se guarda la **clave del objeto** (`deliveryEvidenceKey`), no una URL: el bucket es privado y la foto muestra el domicilio del cliente.
-5. El flag `deliveryEvidenceRequired` vive en la tabla `settings` (mismo patrón que `deliveryFeeCents`), no en una constante.
-6. Task 12 modifica el esquema de la **base compartida dev=prod** (columnas nullable/booleano con default: aditivo, no destructivo) y requiere tu OK antes de correr el `push`.
-7. `expo-image-picker` (cámara del sistema) en vez de `expo-camera`: menos código, sin pantalla de cámara propia.
-8. Idioma de la APK: el del dispositivo (`expo-localization`), con `en` (`DEFAULT_LOCALE`) como respaldo.
-9. **Los íconos de `apps/mobile/assets/` son los de la plantilla de Expo** (chevron azul) y se reemplazan (Task 6). El ícono es la mascota sobre fondo Midnight Navy (se aprueba con una vista previa; alternativa: Cream). **Resolución de la fuente:** la mascota plana más grande del repo es `apps/web/public/devil-icon.png` (373×343; `attached_assets/favicon.png` es de 187×172 y no sirve como fuente). Alcanza para el ícono adaptativo, pero el splash y el `icon.png` de 1024 px quedan algo blandos: conviene pedirle al diseñador un **SVG o PNG de mayor resolución** de la mascota plana. El logo 3D de 2048 px es de otro estilo ("peluche") y no se usa como ícono.
-10. **Animaciones de marca:** `videologo.gif` (8 s) e `isotipo.gif` (2,5 s) son transparentes y de bucle infinito. Se usan solo en el inicio de sesión, la carga y los estados vacíos, con respaldo estático si el teléfono tiene "reducir movimiento"; nunca en pantallas de trabajo. Se **copian** a `apps/mobile/assets/brand/` (la app no depende de la carpeta pública de la web).
-11. **Dos design systems independientes (decisión del owner):** el de la web no se toca; el de mobile se funda en la Task 9. Parte de la marca (paleta, tipografías, radios y voz) copiada una sola vez como punto de partida y evoluciona por su cuenta: la app no importa nada de la web ni comprueba paridad con ella. Al fundarlo se define lo que la web no tiene: el dorado `#C9943A` como token base y un verde de éxito `#2F7D5B` (decisión mía: la paleta no tiene verde y "entregado/sincronizado" necesita un estado positivo). Validar con el diseñador.
-12. **Las tres pantallas existentes (inicio de sesión, despachador, delivery) se reconstruyen con el kit de diseño y se traducen enteras** (Tasks 11 y 14); antes eran formularios con botones por defecto y texto en español fijo.
-13. **Pregunta sobre el ciclo de trabajo de UI (no reabro la decisión, la planteo):** sin Expo Go y sin `expo-dev-client`, cada ajuste visual exige compilar un APK en el workflow (varios minutos). El plan lo mitiga agrupando la revisión visual (Task 11 primera integración, Task 15 revisión completa), pero para pulir la UI con comodidad serviría un **build de desarrollo** (`expo-dev-client`, un APK aparte que no se distribuye al staff) con recarga en vivo. Dime si lo quieres para la etapa de diseño.
+El prompt de decisiones del owner usa una numeración anterior del plan. Equivalencias:
+
+| En el prompt del owner | En este plan |
+|---|---|
+| "Task 1" + fix de `updateOrderStatusAction` | Task 4 (completa) |
+| "Task 5" (`makeDeliverSender`, cola offline) | Task 10 (completa); su arreglo de 408/429 es la Task 15 |
+| Tarea de evidencia "entre la 6 y la 7" | Tasks 12 y 13 |
+| `notifyNewOrderInQueue` | Task 3 (completa) |
+| "Task 8" (dispositivo real) | Task 20 (la antigua Task 8, push, queda descartada) |
+| Build de desarrollo permanente (D5) | Task 16 (nueva) |
+| Mapas, ETA y tracking (sección 7) | Tasks 17, 18 y 19 (nuevas) |
+
+**Estado al retomar:** completas y aprobadas las Tasks 1 a 7, 10 y el código de la 12; la 9a es un borrador que se reescribe (ver Task 9). Quedan por hacer 9b, 11, 13, 14 y 15 a 20; la 12 se cierra con su paso 7.
+
+**Orden de ejecución recomendado:**
+1. Cierre de la Task 12 (el agente aplica el esquema y corre las pruebas de base de datos; el owner pone las credenciales de R2).
+2. Task 15 (arreglos de revisión) y Task 16 (build de desarrollo): la 16 va antes de las pantallas porque sirve para iterar la UI.
+3. Task 9 (reescribir el documento con el de justificación del owner, luego el kit), 11, 13, 14.
+4. Tasks 18 (seguimiento) → 17 (ruta y ETA) → 19 (mapa de flota).
+5. Task 20 (verificación en teléfono real y documentación), y la revisión final de toda la rama.
+
+## Quién ejecuta qué (regla fija para todo el plan)
+
+**El agente ejecuta sin pedir permiso:** escribir y modificar código; escribir el YAML de los workflows de GitHub Actions (sin despacharlos); aplicar migraciones de esquema con `pnpm --filter @workspace/db run push`; correr tests, typecheck y builds locales; generar scripts (incluido el de commits); cualquier tarea que corra dentro del repo o de la máquina local sin tocar credenciales externas.
+
+**El agente se detiene y pide al owner (nunca lo intenta ni lo simula):**
+- `git commit` y `git push` reales (regla fija de `CLAUDE.md`; los commits los hace el owner con `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/commit-por-tarea.sh` o a mano);
+- generar el keystore de release y cargar secretos en GitHub;
+- declarar o modificar variables de entorno en EasyPanel;
+- declarar las variables de R2 (y otras credenciales) en `.env.local`;
+- cualquier acción dentro de la configuración de un servicio externo (GitHub, EasyPanel, Google Cloud);
+- instalar o probar la APK en un teléfono físico.
+
+Cuando una tarea quede bloqueada por una acción del owner, el agente lo dice explícitamente y sigue con las tareas independientes en vez de detener todo el plan.
+
+## Alcance actual: solo la APK de delivery
+
+Decisión del owner (2026-10-21): por ahora el desarrollo se enfoca **solo en la experiencia del delivery**. Se mantiene una única app (`apps/mobile`, con inicio de sesión por rol) y **no** se crean APK separadas todavía.
+
+| Tarea | Alcance actual |
+|---|---|
+| 9b Design system | **Dentro**, completo (arquitectura atómica y tres temas; solo el tema `outdoor` se usa) |
+| 11 Delivery offline | **Dentro** |
+| 13 Evidencia en la app | **Dentro** |
+| 14 Login y despachador | **Solo el login** (lo usa el delivery). La pantalla del despachador **se difiere**: queda como está, en la lista de excepciones del test de reglas de diseño |
+| 17 Ruta y ETA | **Dentro** (lado delivery) |
+| 18 Turno y ubicación | **Solo el lado delivery**: dominio de registro y fin de turno, `PUT` y `DELETE /api/mobile/location`, turno y seguimiento en la app. **Se difieren** `listSince`, `listFleetPositions` y `GET /api/mobile/fleet` (son del despachador) |
+| 19 Mapa de flota | **Diferida** (despachador) |
+| 20 Verificación | Solo los flujos del delivery; los puntos del despachador (2 y 5) se omiten |
+| Plan 2 (admin) | Fuera de alcance por ahora |
+
+Los temas `indoor` (despachador y admin) y `brand` (clientes) quedan **definidos y testeados** en el design system, pero no se construye ninguna pantalla para ellos.
+
+## Decisiones consolidadas (rondas de revisión con el owner)
+
+| Decisión | Resolución | Dónde entra |
+|---|---|---|
+| D1 Push remoto | **Opción C: no usar push remoto por ahora.** Sin Firebase/FCM, sin `google-services.json`, sin cuenta de Expo. El código de `registerPushToken` y `ExpoNotificationAdapter` queda inerte, sin tocar. Si se reconsidera, sería FCM directo con `firebase-admin` en un plan aparte | Task 8 descartada |
+| D2 y D3 Design system e ícono | Se resuelven con el documento `mobile-design-system-justificacion.md` del owner (ya está en `docs/design/mobile-design-system-justificacion.md`) | Task 9 |
+| D4 Marcar `paid` desde el admin | Mantener lo implementado (descuenta stock, mueve a `received`, notifica) | Task 4 (completa) |
+| D5 Build de desarrollo | **Pieza permanente** del proyecto (no desechable) | Task 16 |
+| D6 Arreglos menores | Sí: 408/429 → reintento y limpieza garantizada del flag de evidencia en los tests | Task 15 |
+| D7 Selector de repartidor en el admin | Mantener el error actual; no habilitar selector libre y no "corregirlo" por error en una tarea futura | Sin cambios |
+| D8 Esquema de evidencia | El agente aplica el `push` y verifica con las pruebas de base de datos **antes** de usar las columnas | Task 12, paso 7 |
+| Mapas, ETA y seguimiento en vivo | Entran al Plan 1 como herramienta interna de staff; el cliente no ve nada de esto (Plan 3) | Tasks 17, 18 y 19 |
+
+## Preguntas abiertas y conflictos detectados (necesitan respuesta del owner)
+
+Las detecté al incorporar el prompt; ninguna estaba resuelta por él.
+
+1. **Q1 — RESUELTA (2026-10-21).** El documento de justificación ya está en `docs/design/mobile-design-system-justificacion.md`. El borrador `docs/design/mobile-design-system.md` (paleta de marca) se reescribe para coincidir con él (Task 9a), recalculando el contraste con la paleta nueva.
+2. **Q2 — RESUELTA.** El documento de justificación mantiene el ícono sobre fondo Navy y dice que **no hay que rehacer el activo**: se mantienen los íconos de la Task 6 (fondo `#0F1B3D`, a pocas unidades de Tinta `#14233A`). `generate-brand-assets.mjs` permite alinearlo a Tinta cambiando una constante si el owner lo pide. El acento rojo de la notificación (`#E63946`) no se usa mientras el push siga descartado.
+3. **Q3 — Valor por defecto (confirmar o nombrar otra).** El documento pide una tipografía display "curva, un poco traviesa" solo para el wordmark del login, sin nombrarla. Por defecto: **Fraunces Black Italic** (la tipografía display de la marca web, `@expo-google-fonts/fraunces`), únicamente en el wordmark y nunca en texto operativo.
+4. **Q4 — RESUELTA.** Bucket **`sweet-delivery`**, cuenta `b798b0b01ea8805faa0bb16b07e6c4f4`, endpoint S3 `https://b798b0b01ea8805faa0bb16b07e6c4f4.r2.cloudflarestorage.com`. Quedan solo `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY` (las declara el owner en `.env.local` y EasyPanel). **CORS no hace falta:** las subidas las hace una app nativa (no un navegador) y el admin leerá las fotos con URL prefirmada.
+5. **Q5 — Se resuelve en el camino** (decisión del owner), antes de la Task 17: proyecto de Google Cloud, facturación y las dos claves (SDK de mapas de Android restringida por paquete y SHA-1; Routes API solo servidor).
+6. **Q6 — Lo define el equipo legal; no limita la etapa de desarrollo** (decisión del owner). El diseño mitigante de la Task 18 se mantiene (turno propio, consentimiento, aviso persistente, sin historial).
+7. **Q7 — "Turno".** No existe hoy ese concepto. Se agrega un botón "Iniciar turno / Terminar turno" en la pantalla de delivery que enciende y apaga el seguimiento. Confirmar.
+8. **Q8 — Nombre de columna.** El prompt sugiere `deliveryEvidenceUrl`; se mantiene `deliveryEvidenceKey` (guarda la clave del objeto, no una URL, porque el bucket es privado y la foto muestra el domicilio).
+9. **Q9 — `registerPushToken` inerte.** Al iniciar sesión sigue pidiendo el permiso de notificaciones y falla en silencio sin credenciales. Se deja sin tocar, como se pidió; si molesta, es un guard de una línea.
+10. **Q10 — `expo-dev-client` en el build de release.** Sumar la dependencia no debería meter el lanzador de desarrollo en el APK de release, pero se verifica: la Task 16 agrega una comprobación en el workflow de release que falla si aparece.
+11. **Q11 — RESUELTA (OK del owner).** El ETA del despachador se muestra en el mapa de flota, al tocar un repartidor.
 
 ## Global Constraints
 
@@ -34,15 +102,18 @@
 - "El teléfono nunca decide estado": toda transición la valida el servidor con casos de uso de `packages/domain`.
 - Offline solo para **delivery**; despachador (y admin, Plan 2) trabajan solo en línea con aviso visible de "sin conexión".
 - Detección de red: por fallo de `fetch`, nunca `navigator.onLine`.
-- "Tiempo real" = polling (30 s) + refresco al volver a primer plano + push de orden nueva.
+- "Tiempo real" = polling (30 s) + refresco al volver a primer plano. El push remoto está **descartado por ahora** (D1 = C): sin Firebase, sin `google-services.json`, sin cuenta de Expo.
 - Almacenamiento local: `expo-sqlite`; sesión en `expo-secure-store` (ya existe).
 - Build: GitHub Actions propio con `expo prebuild` + Gradle. No EAS Build.
-- La APK no contiene secretos ni credenciales de R2; toda credencial vive en el servidor.
-- **i18n:** todo string **nuevo** en `apps/mobile` sale de `packages/i18n` (namespace nuevo `staffApp`, reutilizando claves de `dispatch`/`common` que ya existan). Las pantallas que se reconstruyen con el kit de diseño (inicio de sesión, delivery, despachador) se traducen enteras.
-- **UI/UX:** el design system mobile (`docs/design/mobile-design-system.md`) es independiente del de la web; toda pantalla se construye solo con el kit `apps/mobile/src/ui/` y los tokens de `apps/mobile/src/theme/`; sin colores ni fuentes literales en `screens/` (lo comprueba un test, Task 9). Tema claro único; vertical; ver "Criterios de calidad de UI".
+- La APK no contiene secretos ni credenciales de R2 ni de la Routes API; toda credencial vive en el servidor. La única clave que viaja en la APK es la del SDK de mapas de Android, que es **pública y restringida** por paquete y huella SHA-1 (no es un secreto).
+- **i18n:** todo string **nuevo** en `apps/mobile` sale de `packages/i18n` (namespace nuevo `staffApp`, reutilizando claves de `dispatch`/`common` que ya existan), incluidas las pantallas de evidencia, mapas, ETA y seguimiento. Las pantallas que se reconstruyen con el kit de diseño (inicio de sesión, delivery, despachador) se traducen enteras.
+- **UI/UX:** el design system mobile (`docs/design/mobile-design-system.md`, que se reconcilia con `mobile-design-system-justificacion.md` del owner) es independiente del de la web; toda pantalla se construye solo con el design system `apps/mobile/src/design-system/` (las pantallas solo usan `useTheme()` y sus componentes); sin colores ni fuentes literales en `screens/` (lo comprueba un test, Task 9). Tema claro único; vertical; paleta de 6 colores base y una sola tipografía operativa (Atkinson Hyperlegible); acciones primarias en el tercio inferior y de 56 dp como mínimo; ver "Criterios de calidad de UI".
 - Antes de escribir código en `apps/mobile`: leer `apps/mobile/AGENTS.md` (docs de Expo v57: https://docs.expo.dev/versions/v57.0.0/).
 - Reglas de `CLAUDE.md`: Claude nunca ejecuta `git commit` ni `git push` (solo `git add` y sugerir el comando); commits en español, una línea, sin firmas; trabajar en `main`; reutilizar antes de crear; razonar en español con la estructura de 4 pasos.
 - Base de datos compartida dev=prod: los tests que escriban datos limpian lo que crean (prefijo identificable); un `push` de esquema requiere OK del owner.
+- **Google Maps Platform:** dos claves distintas. `GOOGLE_ROUTES_API_KEY` (solo servidor, Routes API, nunca la de la web) y `GOOGLE_MAPS_ANDROID_API_KEY` (clave pública del SDK de mapas, restringida por paquete y SHA-1 de release y de debug; entra como secreto de GitHub y se inyecta en el prebuild). Cada cálculo de ruta con tráfico es una llamada paga: la caché del servidor es obligatoria.
+- **Ubicación del personal:** solo durante un turno que el propio delivery inicia, con consentimiento previo, notificación persistente, **sin historial** (solo la última posición) y borrado al terminar el turno o cerrar sesión; pendiente de confirmación legal (pregunta Q6). Nada de esto se expone al cliente en este plan.
+- **Quién ejecuta qué:** ver la sección dedicada (el agente aplica los `push` de esquema; el owner hace commits, push, secretos y credenciales).
 
 ## Decisiones registradas (para que no queden como pendientes abiertos)
 
@@ -54,6 +125,8 @@
 
 Flujo de disputas del cliente: "producto no recibido", tipificaciones de reclamo, vista de la foto de evidencia en el panel del cliente y estado `disputed` en la orden. No se crea ningún endpoint, tabla ni pantalla para esto en el Plan 1. La foto solo la ve el propio delivery (indicador "evidencia enviada") y, en el Plan 2, el admin.
 
+La vista del **cliente** viendo al repartidor moverse en su panel queda para el Plan 3: el dato (última posición, Task 18) ya queda guardado de forma que conectarlo sea agregar un consumidor, no rediseñar el almacenamiento.
+
 ## Review Focus
 
 1. Reintento de "entregada" tras respuesta perdida → éxito idempotente; reintento de otro usuario sobre `delivered` → rechazado (Task 1).
@@ -61,13 +134,14 @@ Flujo de disputas del cliente: "producto no recibido", tipificaciones de reclamo
 3. Corte de red a mitad del vaciado de la cola → los restantes quedan en orden, sin duplicar ni perder; token vencido → quedan en cola (Task 10).
 4. Evidencia: clave de otra orden o de una orden no asignada → rechazada; fallo de la subida → "Entregar" sigue funcionando (Tasks 12–13).
 5. Login con body que no es JSON → 400, no 500 (Task 2).
+6. Un 408 o 429 transitorio nunca descarta un comando "entregada" de la cola; un test que activa `deliveryEvidenceRequired` nunca deja el flag en `true` en la base real (Task 15).
 
-## Criterios de calidad de UI (aplican a las Tasks 6, 9, 11, 13 y 14; se verifican en la Task 15)
+## Criterios de calidad de UI (aplican a las Tasks 6, 9, 11, 13, 14, 17, 18 y 19; se verifican en la Task 20)
 
 Derivan del spec (enmienda II). Una pantalla no está terminada si incumple alguno:
 
 1. **Contraste AA:** 4,5:1 texto normal y 3:1 texto grande (≥ 18 sp en negrita) y componentes. Texto pequeño nunca sobre relleno Sin Red ni en rojo sobre Cream (usar Sin Red Dark). El test de contraste (Task 9) recorre los pares permitidos.
-2. **Tocables ≥ 48×48 dp**, separación ≥ 8 dp; acción primaria a todo el ancho (52 dp) en la zona del pulgar.
+2. **Tocables ≥ 48×48 dp**, separación ≥ 8 dp; **acciones primarias en el tercio inferior de la pantalla y de 56 dp de alto como mínimo** (marcar entregada, agregar evidencia).
 3. **Escala de fuente 130 % y 200 %** sin cortes ni solapes.
 4. **El estado se dice con texto + glifo + color**, nunca solo color.
 5. **Estados completos en cada pantalla:** cargando, vacío, error, sin conexión, pendiente de sincronizar, éxito.
@@ -75,6 +149,9 @@ Derivan del spec (enmienda II). Una pantalla no está terminada si incumple algu
 7. **Sin animación en bucle en pantallas de trabajo**; los GIF solo en inicio de sesión, carga y estados vacíos.
 8. **Voz de marca** ligera solo en estados vacíos y de éxito; errores y acciones críticas, neutros y claros.
 9. **Tipografías incluidas en la APK** (la app abre sin red); el splash espera a que carguen.
+10. **El borde dorado de "pendiente de sincronizar" nunca es el único portador** de esa información: siempre ícono + texto.
+11. **Glifos de estado en Unicode** (sin `@expo/vector-icons`), comprobados en más de un fabricante de Android.
+12. **Mapas y ETA:** nunca bloquean una acción de trabajo; sin red, sin permiso o con error del servicio, la pantalla funciona sin ellos y lo dice con un mensaje discreto.
 
 ## File Structure
 
@@ -91,10 +168,13 @@ Derivan del spec (enmienda II). Una pantalla no está terminada si incumple algu
 | `apps/mobile/src/evidence/*` | flujo de subida (puro) y captura (dispositivo) |
 | `apps/mobile/scripts/generate-brand-assets.mjs`, `assets/*`, `assets/brand/*` | íconos, splash, ícono de notificación y animaciones de marca |
 | `docs/design/mobile-design-system.md` | design system de las apps móviles: principios, tokens en tres capas, especificación de componentes, tabla de estados, movimiento, voz y uso de la marca |
-| `apps/mobile/src/theme/*` | tokens, tipografía, movimiento y utilidad de contraste |
-| `apps/mobile/src/ui/*` | kit: `Button`, `Card`, `StatusPill`, `ScreenHeader`, `EmptyState`, `BrandMark`, `OfflineBanner` |
-| `apps/mobile/src/hooks/use-polling.ts`, `use-reduce-motion.ts`, `screens/*` | comportamiento y pantallas |
+| `apps/mobile/src/design-system/{tokens,themes,atoms,molecules,organisms,templates}/*` | design system atómico con temas `outdoor`, `indoor` y `brand` (capas: tokens → temas → átomos → moléculas → organismos → plantillas); solo `outdoor` tiene consumidores |
+| `apps/mobile/src/hooks/use-polling.ts`, `screens/*` | comportamiento y pantallas |
 | `.github/workflows/build-apk.yml` | build, firma, inspección y publicación |
+| `.github/workflows/build-dev-apk.yml`, `apps/mobile/app.config.ts` | build de desarrollo permanente (`expo-dev-client`, variante `.dev`) |
+| `packages/domain/src/routing/*`, `apps/web/src/infra/{google,caching}-route*.ts`, `apps/web/src/app/api/mobile/orders/[id]/route/**` | ruta y ETA con tráfico (Routes API, caché) |
+| `packages/domain/src/delivery-tracking/*`, `packages/db/src/schema/delivery-locations.ts`, `apps/web/src/app/api/mobile/{location,fleet}/**` | turno y última ubicación del delivery, mapa de flota |
+| `apps/mobile/src/{maps,tracking}/*`, `src/screens/FleetMapScreen.tsx` | mapas, ETA, seguimiento y mapa de flota en la app |
 
 ---
 
@@ -333,85 +413,81 @@ Reemplaza los íconos de la plantilla de Expo por los de Sweet Sin antes del pri
 
 ---
 
-### Task 8: Push de punta a punta en un teléfono real (validación temprana)
+### Task 8: ~~Push de punta a punta en un teléfono real~~ — DESCARTADA POR AHORA (D1 = C)
 
-Se hace justo después del primer build para saber pronto si Firebase/FCM funciona con builds locales, antes de invertir el resto del plan.
+No se ejecuta. Se mantiene el número para que las demás tareas conserven su numeración.
 
-**Files:**
-- Modify (cuando existan los archivos): `apps/mobile/app.json` (`android.googleServicesFile`, `extra.eas.projectId`), `apps/mobile/google-services.json`
-
-- [ ] **Step 1 (owner, manual — pregunta abierta; verificar primero en https://docs.expo.dev/push-notifications/push-notifications-setup/):** el push de Expo en Android exige un proyecto de Firebase con `google-services.json`, una clave de cuenta de servicio FCM v1 subida al servicio de push de Expo (documentada con `eas credentials`, que no implica usar EAS Build) y un `projectId` de Expo en `extra.eas.projectId`. Confirmar si el flujo funciona con builds locales. Si no funciona, el push queda fuera hasta decidirlo con el owner; la APK funciona igual (`registerPushToken` ya captura sus errores). El `google-services.json` no es secreto; la clave de cuenta de servicio sí y **no** se commitea.
-- [ ] **Step 2: Despachar de nuevo el workflow** con la configuración de push, instalar la APK del artefacto en un teléfono Android real (permitir fuentes desconocidas) y entrar como despachador y como delivery.
-- [ ] **Step 3: Checklist de push en el dispositivo:**
-  1. Tras el login, existe una fila en la tabla de tokens de push para ese usuario (consulta a la base).
-  2. Asignar una orden al delivery desde el despachador → llega la notificación `notifyDeliveryAssigned` y queda una fila `sent` en `push_logs`.
-  3. Marcar una orden de prueba como `paid` desde el panel admin → llega al despachador la notificación de orden nueva (`notifyNewOrderInQueue`, Tasks 3–4) y la orden aparece en su cola.
-- [ ] **Step 4: Anotar el resultado** (funciona / bloqueado y por qué) en `handoff.md`; limpiar las órdenes de prueba.
-- [ ] **Step 5: Stage y commit sugerido**
-  `git add apps/mobile/app.json apps/mobile/google-services.json handoff.md`
-  Sugerido: `git commit -m "Configura FCM para el push de la APK y registra el resultado de la prueba real"`
+- No se crea proyecto de Firebase, no se pide `google-services.json`, no se sube ninguna clave FCM y no se usa cuenta de Expo.
+- `registerPushToken` (`apps/mobile/src/navigation/index.tsx`) y `ExpoNotificationAdapter` (`packages/notifications`) quedan **inertes y sin tocar**: sin token registrado, el servidor solo anota `blocked` en `push_logs`.
+- `notifyNewOrderInQueue` y `notifyDeliveryAssigned` siguen conectados en el dominio (Task 3 y la Fase 7); no hay nada que desmontar.
+- La verificación de push **ya no está** en el checklist de dispositivo (Task 20): está descartada, no pendiente.
+- Si se reconsidera, sería la opción B del documento de decisiones (FCM directo con `firebase-admin`, sin el servicio de Expo como intermediario), en un plan aparte.
 
 ---
 
-### Task 9: Design system de las apps móviles (documento, tokens, tipografía, kit, marca y movimiento)
+### Task 9: Design system de las apps móviles (documento, arquitectura atómica con temas, kit, marca y movimiento)
 
-Funda el design system de las apps móviles, independiente del de la web (que no se toca): primero se documenta y el owner o el diseñador lo revisa, y recién entonces se implementa. Los componentes son presentacionales; la lógica y los datos viven en las pantallas.
+**Estado:** la **9a** (documento `docs/design/mobile-design-system.md` reconciliado con `mobile-design-system-justificacion.md`) está completa. Esta es la **9b**: implementar el design system en código. Los ajustes visuales posteriores (colores, tamaños, espacios) deben costar poco: **un cambio en un token o en un tema, nunca en una pantalla**.
+
+**Principio rector (owner):** el design system es Diseño Atómico sobre tokens por capas, para que cualquier APK futura lo reutilice eligiendo un tema:
+- **`outdoor`** (exteriores: delivery a pleno sol): es el que se usa ahora.
+- **`indoor`** (interiores: despachador y admin): misma familia de color, densidad más relajada.
+- **`brand`** (la marca para clientes): paleta y tipografía de la marca.
+`indoor` y `brand` se definen y se testean, pero **no tienen consumidores** (no se construyen pantallas para ellos). La fuente de verdad del diseño del tema `outdoor` es el documento de justificación; los valores de los otros dos están en la nueva sección "Temas" del documento (se escribe en esta tarea).
+
+**Reglas del owner que se cumplen en código (de la ronda de decisiones):** paleta base de 6 colores (navy `#14233A`, cream `#F6EFE1`, vanilla `#FBF7EC`, gold `#B8872B`, success `#2F7D5B`, alert `#A6351F`); una sola tipografía operativa, Atkinson Hyperlegible (regular y bold; paquete `@expo-google-fonts/atkinson-hyperlegible`, verificar los nombres exportados); acciones primarias de **56 dp** como mínimo en el tema `outdoor`; el borde dorado de "pendiente de sincronizar" nunca es el único portador (siempre glifo + texto); glifos de estado en Unicode, sin `@expo/vector-icons`; el dorado es el único acento de marca.
+
+**Capas** (todo bajo `apps/mobile/src/design-system/`; la dependencia solo va hacia abajo):
+
+| Capa | Carpeta | Contenido | Puede importar |
+|---|---|---|---|
+| 1. Tokens primitivos | `tokens/` | `palette`, `space`, `radius`, escala de tamaños y alturas de línea, duraciones de movimiento, medidas táctiles: valores sin significado | nada |
+| 2. Temas (semánticos) | `themes/` | tipo `Theme` y los temas `outdoor`, `indoor`, `brand`: colores semánticos, tipografía, densidad táctil y movimiento | `tokens/` |
+| 3. Tokens de componente | `themes/components.ts` | `buildComponentTokens(theme)`: qué token usa cada componente en cada estado | `tokens/`, `themes/` |
+| Átomos | `atoms/` | `Text`, `Glyph`, `Touchable`, `Surface`, `Spacer` | capas 1-3, React, react-native |
+| Moléculas | `molecules/` | `Button`, `StatusPill`, `Card`, `Banner`, `BrandMark` | átomos |
+| Organismos | `organisms/` | `ScreenHeader`, `EmptyState`, `OfflineBanner` | átomos y moléculas |
+| Plantillas | `templates/` | `ScreenLayout`: área segura, cabecera, banner, contenido desplazable y **barra de acción inferior en la zona del pulgar** | todo lo anterior |
+| API pública | `index.ts` | `ThemeProvider`, `useTheme`, `useReduceMotion`, los componentes y los temas | — |
+
+**Reglas de arquitectura:**
+- Ningún componente ni pantalla lee `palette` ni usa colores o fuentes literales: todo sale de `useTheme()` (tokens semánticos y de componente).
+- Los componentes son presentacionales: reciben los textos por props (nada de `packages/i18n`, de la API, del almacenamiento ni de `src/screens` dentro de `design-system/`). Así la carpeta se puede extraer a un paquete compartido más adelante con un `git mv`.
+- Las pantallas importan solo de `design-system/index.ts`.
+- El tema `brand` declara las familias de fuente de la marca (Fraunces para display y DM Sans para el cuerpo) **sin empaquetarlas**: la APK que lo use debe cargarlas. La APK de delivery no las incluye.
 
 **Files:**
-- Create: `docs/design/mobile-design-system.md`
-- Create: `apps/mobile/src/theme/tokens.ts` (+ `tokens.test.ts`), `contrast.ts` (+ `contrast.test.ts`), `typography.ts`, `motion.ts`
-- Create: `apps/mobile/src/ui/{Button,Card,StatusPill,ScreenHeader,EmptyState,BrandMark,OfflineBanner}.tsx`, `apps/mobile/src/hooks/use-reduce-motion.ts`
-- Create: `apps/mobile/src/ui/design-rules.test.ts`
-- Modify: `apps/mobile/App.tsx` (carga de tipografías y `expo-splash-screen` retenido hasta que carguen), `apps/mobile/package.json` (`pnpm --filter mobile exec expo install expo-font expo-splash-screen expo-image @expo-google-fonts/fraunces @expo-google-fonts/dm-sans @expo-google-fonts/dm-mono`)
-- Modify: `packages/i18n` (claves `staffApp` que necesiten los componentes, p. ej. el texto de accesibilidad de la mascota)
+- Create: `apps/mobile/src/design-system/tokens/{palette,space,radius,type,motion,touch}.ts` (+ `tokens.test.ts`)
+- Create: `apps/mobile/src/design-system/themes/{theme,components,outdoor,indoor,brand,index}.ts` (+ `themes.test.ts`, `contrast.ts`, `contrast.test.ts`)
+- Create: `apps/mobile/src/design-system/{ThemeProvider.tsx,use-theme.ts,use-reduce-motion.ts,index.ts}`
+- Create: `apps/mobile/src/design-system/atoms/*.tsx`, `molecules/*.tsx`, `organisms/*.tsx`, `templates/ScreenLayout.tsx`
+- Create: `apps/mobile/src/design-system/architecture.test.ts`, `apps/mobile/src/design-rules.test.ts`
+- Modify: `apps/mobile/App.tsx` (carga de Atkinson Hyperlegible, `expo-splash-screen` retenido hasta que carguen o fallen, `ThemeProvider theme={outdoor}`), `apps/mobile/package.json` (`pnpm --filter mobile exec expo install expo-font expo-image` y `@expo-google-fonts/atkinson-hyperlegible`)
+- Modify: `docs/design/mobile-design-system.md` (nuevas secciones "Arquitectura atómica" y "Temas": qué cambia entre `outdoor`, `indoor` y `brand`; la paleta del tema `brand` se escribe en una tabla con otro formato que `| nombre | #RRGGBB |`, para que el test de coherencia siga leyendo solo la tabla base de 6 filas)
+- Modify: `packages/i18n` solo si un componente necesita una clave propia (los textos viajan por props; lo normal es que no)
 
 **Interfaces:**
-- Produces (`tokens.ts`):
-  ```ts
-  export const colors: {
-    red: "#E63946"; redDark: "#B82B36"; redLight: "#FF5C6A"; navy: "#0F1B3D"; navyMid: "#1A2F5F"; navyLight: "#253D78";
-    gold: "#C9943A"; goldLight: "#F5D06B"; cream: "#F7F3EE"; creamDark: "#EDE7DC"; vanilla: "#FDFAF7"; abyss: "#080D1A";
-    success: "#2F7D5B";
-  };
-  export const semantic: { background; surface; textPrimary; textMuted; border; actionFill; actionLabel; link; info; success; warning; danger }; // derivados de `colors`: background = cream, surface = vanilla, textPrimary = navy, actionFill = red, link = redDark, success = success, warning = gold, danger = redDark, info = navyLight; `textMuted` debe cumplir 4,5:1 sobre cream y vanilla (se valida en `textPairs`)
-  export const radius: { pill: 100; card: 20; inner: 14; small: 8 };
-  export const space: { xs: 4; sm: 8; md: 12; lg: 16; xl: 24; xxl: 32 };
-  export const touch: { min: 48; primaryButton: 52 };
-  export const textPairs: { fg: string; bg: string; size: "normal" | "large"; use: string }[]; // únicas combinaciones de texto permitidas
-  ```
-- Produces (`contrast.ts`): `contrastRatio(foreground: string, background: string): number` — fórmula WCAG 2.x sobre colores `#RRGGBB`.
-- Produces (`typography.ts`): `fonts` (`display`, `displayBlack`, `displayItalic`, `body`, `bodyMedium`, `bodyBold`, `mono`, `monoMedium`: nombres exportados por los paquetes `@expo-google-fonts`, p. ej. `Fraunces_700Bold`; verificarlos en cada paquete) y `text` (`title` 24 sp Fraunces 700, `heading` 18, `body` 16 DM Sans, `bodyStrong`, `label` 11 sp DM Mono en mayúsculas con `letterSpacing` ≈ 0,2 em, `button` 18 sp DM Sans 700), con `lineHeight` explícito.
-- Produces (`motion.ts`): `STAGGER_MS = 60`, `ENTER_MS = 400`, `easeOut` (de `Easing` de React Native).
-- Produces (`use-reduce-motion.ts`): `useReduceMotion(): boolean` — `AccessibilityInfo.isReduceMotionEnabled()` y suscripción a `reduceMotionChanged`.
-- Produces (kit):
-  ```ts
-  Button({ label: string; onPress: () => void; variant?: "primary" | "secondary" | "ghost"; loading?: boolean; disabled?: boolean; accessibilityHint?: string })
-  // primary: relleno Sin Red, etiqueta ≥ 18 sp negrita, píldora, alto 52; secondary: contorno Navy, alto 48; ghost: texto Sin Red Dark, alto ≥ 48. Presionado: escala 0,98. loading: indicador y no tocable.
-  Card({ index?: number; children })       // fondo Vanilla, radio 20, borde `semantic.border`; si hay `index`, entra con escalonado y `easeOut` salvo que `useReduceMotion()`
-  StatusPill({ status: "received" | "in_prep" | "ready_for_pickup" | "out_for_delivery" | "delivered" | "cancelled" | "pending_sync" | "evidence_sent"; label: string })  // glifo + texto en DM Mono mayúsculas; color según `semantic`
-  ScreenHeader({ title: string; actionLabel?: string; onAction?: () => void })  // mascota estática 32 dp a la izquierda, título Fraunces 700, acción ghost ≥ 48 dp
-  EmptyState({ title: string; message: string })   // `BrandMark` animado de 96 dp + título y mensaje en Fraunces light italic
-  BrandMark({ variant: "isotipo" | "videologo"; size: number; animated?: boolean; playOnceMs?: number })
-  // `expo-image` con el GIF de `assets/brand/`; sin animación (usa `mascot.png`) si `animated` es falso, si `useReduceMotion()` o si la carga falla; con `playOnceMs` pasa a la imagen estática tras ese tiempo
-  OfflineBanner({ visible: boolean; message: string })  // relleno Gold, texto Navy + glifo, desliza al entrar, `accessibilityLiveRegion="polite"`
-  ```
-  Todos con `accessibilityRole`/`accessibilityLabel` adecuados.
+- `Theme` (en `themes/theme.ts`): `{ name: "outdoor" | "indoor" | "brand"; colors: <claves semánticas de la sección 2.2 del documento>; textPairs: { fg: string; bg: string; size: "normal" | "large"; use: string }[]; touch: { min: number; primary: number }; type: Record<<variantes de texto del documento>, TextSpec>; motion: { staggerMs: number; enterMs: number; pressMs: number; bannerMs: number }; components: ComponentTokens }`. Los tres temas cumplen **el mismo tipo**.
+- `ThemeProvider({ theme: Theme; children })`, `useTheme(): Theme`, `useReduceMotion(): boolean` (`AccessibilityInfo.isReduceMotionEnabled()` y suscripción a `reduceMotionChanged`), `contrastRatio(foreground: string, background: string): number` (WCAG 2.x sobre `#RRGGBB`).
+- Componentes, con las firmas y especificaciones de la sección 4 del documento: `Button({ label: string; onPress: () => void; variant?: "primary" | "secondary" | "ghost"; loading?: boolean; disabled?: boolean; accessibilityHint?: string })`, `Card({ index?: number; children })`, `StatusPill({ status: "received" | "in_prep" | "ready_for_pickup" | "out_for_delivery" | "delivered" | "cancelled" | "pending_sync" | "evidence_sent"; label: string })`, `ScreenHeader({ title: string; actionLabel?: string; onAction?: () => void })`, `EmptyState({ title: string; message: string })`, `BrandMark({ variant: "isotipo" | "videologo"; size: number; animated?: boolean; playOnceMs?: number })` (GIF con `expo-image`; imagen estática si `animated` es falso, si `useReduceMotion()` o si la carga falla; pasa a la estática tras `playOnceMs`), `OfflineBanner({ visible: boolean; message: string })`, y la plantilla `ScreenLayout({ header?: ReactNode; banner?: ReactNode; bottomBar?: ReactNode; children })`.
 
-- [ ] **Step 0: Escribir `docs/design/mobile-design-system.md`** (apoyarse en la skill `design-system`) con: (1) principios (los 9 de la enmienda II del spec); (2) **tokens en tres capas**: base (tabla de colores con filas `| nombre | #RRGGBB |`, escala de espacio, radios, tamaños tocables, tipografías, tiempos de movimiento), semánticos (fondo, superficie, texto, acción, enlace, éxito, advertencia, peligro, información) y de componente (p. ej. fondo y etiqueta del botón primario por estado); (3) **especificación de cada componente del kit**: variantes, estados (normal, presionado, deshabilitado, cargando, error), medidas, contraste y accesibilidad; (4) **tabla de estados de orden y de sincronización**: estado → texto, glifo y color; (5) movimiento y reducción de movimiento; (6) voz de marca para vacíos, éxitos y errores; (7) uso de la identidad (mascota, GIF, cuándo cada uno). Los valores de partida se toman de la marca una sola vez; el documento es desde ese momento la única fuente de verdad del diseño mobile. **Detenerse y pedir la revisión del owner o del diseñador antes de implementar el kit.**
-- [ ] **Step 1: Tests**:
-  - `tokens.test.ts` — **coherencia documento ↔ código**: la tabla de tokens de color de `docs/design/mobile-design-system.md` (filas `| nombre | #RRGGBB |`) coincide con `colors` (mismos nombres y valores, sin distinguir mayúsculas). Es una verificación interna del design system mobile; no se compara con la web.
-  - `contrast.test.ts` — `contrastRatio("#000000", "#FFFFFF")` ≈ 21; todo elemento de `textPairs` cumple ≥ 4,5 (`normal`) o ≥ 3 (`large`); además fija la prohibición: `contrastRatio(colors.red, colors.cream)` < 4,5 (por eso el rojo de texto sobre claro usa `redDark`) y `contrastRatio(colors.redDark, colors.cream)` ≥ 4,5. Pares mínimos en `textPairs`: Navy sobre Cream y sobre Vanilla; Sin Red Dark sobre Cream y sobre Vanilla; Vanilla sobre Sin Red (`large`); Vanilla sobre Sin Red Dark; Navy sobre Gold; Vanilla sobre `success`.
-  - `design-rules.test.ts` — recorre `apps/mobile/src/screens/**/*.tsx` y falla si encuentra un color literal (`#RRGGBB`/`rgb(`) o `fontFamily:`: las pantallas solo usan tokens y el kit.
-- [ ] **Step 2: Correr y ver fallar**
+- [ ] **Step 1: Escribir las secciones nuevas del documento** ("Arquitectura atómica" y "Temas") y definir los valores de `indoor` y `brand` (colores semánticos que cumplan el contraste de cada tema, tamaños táctiles y de texto, densidad). Reglas de contraste del tema `brand`: relleno rojo solo con etiqueta grande y en negrita, nunca texto rojo pequeño sobre claro (los números se calculan, no se asumen).
+- [ ] **Step 2: Tests primero (TDD):**
+  - `tokens.test.ts`: la tabla `| nombre | #RRGGBB |` de `docs/design/mobile-design-system.md` (exactamente 6 filas) coincide con `palette` (mismos nombres y valores, sin distinguir mayúsculas).
+  - `contrast.test.ts`: `contrastRatio("#000000", "#FFFFFF")` ≈ 21; **para cada tema**, cada par de `textPairs` cumple su umbral (≥ 4,5 normal, ≥ 3 grande); y en `outdoor` los pares prohibidos del documento (success sobre cream, gold como texto, etc.) quedan por debajo de su umbral (la prohibición queda evidenciada).
+  - `themes.test.ts`: los tres temas tienen exactamente las mismas claves (paridad estructural); `outdoor.touch.primary >= 56`; ningún tema tiene `touch.min < 48`; `outdoor` y `indoor` usan la misma paleta base.
+  - `architecture.test.ts` (lee los archivos y comprueba los `import`): (1) la dirección de dependencias de la tabla de capas (p. ej. `atoms/` no importa de `molecules/`, `organisms/` ni `templates/`; `tokens/` no importa de nada del design system); (2) nada dentro de `design-system/` importa de fuera de esa carpeta salvo React, react-native y paquetes de Expo; (3) ningún archivo de `atoms/`, `molecules/`, `organisms/` ni `templates/` contiene colores literales (`#RRGGBB`, `rgb(`) ni `fontFamily:` con un nombre de fuente literal.
+  - `src/design-rules.test.ts`: las pantallas de `src/screens/` no contienen colores ni `fontFamily:` literales y solo importan UI desde `design-system`. **Lista de excepciones explícita** (heredadas): `LoginScreen.tsx` (hasta la Task 14) y `DespachadorQueueScreen.tsx` (diferida por el alcance actual). `DeliveryQueueScreen.tsx` entra a la regla desde la Task 11.
+- [ ] **Step 3: Correr y ver fallar**
   Run: `pnpm --filter mobile run test`
   Expected: FAIL (módulos inexistentes).
-- [ ] **Step 3: Implementar tokens, contraste, tipografía y movimiento; luego el kit y `use-reduce-motion.ts`; cargar las tipografías en `App.tsx` reteniendo el splash** (`SplashScreen.preventAutoHideAsync()` y ocultarlo al terminar la carga o si esta falla, para no dejar la app colgada en el splash). Leer en los docs de Expo v57 las APIs de `expo-image` (GIF animados), `expo-font` y `expo-splash-screen`.
-- [ ] **Step 4: Verificar**
+- [ ] **Step 4: Implementar** tokens, temas, utilidades, átomos, moléculas, organismos, plantilla y `App.tsx` (leer antes en los docs de Expo SDK 57 las APIs de `expo-image`, `expo-font` y `expo-splash-screen`; el splash no debe quedar colgado si la carga de fuentes falla).
+- [ ] **Step 5: Verificar**
   Run: `pnpm --filter mobile run test && pnpm --filter mobile run typecheck && pnpm --filter mobile exec expo export --platform android`
-  Expected: PASS y el bundle incluye tipografías y GIF. La revisión visual de los componentes se hace en la primera integración (Task 11) y en la Task 15.
-- [ ] **Step 5: Stage y commit sugerido**
-  `git add apps/mobile packages/i18n pnpm-lock.yaml`
-  Sugerido: `git commit -m "Agrega el sistema de diseno mobile con tokens, tipografias y kit de componentes"`
+  Expected: PASS y el bundle incluye tipografías y GIF. La revisión visual en teléfono ocurre con la primera pantalla real (Task 11) y en la Task 20.
+- [ ] **Step 6: Stage y commit sugerido**
+  `git add apps/mobile docs/design/mobile-design-system.md pnpm-lock.yaml`
+  Sugerido (lo ejecuta el owner): `git commit -m "Implementa el design system mobile con arquitectura atomica, tres temas y kit de componentes"`
 
 ---
 
@@ -488,7 +564,7 @@ Funda el design system de las apps móviles, independiente del de la web (que no
   export function usePolling(callback: () => void | Promise<void>, intervalMs: number): void;
   ```
 
-`expo-sqlite` no corre en Node: estas piezas no tienen test unitario (la lógica que importa está en Task 10); se verifican con typecheck y en dispositivo (Task 15).
+`expo-sqlite` no corre en Node: estas piezas no tienen test unitario (la lógica que importa está en Task 10); se verifican con typecheck y en dispositivo (Task 20).
 
 - [ ] **Step 1: Implementar `db.ts`, `sqlite-command-store.ts`, `assigned-cache.ts`** (leer la API de `expo-sqlite` en los docs de v57).
 - [ ] **Step 2: Implementar `use-polling.ts`.**
@@ -500,9 +576,9 @@ Funda el design system de las apps móviles, independiente del de la web (que no
   - "Salir": `clearAssigned()` y luego `logout()` (sin diálogo de confirmación: ver "Decisiones registradas").
 - [ ] **Step 4: Diseño y UX de la pantalla** (criterios de calidad de UI):
   - `ScreenHeader` con título y acción "Salir"; `OfflineBanner` visible cuando `offline`.
-  - Una `Card` por orden con entrada escalonada (`index`): nombre del cliente en `text.heading`; dirección en `text.title` como elemento tocable que abre la navegación (`Linking.openURL("geo:0,0?q=" + encodeURIComponent(dirección))`) y teléfono tocable que llama (`tel:`); ambos con el mínimo de 48 dp y con `try/catch` que muestra un aviso si el teléfono no puede abrirlos (sin `canOpenURL`, que en Android 11+ exige declarar `<queries>`).
+  - Una `Card` por orden con entrada escalonada (`index`): nombre del cliente en `text.heading`; dirección en `text.title` como elemento tocable que abre la navegación (`Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dirección))`) y teléfono tocable que llama (`tel:`); ambos con el mínimo de 48 dp y con `try/catch` que muestra un aviso si el teléfono no puede abrirlos (sin `canOpenURL`, que en Android 11+ exige declarar `<queries>`).
   - `StatusPill` con `out_for_delivery`; si hay comando en cola, `pending_sync` en vez del botón de entrega, más un texto "guardada, se enviará al volver la red" (distinto de una entrega ya registrada).
-  - Acción primaria `Button` "Marcar entregado" a todo el ancho, abajo en la tarjeta.
+  - Acción primaria `Button` "Marcar entregado" en la **barra inferior fija** (`ScreenLayout` con `scroll={false}` y `bottomBar`; zona del pulgar, 56 dp), según el documento de justificación. Actúa sobre la **orden seleccionada**: por defecto la más antigua; tocar otra tarjeta la selecciona y se marca con borde y el texto "Seleccionada" (no solo con color). La lista es una `FlatList` con pull-to-refresh.
   - Estados: **cargando** (`BrandMark` pequeño sin animar y texto) en la primera carga sin caché; **vacío** con `EmptyState` (mascota animada, voz de marca ligera, p. ej. "Nada por entregar. Ni un pecado pendiente."); **error de red** con el banner y la caché; **error del servidor** con mensaje claro y reintento; `RefreshControl` con `colors={[colors.red]}`.
   - Los textos nuevos pasan por `packages/i18n` (en ambos idiomas, con la voz de marca solo en vacío/éxito).
 - [ ] **Step 5: Primera revisión visual en dispositivo** (aquí se ve por primera vez el kit integrado): despachar el workflow, instalar el APK y revisar los criterios 1–9 de "Criterios de calidad de UI" sobre esta pantalla; anotar los ajustes de tokens/componentes para aplicarlos en esta misma tarea antes de seguir.
@@ -548,7 +624,7 @@ Funda el design system de las apps móviles, independiente del de la web (que no
   - `POST .../evidence` body `{ key, capturedAt (ISO), lat, lng }` → `200 { ok: true }` | `400` | `409` (incluye `key` que no pertenece a esa orden).
   - Variables de entorno (servidor, no `NEXT_PUBLIC_*`): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_DELIVERY_EVIDENCE_PREFIX` (default `delivery-evidence/`; permite pasar a otro bucket o carpeta sin tocar código).
 
-- [ ] **Step 1 (owner, manual): proveer las credenciales de R2** (token de API con acceso a ese bucket) en `apps/web/.env.local` y en las variables de runtime del servicio en EasyPanel. El bucket debe ser **privado**. Sin ellas, los endpoints responden 503 y todo lo demás sigue funcionando.
+- [ ] **Step 1 (owner, manual): proveer las credenciales de R2** del bucket **ya existente** (reusado, no uno nuevo; bucket `sweet-delivery`, cuenta `b798b0b01ea8805faa0bb16b07e6c4f4`; el agente puede documentar `R2_ACCOUNT_ID` y `R2_BUCKET` en `CLAUDE.md`, pero las claves las declara el owner) en `apps/web/.env.local` y en las variables de runtime del servicio en EasyPanel. El bucket debe ser **privado**. Sin ellas, los endpoints responden 503 y todo lo demás sigue funcionando. El agente no declara estas variables.
 - [ ] **Step 2: Tests de dominio** (`recordDeliveryEvidence`): registra con usuario asignado en `out_for_delivery` y en `delivered`; rechaza usuario no asignado, estado `ready_for_pickup`, `lat` 91, `lng` -181, `key` vacía, orden inexistente. Extender `makeFakeOrderRepo` y todo implementador de `OrderRepository` con el método nuevo.
 - [ ] **Step 3: Tests de `delivery-evidence-key`**: `buildEvidenceKey("delivery-evidence/", "o1", "u1") === "delivery-evidence/o1/u1.jpg"`; `isEvidenceKeyForOrder` es `true` para esa clave con `"o1"` y `false` con `"o2"` o con un prefijo distinto.
 - [ ] **Step 4: Tests del adaptador y de los endpoints**: sin variables R2 el adaptador lanza `EvidenceStorageNotConfiguredError` y el endpoint responde 503; con `requireMobileAuth` mockeado devolviendo rol `despachador` ambos endpoints responden 403; `POST .../evidence` con una `key` de otra orden responde 409.
@@ -556,7 +632,7 @@ Funda el design system de las apps móviles, independiente del de la web (que no
   Run: `pnpm --filter @workspace/domain exec vitest run src/orders && pnpm --filter @workspace/web exec vitest run src/lib src/infra src/app/api/mobile/orders`
   Expected: FAIL.
 - [ ] **Step 6: Implementar** todo lo listado. `recordDeliveryEvidence` en Drizzle hace un `update` de las cuatro columnas. En el adaptador R2: endpoint `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, región `"auto"`; dejar en un comentario la política de retención (7 días por defecto, ampliable a 30, pendiente de confirmación legal; la regla de ciclo de vida del bucket es una tarea de infraestructura aparte).
-- [ ] **Step 7: Aplicar el esquema a la base compartida** — pedir OK al owner (dev=prod) y correr `pnpm --filter @workspace/db run push`. Las columnas son nullable y el booleano tiene default: aditivo.
+- [ ] **Step 7: Aplicar el esquema a la base compartida (lo hace el agente, sin pedir permiso)** — `pnpm --filter @workspace/db run push`. Las columnas son nullable y el booleano tiene valor por defecto: aditivo, nunca `--force`. **Orden estricto:** el esquema se aplica y se comprueba **antes** de usar las columnas en cualquier código que se ejecute contra la base (es la misma base dev=prod). Verificación inmediata: `pnpm --filter @workspace/db exec vitest run src/repositories/order-repository.test.ts src/repositories/settings-repository.test.ts` debe pasar. No desplegar el código de esta tarea antes de este paso.
 - [ ] **Step 8: Verificar**
   Run: `pnpm run typecheck && pnpm run test`
   Expected: PASS (los tests de `packages/db` golpean la base real: limpiar lo que creen).
@@ -567,6 +643,8 @@ Funda el design system de las apps móviles, independiente del de la web (que no
 ---
 
 ### Task 13: Evidencia de entrega — app (foto + GPS)
+
+> **Actualización de la ronda de decisiones:** el botón "Agregar foto de evidencia" es **opcional y no bloqueante**; es una acción primaria, así que va en el tercio inferior y mide al menos 56 dp. Los permisos de cámara y ubicación se piden solo al usar la función, no al abrir la app. La foto la ve solo el delivery que la tomó y el admin (histórico de entregas, Plan 2), nunca el cliente. Textos por `packages/i18n`. El `PUT` a la URL prefirmada **debe enviar la cabecera `Content-Type: image/jpeg`** (la URL la firma, Task 12). Retención documentada en `handoff.md`: 7 días por defecto, ampliable a 30, pendiente de confirmación legal.
 
 **Files:**
 - Modify: `apps/mobile/package.json` (`pnpm --filter mobile exec expo install expo-image-picker expo-location`)
@@ -608,7 +686,7 @@ Funda el design system de las apps móviles, independiente del de la web (que no
   ```
 - [ ] **Step 5: Verificar**
   Run: `pnpm --filter mobile run test && pnpm --filter mobile run typecheck && pnpm --filter @workspace/i18n exec vitest run`
-  Expected: PASS. La captura real (cámara/GPS) se comprueba en dispositivo en Task 15.
+  Expected: PASS. La captura real (cámara/GPS) se comprueba en dispositivo en Task 20.
 - [ ] **Step 6: Stage y commit sugerido**
   `git add apps/mobile packages/i18n pnpm-lock.yaml`
   Sugerido: `git commit -m "Agrega captura de foto y GPS como evidencia opcional de entrega en la app"`
@@ -616,6 +694,8 @@ Funda el design system de las apps móviles, independiente del de la web (que no
 ---
 
 ### Task 14: Despachador e inicio de sesión con el sistema de diseño; despachador sin crash sin red
+
+> **Alcance actual (solo delivery):** se reconstruye **solo el inicio de sesión** (lo usa el delivery). La pantalla del despachador queda como está y sigue en la lista de excepciones del test de reglas de diseño; se retoma cuando el alcance incluya al despachador.
 
 **Files:**
 - Modify: `apps/mobile/src/screens/DespachadorQueueScreen.tsx`, `apps/mobile/src/screens/LoginScreen.tsx` (reconstrucción con el kit)
@@ -629,51 +709,258 @@ Funda el design system de las apps móviles, independiente del de la web (que no
 - [ ] **Step 3: Inicio de sesión** — `BrandMark variant="videologo"` (≈ 160 dp) que se reproduce un ciclo (≈ 8 s) y pasa a la imagen estática (`playOnceMs`); título en `text.title`; campos con etiqueta visible encima, alto 52 dp, radio `inner`, borde `semantic.border` y foco en Sin Red; `KeyboardAvoidingView` y desplazamiento para que el teclado no tape el botón; correo con `keyboardType="email-address"` y `autoComplete="email"`; PIN numérico (`inputMode="numeric"`, `secureTextEntry`, `maxLength` 6); enviar con la tecla del teclado; `Button` primario con `loading`; error en línea con `accessibilityRole="alert"` y texto neutro (usa la clave de error ya existente, ahora en i18n); el correo se conserva si el login falla.
 - [ ] **Step 4: Verificar**
   Run: `pnpm --filter mobile run typecheck && pnpm --filter mobile run test && pnpm --filter @workspace/i18n exec vitest run`
-  Expected: PASS (incluye `design-rules.test.ts` sobre las tres pantallas). El comportamiento sin red y la revisión visual se comprueban en dispositivo (Task 15).
+  Expected: PASS (incluye `design-rules.test.ts` sobre las tres pantallas). El comportamiento sin red y la revisión visual se comprueban en dispositivo (Task 20).
 - [ ] **Step 5: Stage y commit sugerido**
   `git add apps/mobile/src packages/i18n`
   Sugerido: `git commit -m "Reconstruye el despachador y el inicio de sesion con el sistema de diseno y evita el crash sin red"`
 
 ---
 
-### Task 15: Verificación en dispositivo y documentación
+### Task 15: Arreglos pendientes de revisión (D6): 408/429 y limpieza del flag de evidencia
+
+Corrige dos hallazgos menores de las Tasks 10 y 12 que se decidió arreglar antes del merge. No reabre esas tareas más allá de estos dos puntos.
 
 **Files:**
-- Modify: `handoff.md` (5 secciones; agregar a "Intentos fallidos", no borrar; registrar retención de evidencia y las decisiones de arriba), `CLAUDE.md` (Where things live / Run & Operate: build de la APK por GitHub Actions y sus secretos, modo offline del delivery, evidencia de entrega, flag `deliveryEvidenceRequired`; quitar de Architecture decisions la nota de `notifyNewOrderInQueue` sin caller y de Gotchas la costura de `/admin/orders`, ya resueltas en Tasks 3–4)
+- Modify: `apps/mobile/src/offline/deliver-sender.ts`, `deliver-sender.test.ts`
+- Modify: `packages/db/src/repositories/settings-repository.test.ts` (y cualquier otro test que active `deliveryEvidenceRequired`)
 
-- [ ] **Step 1: Despachar el workflow con el código final**, bajar la APK del artefacto e instalarla en un teléfono Android real.
-- [ ] **Step 2: Checklist en dispositivo** (el push ya se validó en Task 8):
+**Interfaces:**
+- Consumes: `makeDeliverSender` y `SendResult` (Task 10). Reglas nuevas: **408 y 429 → `{ kind: "retry" }`** (fallos transitorios del servidor: nunca deben borrar el comando "entregada" de la cola). El resto de las reglas no cambia (2xx → ok; 401 → unauthorized; ≥ 500 → retry; otro estado → conflict).
+
+- [ ] **Step 1: Tests primero (TDD)** en `deliver-sender.test.ts`: 408 → `retry` y 429 → `retry` (RED: hoy dan `conflict`). Además un test que fije que 400, 403, 404 y 409 siguen siendo `conflict`.
+- [ ] **Step 2: Correr y ver fallar**
+  Run: `pnpm --filter mobile run test`
+  Expected: FAIL en los dos casos nuevos.
+- [ ] **Step 3: Implementar** el cambio de clasificación en `makeDeliverSender`.
+- [ ] **Step 4: Limpieza garantizada del flag.** En `settings-repository.test.ts`, el test que activa `deliveryEvidenceRequired: true` debe: leer y **guardar el valor original** (sin suponer `false`; el owner puede haberlo activado en la base real), cambiarlo dentro de un `try` y restaurar el original en `finally` (o `afterEach`), de modo que una aserción fallida a mitad de camino no deje el flag en `true` en la base compartida. Mismo patrón para cualquier test que toque ese flag.
+- [ ] **Step 5: Verificar**
+  Run: `pnpm --filter mobile run test && pnpm --filter mobile run typecheck && pnpm --filter @workspace/db exec vitest run src/repositories/settings-repository.test.ts`
+  Expected: PASS. (El test de base de datos requiere que el esquema de la Task 12 ya esté aplicado; es la misma base compartida dev=prod: deja el flag exactamente como lo encontró.)
+- [ ] **Step 6: Stage y commit sugerido**
+  `git add apps/mobile/src/offline packages/db/src/repositories`
+  Sugerido (lo ejecuta el owner): `git commit -m "Reintenta ante 408 y 429 en la cola de entregas y garantiza la limpieza del flag de evidencia en los tests"`
+
+---
+
+### Task 16: Build de desarrollo permanente (D5)
+
+Pieza **permanente** del proyecto (no desechable): un APK aparte, con `expo-dev-client`, para iterar la UI con recarga en vivo. **No reabre la decisión de no usar `expo-dev-client` en el build de release**: el de desarrollo es una variante nueva y separada.
+
+**Files:**
+- Create: `apps/mobile/app.config.ts` (+ `app.config.test.ts`)
+- Create: `.github/workflows/build-dev-apk.yml`
+- Modify: `.github/workflows/build-apk.yml` (nueva comprobación de que el release no incluye el cliente de desarrollo)
+- Modify: `apps/mobile/package.json` (`pnpm --filter mobile exec expo install expo-dev-client`)
+- Modify: `CLAUDE.md` (Run & Operate)
+
+**Interfaces:**
+- Produces: `apps/mobile/app.config.ts` exporta una función `({ config }: ConfigContext) => ExpoConfig` que parte de `app.json` y, **solo si** `process.env.APP_VARIANT === "development"`, sobrescribe: `name` → `"Sweet Sin Staff (Dev)"`, `android.package` → `"au.com.sweetsin.staff.dev"` y el `backgroundColor` del ícono adaptativo a un color claramente distinto del de producción (el Dorado de la paleta), para que **nunca** se confunda con el de producción en el mismo teléfono. Sin la variable, devuelve `app.json` sin cambios (el build de release no se altera).
+- Produces: workflow `build-dev-apk.yml` (`workflow_dispatch`, sin secretos): mismo gate que el release, `APP_VARIANT=development`, `expo prebuild --platform android --clean --no-install` y `./gradlew assembleDebug` (la clave de **debug** automática de Gradle firma el APK; no se usa el keystore de release), comprobación con `aapt2` de `package: name='au.com.sweetsin.staff.dev'` y `application-label='Sweet Sin Staff (Dev)'`, y artefacto `sweetsin-staff-dev-<run_number>`.
+
+- [ ] **Step 1: Tests** (`app.config.test.ts`): sin `APP_VARIANT` → `android.package === "au.com.sweetsin.staff"` y `name === "Sweet Sin Staff"`; con `APP_VARIANT=development` → `android.package === "au.com.sweetsin.staff.dev"`, `name === "Sweet Sin Staff (Dev)"` y `backgroundColor` distinto del de producción; `app.json` no se modifica.
+- [ ] **Step 2: Correr y ver fallar**
+  Run: `pnpm --filter mobile run test`
+  Expected: FAIL (el módulo no existe).
+- [ ] **Step 3: Implementar** `app.config.ts`, instalar `expo-dev-client` con `expo install` y escribir `build-dev-apk.yml` siguiendo la estructura de `build-apk.yml` (mismas versiones de acciones; leer antes los docs de Expo SDK 57 sobre variantes de app y `expo-dev-client`).
+- [ ] **Step 4: Comprobación en el workflow de release (pregunta Q10):** en `build-apk.yml`, tras construir, fallar si el manifiesto del APK de release contiene `expo.modules.devlauncher` o `expo.modules.devmenu` (`aapt2 dump xmltree --file AndroidManifest.xml <apk>`). Si apareciera en un release real, resolverlo según los docs de `expo-dev-client` (que el cliente quede solo en builds debug) y anotarlo en `handoff.md`.
+- [ ] **Step 5: Documentar en `CLAUDE.md` (Run & Operate):** cómo se genera el build de desarrollo; cómo correr `APP_VARIANT=development npx expo start --dev-client` (y `--tunnel` si el teléfono no está en la misma red; `@expo/ngrok` ya es devDependency); la advertencia explícita de que **este build nunca debe llegar a un repartidor real** (si lo hace, la app queda rota porque intenta conectarse a un bundler que no existe); y la nota de mantenimiento: cada vez que se agregue un módulo nativo (cámara, GPS, SQLite, mapas, tareas en segundo plano) hay que **recompilar el build de desarrollo una vez** para que lo incluya.
+- [ ] **Step 6: Verificar**
+  Run: `pnpm --filter mobile run test && pnpm --filter mobile run typecheck && pnpm dlx @action-validator/cli .github/workflows/build-dev-apk.yml && pnpm dlx @action-validator/cli .github/workflows/build-apk.yml`
+  Expected: PASS, validadores sin errores. El workflow nunca se ha ejecutado en GitHub: lo despacha el owner tras el push.
+- [ ] **Step 7: Stage y commit sugerido**
+  `git add apps/mobile .github/workflows CLAUDE.md pnpm-lock.yaml`
+  Sugerido (lo ejecuta el owner): `git commit -m "Agrega el build de desarrollo permanente con expo-dev-client y su variante .dev"`
+
+---
+
+### Task 17: Ruta dibujada y ETA con tráfico para el delivery
+
+Herramienta **interna de staff**: nada de esto se expone al cliente (Plan 3). Usa Google Maps Platform. La ruta es una referencia visual: no hay navegación giro a giro ni voz; para navegar de verdad queda el botón que abre la app nativa de Google Maps (Task 11).
+
+**Files:**
+- Create: `packages/domain/src/routing/{entities,ports,use-cases}.ts` (+ tests), export `"./routing"` en `packages/domain/package.json`
+- Create: `apps/web/src/infra/google-routes-planner.ts` (+ test), `apps/web/src/infra/caching-route-planner.ts` (+ test)
+- Create: `apps/web/src/app/api/mobile/orders/[id]/route/route.ts` (+ test)
+- Create: `apps/mobile/src/maps/{decode-polyline,format-eta}.ts` (+ tests), `apps/mobile/src/maps/RouteMap.tsx`
+- Modify: `apps/mobile/src/screens/DeliveryQueueScreen.tsx`, `apps/mobile/app.config.ts` (clave del SDK de mapas), `.github/workflows/build-apk.yml` y `build-dev-apk.yml` (pasan el secreto al prebuild), `packages/i18n` (claves `staffApp` de ruta y ETA), `CLAUDE.md` (variables)
+
+**Interfaces:**
+- Produces (dominio):
+  ```ts
+  export interface LatLng { lat: number; lng: number }
+  export interface RouteInfo { etaSeconds: number; distanceMeters: number; encodedPolyline: string; origin: LatLng; destination: LatLng; computedAt: Date }
+  export interface RoutePlanner { computeRoute(origin: LatLng, destinationAddress: string): Promise<RouteInfo> }
+  getRouteForOrder(deps: { orders: OrderRepository; planner: RoutePlanner }, orderId: string, actor: { userId: string; role: "delivery" }, origin: LatLng): Promise<RouteInfo>
+  // rechaza: orden inexistente; actor distinto del delivery asignado; estado distinto de out_for_delivery; deliveryAddress nula; lat/lng fuera de rango o NaN
+  ```
+- Produces (servidor): `GET /api/mobile/orders/[id]/route?lat=<n>&lng=<n>` (rol `delivery`; 403 otro rol; 400 coordenadas inválidas; 404 orden inexistente; 409 regla de dominio; 503 `{ "error": "Routes service is not configured yet." }` si falta `GOOGLE_ROUTES_API_KEY`) → `200 RouteInfo` (con `computedAt` en ISO). `GoogleRoutesPlanner` llama a **Routes API** (`POST https://routes.googleapis.com/directions/v2:computeRoutes`, `X-Goog-Api-Key`, `X-Goog-FieldMask` mínimo `routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation`, `travelMode: "DRIVE"`, `routingPreference: "TRAFFIC_AWARE"`, destino por `address`) con validación **perezosa** de la clave (nunca simula un éxito; nunca usa la clave de la web). `CachingRoutePlanner(inner: RoutePlanner, opts: { ttlMs: 60_000; now?: () => number })` memoriza por orden + origen redondeado a 3 decimales (~100 m) para acotar el costo. Se elige Routes API y no la Directions API heredada (decisión del plan; el costo del tráfico en vivo se documenta).
+- Produces (app): `decodePolyline(encoded: string): LatLng[]`; `formatEta(etaSeconds: number, distanceMeters: number, locale: Locale): string` → `"12 min · 3.4 km"` (en) y `"12 min · 3,4 km"` (es); menos de 60 s → `"< 1 min"`; ≥ 3600 s → `"1 h 5 min"`; menos de 1000 m → `"850 m"`. `RouteMap({ route: RouteInfo; height: number })` dibuja la polilínea y los marcadores con la librería de mapas que los docs de Expo SDK 57 recomienden para Google Maps en Android (`react-native-maps` o `expo-maps`: **verificar y registrar la elección**). La clave del SDK de mapas es una clave **pública restringida** por paquete y huella SHA-1 (no es un secreto, pero va restringida) y se inyecta en `app.config.ts` desde la variable `GOOGLE_MAPS_ANDROID_API_KEY` durante el prebuild.
+- Variables nuevas: `GOOGLE_ROUTES_API_KEY` (**servidor**, en `.env.local` y EasyPanel, declarada por el owner; distinta de la clave de la web) y el secreto de GitHub `GOOGLE_MAPS_ANDROID_API_KEY` (lo carga el owner; pregunta Q5).
+
+- [ ] **Step 1: Tests primero:**
+  - dominio: acepta al delivery asignado con la orden `out_for_delivery`; rechaza a otro delivery, otro estado, dirección nula, `lat` 91, `lng` -181 y `NaN`.
+  - `decodePolyline`: con el ejemplo canónico de la documentación de Google (3 puntos: 38.5/-120.2, 40.7/-120.95, 43.252/-126.453) y con la cadena vacía (devuelve `[]`).
+  - `formatEta`: los cuatro formatos y ambos idiomas.
+  - `CachingRoutePlanner`: segunda llamada con el mismo origen redondeado no llama al planificador interno; origen a más de ~100 m o TTL vencido sí llama; el tiempo se inyecta.
+  - `GoogleRoutesPlanner` con `fetch` simulado: envía las cabeceras y el cuerpo exactos del contrato y mapea la respuesta a `RouteInfo`; sin clave lanza `RoutesNotConfiguredError`.
+  - endpoint: 403 para `despachador`, 400 por coordenadas inválidas, 503 sin clave, 200 con planificador simulado.
+- [ ] **Step 2: Correr y ver fallar**
+  Run: `pnpm --filter @workspace/domain exec vitest run src/routing && pnpm --filter @workspace/web exec vitest run src/infra src/app/api/mobile/orders && pnpm --filter mobile run test`
+  Expected: FAIL.
+- [ ] **Step 3: Implementar** dominio, planificador, caché, endpoint y utilidades puras (leer en los docs de Expo SDK 57 el módulo de mapas y su plugin; si el módulo elegido exige configuración de `app.config.ts`, hacerla aquí).
+- [ ] **Step 4: Integrar en `DeliveryQueueScreen`** con el kit de diseño: en cada tarjeta, el ETA como texto corto (p. ej. "12 min · 3.4 km") y una sección "Ver ruta" que despliega `RouteMap`. El origen sale de `expo-location` en primer plano (permiso pedido al usar la función). Si no hay permiso, red o respuesta (503/409), la tarjeta se muestra sin ETA y con un mensaje discreto; **nunca bloquea "Marcar entregado"**. No recalcular más seguido que la caché del servidor (refrescar al abrir y por pull-to-refresh, no por temporizador). Textos nuevos por `packages/i18n`.
+- [ ] **Step 5: Documentar** en `CLAUDE.md` las dos variables y en `handoff.md` el riesgo de costo: cada cálculo de ruta con tráfico es una llamada paga a Google Maps Platform; sin la caché el costo escala con las entregas diarias.
+- [ ] **Step 6: Verificar**
+  Run: `pnpm run typecheck && pnpm --filter @workspace/domain exec vitest run && pnpm --filter @workspace/web exec vitest run && pnpm --filter mobile run test && pnpm --filter mobile exec expo export --platform android`
+  Expected: PASS y el bundle JS se genera. La prueba con mapas reales requiere las claves (owner) y el build de desarrollo (Task 16).
+- [ ] **Step 7: Stage y commit sugerido**
+  `git add packages apps .github CLAUDE.md pnpm-lock.yaml`
+  Sugerido (lo ejecuta el owner): `git commit -m "Agrega la ruta dibujada y el ETA con trafico para el delivery mediante Google Routes"`
+
+---
+
+### Task 18: Turno del delivery y seguimiento de ubicación en vivo
+
+> **Alcance actual (solo delivery):** se implementa el lado delivery (registro y fin de turno, `PUT` y `DELETE /api/mobile/location`, turno y seguimiento en la app). Se **difieren** a la Task 19 `listSince`, `listFleetPositions` y `GET /api/mobile/fleet` (los usa el despachador) y sus tests.
+
+Guarda la **última ubicación conocida** de cada delivery en turno. Se diseña para que el Plan 3 (panel del cliente: "tu pedido está a 8 minutos") solo tenga que **agregar un consumidor** del mismo dato, sin rediseñar el almacenamiento; esa pantalla de cliente **no se construye** aquí.
+
+**Files:**
+- Create: `packages/domain/src/delivery-tracking/{entities,ports,use-cases}.ts` (+ tests), export `"./delivery-tracking"` en `packages/domain/package.json`
+- Create: `packages/db/src/schema/delivery-locations.ts` (+ export), `packages/db/src/repositories/delivery-location-repository.ts` (+ test)
+- Create: `apps/web/src/app/api/mobile/location/route.ts`, `apps/web/src/app/api/mobile/fleet/route.ts` (+ tests)
+- Create: `apps/mobile/src/tracking/{haversine,send-policy,shift}.ts` (+ tests de las dos primeras), `ShiftToggle` y la pantalla de consentimiento en `apps/mobile/src/design-system` y `src/screens`
+- Modify: `apps/mobile/app.config.ts` (plugin de `expo-location` con segundo plano y servicio en primer plano), `apps/mobile/src/screens/DeliveryQueueScreen.tsx`, `apps/mobile/index.ts` (definición de la tarea en segundo plano a nivel de módulo), `packages/i18n`, `handoff.md`
+
+**Interfaces:**
+- Produces (dominio):
+  ```ts
+  export interface DeliveryLocation { userId: string; lat: number; lng: number; accuracyMeters: number | null; recordedAt: Date }
+  export interface DeliveryLocationRepository {
+    upsert(location: DeliveryLocation): Promise<void>;
+    findLatest(userId: string): Promise<DeliveryLocation | null>;
+    listSince(since: Date): Promise<(DeliveryLocation & { userName: string })[]>;
+    remove(userId: string): Promise<void>;
+  }
+  recordDeliveryLocation(deps: { locations: DeliveryLocationRepository; users: UserRepository }, input: { userId: string; lat: number; lng: number; accuracyMeters: number | null; recordedAt: Date }, now?: Date): Promise<void>
+  // rechaza: usuario que no es un delivery activo; lat/lng fuera de rango o NaN; recordedAt más de 1 min en el futuro o de más de 10 min de antigüedad
+  endDeliveryShift(deps: { locations: DeliveryLocationRepository }, userId: string): Promise<void>
+  listFleetPositions(deps: { locations: DeliveryLocationRepository }, now: Date, opts?: { staleAfterMs?: number; dropAfterMs?: number }): Promise<{ userId: string; name: string; lat: number; lng: number; recordedAt: Date; stale: boolean }[]>
+  // stale = más de 5 min (por defecto); se descartan las de más de 30 min
+  ```
+- Produces (servidor): tabla `delivery_locations` (`user_id` uuid clave primaria referenciando `users`, `lat` y `lng` doble precisión, `accuracy_m` real nulo, `recorded_at` timestamp con zona, no nulo: **solo la última posición, sin historial**). `PUT /api/mobile/location` (rol `delivery`; cuerpo `{ lat, lng, accuracyMeters?, recordedAt }` validado con zod; 403/400/200), `DELETE /api/mobile/location` (rol `delivery`: termina el turno y borra la posición) y `GET /api/mobile/fleet` (rol `despachador`) → `{ positions: [...] }`.
+- Produces (app): `distanceMeters(a: LatLng, b: LatLng): number` (haversine); `shouldSendLocation(prev: { lat: number; lng: number; atMs: number } | null, next: { lat: number; lng: number; atMs: number }, opts: { minIntervalMs: 20_000; minDistanceMeters: 30 }): boolean`; `ShiftToggle` ("Iniciar turno" / "Terminar turno") con `StatusPill` "en turno". El estado de turno persiste en `expo-secure-store` para sobrevivir a un reinicio de la app.
+
+- [ ] **Step 1: Tests primero:**
+  - dominio con repositorio falso en memoria: registra para un delivery activo; rechaza customer/admin/despachador, delivery inactivo, coordenadas fuera de rango y `NaN`, fecha futura y fecha vieja; `endDeliveryShift` borra; `listFleetPositions` marca `stale` pasados 5 min y descarta pasados 30.
+  - `distanceMeters`: mismo punto → 0; un grado de latitud ≈ 111 195 m (tolerancia ±200 m).
+  - `shouldSendLocation`: sin previo → `true`; antes de 20 s y a menos de 30 m → `false`; pasados 20 s → `true`; a más de 30 m antes de 20 s → `true`.
+  - endpoints: `PUT` y `DELETE` responden 403 a roles distintos de `delivery`; `GET /fleet` responde 403 a roles distintos de `despachador`; 400 por cuerpo inválido.
+  - repositorio Drizzle (escrito; correr tras el `push`): `upsert` dos veces deja una sola fila; `remove` la borra; limpia lo que crea.
+- [ ] **Step 2: Correr y ver fallar**
+  Run: `pnpm --filter @workspace/domain exec vitest run src/delivery-tracking && pnpm --filter mobile run test && pnpm --filter @workspace/web exec vitest run src/app/api/mobile`
+  Expected: FAIL.
+- [ ] **Step 3: Implementar dominio, utilidades de la app y endpoints.**
+- [ ] **Step 4: Aplicar el esquema (lo hace el agente, sin pedir permiso):** `pnpm --filter @workspace/db run push` (tabla nueva: aditivo) y luego `pnpm --filter @workspace/db exec vitest run src/repositories/delivery-location-repository.test.ts`. El esquema se aplica y verifica **antes** de ejecutar código que use la tabla contra la base compartida dev=prod.
+- [ ] **Step 5: Seguimiento en la app.** Seguir los docs de Expo SDK 57 para `expo-location` y `expo-task-manager` (`startLocationUpdatesAsync` con servicio en primer plano y notificación persistente, textos por `packages/i18n`; plugin de `expo-location` con `isAndroidBackgroundLocationEnabled` e `isAndroidForegroundServiceEnabled`). Flujo:
+  1. "Iniciar turno" muestra, la primera vez, una pantalla de **consentimiento** (qué se recoge, solo durante el turno, quién lo ve —el despachador—, sin historial, y que se borra al terminar).
+  2. Se pide el permiso en primer plano y luego el de segundo plano (el diálogo nativo de Android, "Permitir todo el tiempo", aparece aunque la APK no se distribuya por Google Play). Si el de segundo plano se **niega**, el seguimiento **degrada** a primer plano (solo con la app abierta) con un aviso claro y **sin cerrarse**.
+  3. Cada posición se filtra con `shouldSendLocation` (20 s / 30 m) y se envía con `PUT /api/mobile/location`; un fallo de red se **descarta** (no se encola: solo importa la última posición).
+  4. "Terminar turno", cerrar sesión o un 401 detienen la tarea y llaman a `DELETE /api/mobile/location`.
+  El permiso de ubicación nunca se pide al abrir la app, solo al iniciar el turno. Es un módulo nativo nuevo: **recompilar el build de desarrollo** (Task 16).
+- [ ] **Step 6: Documentar en `handoff.md`** como riesgos conocidos: consumo continuo de batería y datos del teléfono del delivery durante todo el turno; algunos fabricantes de Android matan los servicios en segundo plano (mitigación manual: excluir la app de la optimización de batería); y la **pendiente confirmación legal** del seguimiento de ubicación del personal (pregunta Q6).
+- [ ] **Step 7: Verificar**
+  Run: `pnpm run typecheck && pnpm --filter @workspace/domain exec vitest run && pnpm --filter @workspace/web exec vitest run && pnpm --filter mobile run test && pnpm --filter mobile exec expo export --platform android`
+  Expected: PASS. El seguimiento real se prueba en teléfono (Task 20).
+- [ ] **Step 8: Stage y commit sugerido**
+  `git add packages apps handoff.md pnpm-lock.yaml`
+  Sugerido (lo ejecuta el owner): `git commit -m "Agrega el turno del delivery y el seguimiento de su ultima ubicacion en vivo"`
+
+---
+
+### Task 19: Mapa de flota y ETA para el despachador
+
+> **DIFERIDA por el alcance actual (solo delivery).** Incluye, cuando se retome, `listSince`, `listFleetPositions` y `GET /api/mobile/fleet` que se difirieron de la Task 18.
+
+El despachador ve dónde está cada repartidor en turno. **Adaptación a tener en cuenta (pregunta Q11):** la cola del despachador solo contiene órdenes `received`, `in_prep` y `ready_for_pickup`; las que ya van en camino (`out_for_delivery`) no están en esa cola, así que el ETA del despachador se muestra **en el mapa de flota**, al tocar un repartidor, y no en las tarjetas de la cola.
+
+**Files:**
+- Modify: `packages/domain/src/routing/use-cases.ts` (+ tests), `apps/web/src/app/api/mobile/orders/[id]/route/route.ts` (rama del despachador), `apps/web/src/app/api/mobile/fleet/route.ts` (agrega `assignedOrders`)
+- Create: `apps/mobile/src/maps/format-age.ts` (+ test), `apps/mobile/src/screens/FleetMapScreen.tsx`
+- Modify: `apps/mobile/src/navigation/index.tsx` (pantalla "Mapa" del despachador), `apps/mobile/src/screens/DespachadorQueueScreen.tsx` (botón "Ver mapa"), `packages/i18n`
+
+**Interfaces:**
+- Produces: `getRouteForOrder` acepta además `actor: { userId: string; role: "despachador" }`; en ese caso el origen **no** viene del cliente: es `findLatest(order.assignedDeliveryUserId)` (puerto `DeliveryLocationRepository` de la Task 18) y, si no hay posición o está desactualizada, el endpoint responde `409 { "error": "no_location" }`. `GET /api/mobile/fleet` agrega por repartidor `assignedOrders: { id: string; customerName: string; deliveryAddress: string | null }[]` (órdenes `out_for_delivery` asignadas). `formatAge(seconds: number, locale: Locale): string` → `"hace 2 min"` / `"2 min ago"`, `"ahora"` / `"just now"` si < 30 s.
+
+- [ ] **Step 1: Tests primero:** dominio (despachador con repositorio de ubicaciones falso: usa la última posición del delivery asignado; sin posición → error `no_location`; con posición desactualizada → `no_location`; el rol `delivery` sigue usando el origen del cliente); `formatAge` (tres rangos y ambos idiomas); endpoint (`GET .../route` de despachador: 409 `no_location` y 200 con posición; `GET /fleet` incluye `assignedOrders`).
+- [ ] **Step 2: Correr y ver fallar**
+  Run: `pnpm --filter @workspace/domain exec vitest run src/routing && pnpm --filter @workspace/web exec vitest run src/app/api/mobile && pnpm --filter mobile run test`
+  Expected: FAIL.
+- [ ] **Step 3: Implementar** la rama del despachador, `assignedOrders` y `formatAge`.
+- [ ] **Step 4: `FleetMapScreen` con el kit de diseño:** mapa con un marcador por repartidor (nombre y antigüedad con `formatAge`); los **desactualizados** (más de 5 min) en gris con el texto "sin señal reciente" (no solo color); al tocar un repartidor, panel inferior con sus órdenes asignadas y el ETA de cada una (llamada a `GET .../route`, cacheada 60 s por el servidor); actualización por **polling** cada 20 s (sin WebSockets, restricción global); estados vacío ("ningún repartidor en turno"), sin conexión (banner) y error. Textos por `packages/i18n`. Acceso por botón "Ver mapa" en la pantalla del despachador.
+- [ ] **Step 5: Verificar**
+  Run: `pnpm run typecheck && pnpm --filter @workspace/domain exec vitest run && pnpm --filter @workspace/web exec vitest run && pnpm --filter mobile run test`
+  Expected: PASS (incluye `design-rules.test.ts` sobre la pantalla nueva).
+- [ ] **Step 6: Stage y commit sugerido**
+  `git add packages apps`
+  Sugerido (lo ejecuta el owner): `git commit -m "Agrega el mapa de flota y el ETA por repartidor para el despachador"`
+
+---
+
+### Task 20: Verificación en dispositivo y documentación
+
+> **Alcance actual (solo delivery):** en el checklist se omiten los puntos del despachador (2 y 5) y el mapa de flota.
+
+**Files:**
+- Modify: `handoff.md` (5 secciones; agregar a "Intentos fallidos", no borrar; registrar retención de evidencia, riesgos de seguimiento y costos de Google Maps Platform, y las decisiones de arriba), `CLAUDE.md` (Where things live / Run & Operate: build de la APK por GitHub Actions y sus secretos, build de desarrollo, modo offline del delivery, evidencia de entrega y su flag, mapas/ETA/seguimiento y sus variables; quitar de Architecture decisions la nota de `notifyNewOrderInQueue` sin caller y de Gotchas la costura de `/admin/orders`, ya resueltas en las Tasks 3 y 4; fusionar los dos paréntesis seguidos de la línea 65 que quedaron de la Task 2)
+
+- [ ] **Step 1 (owner): despachar los workflows con el código final** (release y desarrollo), bajar las APK de los artefactos e instalarlas en un teléfono Android real.
+- [ ] **Step 2 (owner o agente con el owner presente): checklist en dispositivo.** El push **no** está en la lista (descartado, D1):
   1. Login con PIN como despachador y como delivery.
   2. Despachador: avanzar una orden y asignar delivery.
-  3. Delivery en modo avión: la lista sigue visible desde la caché con el banner; marcar entregada → "pendiente de sincronizar".
-  4. Desactivar modo avión: en ≤ 30 s la orden pasa a `delivered` en la base (consulta directa), sin duplicados.
-  5. Despachador en modo avión: abrir/recargar no cierra la app y se ve el banner; avanzar una orden muestra el aviso.
-  6. Evidencia con red: tomar foto → "evidencia enviada"; el objeto existe en R2 bajo `<prefijo>/<orderId>/`, la fila de la orden tiene clave, fecha y coordenadas.
-  7. Evidencia sin red o con permiso denegado: aviso claro y "Entregar" sigue funcionando.
-  8. Cambiar el idioma del teléfono entre español e inglés y reabrir la app: los textos cambian.
-- [ ] **Step 3: Revisión de calidad visual y de usabilidad en el teléfono** (los criterios 1–9 de "Criterios de calidad de UI", sobre inicio de sesión, delivery y despachador):
-  1. **Identidad:** el ícono en el lanzador (normal y redondo; temático si el teléfono es Android 13+), el splash, el ícono de la notificación en la barra (silueta con el rojo de marca, no un cuadrado gris) y el nombre "Sweet Sin Staff".
-  2. **Tipografía:** Fraunces, DM Sans y DM Mono se ven (no las del sistema) y la app abre sin red con ellas.
-  3. **Escala de fuente** (Ajustes → Pantalla → Tamaño de fuente) al 100 %, 130 % y 200 %: nada se corta ni se solapa y los botones siguen alcanzables.
-  4. **Reducir movimiento** (Ajustes → Accesibilidad → Quitar animaciones): sin entradas animadas y los GIF reemplazados por la mascota estática.
-  5. **Accessibility Scanner de Google** (aplicación gratuita) sobre cada pantalla: sin avisos de tamaño de área tocable ni de contraste.
-  6. **Pleno sol:** brillo máximo en exteriores; el texto y los estados se leen.
-  7. **Una mano:** las acciones primarias se alcanzan con el pulgar sin cambiar de agarre.
-  8. **Capturas de cada estado** (`adb exec-out screencap -p > estado.png`: en línea, sin conexión, pendiente de sincronizar, vacío, error, evidencia enviada) contrastadas con los criterios; opcionalmente, una revisión con las skills de diseño disponibles (`impeccable` o `ui-ux-pro-max`) sobre esas capturas y el código de `src/ui/`.
-  9. **Fluidez:** desplazamiento sin saltos con 20 órdenes de prueba; los GIF no deben notarse en la fluidez ni en el calor del teléfono.
-  Los ajustes que salgan de esta revisión se corrigen en `theme/` o `ui/` (una sola vez, para todas las pantallas), no pantalla por pantalla.
-- [ ] **Step 4: Limpiar los datos de prueba** (órdenes, filas de push, objetos de evidencia) de la base y del bucket.
-- [ ] **Step 5: Actualizar `handoff.md` y `CLAUDE.md`** (incluye: el design system mobile —`docs/design/mobile-design-system.md`, tokens y kit— y su independencia del de la web, el script de íconos y la fuente de la mascota, y la pregunta pendiente sobre el build de desarrollo).
+  3. Delivery en modo avión: la lista asignada sigue visible desde la caché; marcar entregada → "pendiente de sincronizar" (con **ícono + texto**, no solo el borde dorado).
+  4. Desactivar modo avión: en ≤ 30 s la orden pasa a `delivered` en la base, sin duplicados.
+  5. Despachador en modo avión: no se cierra la app y se muestra el banner.
+  6. Evidencia: tomar foto → "evidencia enviada" (el objeto existe en R2 bajo el prefijo configurado y la orden tiene clave, fecha y coordenadas); **negar el permiso de cámara o ubicación** muestra un aviso claro y "Marcar entregado" sigue funcionando.
+  7. Los **glifos Unicode** de estado se ven igual en al menos dos fabricantes distintos de Android, si es posible.
+  8. **Mapa con ruta y ETA** en la tarjeta de la orden del delivery.
+  9. **Seguimiento en vivo:** "Iniciar turno" con consentimiento; el despachador ve la posición del delivery actualizarse; aceptar el permiso de ubicación en segundo plano y comprobar que **negarlo degrada con aviso, sin cerrarse**; "Terminar turno" borra la posición.
+  10. El **build de desarrollo y el de producción conviven** instalados en el mismo teléfono sin pisarse (nombre e ícono distintos).
+  11. Cambiar el idioma del teléfono entre español e inglés y reabrir la app: los textos cambian.
+- [ ] **Step 3 (owner): revisión de calidad visual y de usabilidad** (los criterios de "Criterios de calidad de UI", sobre inicio de sesión, delivery, despachador, mapa de ruta y mapa de flota):
+  1. **Identidad:** ícono en el lanzador (normal y redondo; temático en Android 13+), splash, nombre "Sweet Sin Staff".
+  2. **Tipografía:** Atkinson Hyperlegible (y la del wordmark) se ven y la app abre sin red con ellas.
+  3. **Escala de fuente** al 100 %, 130 % y 200 %: nada se corta ni se solapa.
+  4. **Reducir movimiento:** sin entradas animadas y GIF reemplazados por la mascota estática.
+  5. **Accessibility Scanner de Google** sobre cada pantalla: sin avisos de área tocable ni de contraste.
+  6. **Pleno sol** y **una mano** (las acciones primarias, de 56 dp, se alcanzan con el pulgar).
+  7. **Capturas de cada estado** (`adb exec-out screencap -p > estado.png`) contrastadas con los criterios.
+  8. **Fluidez:** desplazamiento sin saltos con 20 órdenes de prueba; los GIF y los mapas no notan jank ni calor.
+  Los ajustes se corrigen en `design-system/`, una sola vez para todas las pantallas.
+- [ ] **Step 4: Limpiar los datos de prueba** (órdenes, posiciones de delivery, objetos de evidencia) de la base y del bucket.
+- [ ] **Step 5: Actualizar `handoff.md` y `CLAUDE.md`.**
 - [ ] **Step 6: Stage y commit sugerido**
-  `git add handoff.md CLAUDE.md apps/mobile`
-  Sugerido: `git commit -m "Documenta la APK de staff, su sistema de diseno, el modo offline y la evidencia de entrega"`
+  `git add handoff.md CLAUDE.md apps`
+  Sugerido (lo ejecuta el owner): `git commit -m "Documenta la APK de staff, su sistema de diseno, el modo offline, la evidencia, los mapas y el seguimiento"`
 
 ---
 
 ## Self-review
 
-- **Cobertura del spec y de los 8 cambios pedidos:** (1) confirmación del cliente → "Decisiones registradas", sin cambios de esquema; (2) evidencia → Tasks 12–13, con flag en `settings`, punto de extensión inactivo y retención documentada; (3) reclamos → "Fuera de alcance"; (4) push adelantado → Task 8, justo después del build; (5) `updateOrderStatusAction` → Task 4, con test que hoy falla; (6) i18n → Task 5 y Global Constraints; (7) `notifyNewOrderInQueue` → Task 3 (más la corrección de que ninguna ruta movía la orden a `received`); (8) sin guard de logout → "Decisiones registradas" y Task 11 sin diálogo.
-- **Diseño UI/UX (enmienda II del spec):** identidad e íconos → Task 6; tokens, tipografía, kit, marca animada y movimiento → Task 9; pantallas con estados completos y acciones nativas → Tasks 11, 13 y 14; criterios de calidad verificados en dispositivo → Task 15. Lo enforzable por test está en la Task 9 (coherencia entre el documento del design system mobile y los tokens, contraste, sin colores/fuentes literales en `screens/`) y en la Task 6 (los íconos monocromos son siluetas, no cuadrados llenos).
-- **Hallazgos nuevos respecto del pedido:** no hay cliente R2 en el repo (se resuelve con URL prefirmada y credenciales de servidor); `confirmOrderPayment` nunca llevaba la orden a `received`; marcar `paid` desde el admin se salteaba stock, cola y push. Los tres están en "Decisiones que necesitan tu confirmación".
-- **Consistencia de tipos:** `DeliverCommand`, `CommandStore`, `SendResult`, `FlushReport`, `AssignedOrder`, `DeliveryEvidence`, `EvidenceResult` y `strings` se definen una vez y se usan con los mismos nombres en tareas posteriores. `createStaffNotifications` (Task 3) se reusa en Task 4.
-- **Proporción:** tareas con firmas y tests nombrados; solo `flushQueue`, `makeDeliverSender` y la tabla de transiciones llevan reglas explícitas porque las firmas no las determinan.
+- **Cobertura del prompt de decisiones del owner (secciones 1 a 14 y regla de quién ejecuta qué):**
+  - Regla fija → sección "Quién ejecuta qué".
+  - §1 diseño visual → Task 9 (actualización al inicio de la tarea), "Criterios de calidad de UI" y Task 20; ya sin bloqueo (Q1 resuelta).
+  - §2 build de desarrollo permanente → Task 16.
+  - §3 y §4 (408/429 y limpieza del flag) → Task 15.
+  - §5 esquema de evidencia, agente aplica el `push` primero → Task 12, paso 7.
+  - §6 evidencia → Tasks 12 y 13 (ya definidas; se añade confirmar el bucket de R2, pregunta Q4).
+  - §7 mapas, ETA y tracking → Tasks 17, 18 y 19, con una adaptación en el despachador (Q11).
+  - §8 `updateOrderStatusAction` → Task 4 (completa).
+  - §9 i18n → Global Constraints y cada tarea nueva.
+  - §10 `notifyNewOrderInQueue` → Task 3 (completa).
+  - §11 push descartado → Task 8 marcada como descartada.
+  - §12 a §14 sin cambios.
+- **Conflictos detectados y no resueltos por el prompt:** Q1 a Q11 de "Preguntas abiertas"; los de mayor impacto son Q1 (falta el documento), Q2 (paleta nueva frente a íconos ya generados) y Q5/Q6 (Google Cloud y consentimiento de seguimiento).
+- **Orden de dependencias:** el esquema se aplica antes de usar columnas o tablas (Tasks 12 y 18); la 16 (build de desarrollo) va antes de las pantallas; la 18 (ubicación) antes de la 19 (despachador usa la última ubicación); la 17 usa el origen del teléfono del delivery.
+- **Consistencia de tipos:** `LatLng`, `RouteInfo`, `RoutePlanner` (Task 17) los usan la Task 19 y la app; `DeliveryLocationRepository` (Task 18) lo consume la Task 19; `DeliverCommand`, `SendResult` y `AssignedOrder` siguen definidos una sola vez (Tasks 10 y 11).
+- **Proporción:** las tareas nuevas llevan firmas, contratos y tests nombrados; solo las reglas de clasificación, los umbrales de envío y la política de caché llevan valores explícitos porque las firmas no los determinan.
