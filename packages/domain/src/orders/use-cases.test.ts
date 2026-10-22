@@ -8,6 +8,7 @@ import {
   markOrderReady,
   markOrderDelivered,
   changeOrderFulfillmentStatus,
+  recordDeliveryEvidence,
 } from "./use-cases";
 import type { Order } from "./entities";
 import type { OrderRepository, OrderFilters } from "./ports";
@@ -77,6 +78,7 @@ function fakeOrderRepo(): OrderRepository & { created: Omit<Order, "id">[] } {
       return [];
     },
     async assignDelivery() {},
+    async recordDeliveryEvidence() {},
   };
 }
 
@@ -216,6 +218,7 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
       return [];
     },
     async assignDelivery() {},
+    async recordDeliveryEvidence() {},
   };
 }
 
@@ -465,6 +468,7 @@ function fakeOrderRepoForListing(orders: Order[]): OrderRepository & { listAllCa
       return [];
     },
     async assignDelivery() {},
+    async recordDeliveryEvidence() {},
   };
 }
 
@@ -522,6 +526,18 @@ function makeFakeOrderRepo(orders: Order[]): OrderRepository {
     assignDelivery: async (id, deliveryUserId) => {
       const o = store.get(id);
       if (o) store.set(id, { ...o, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" });
+    },
+    recordDeliveryEvidence: async (id, evidence) => {
+      const o = store.get(id);
+      if (o) {
+        store.set(id, {
+          ...o,
+          deliveryEvidenceKey: evidence.key,
+          deliveryEvidenceCapturedAt: evidence.capturedAt,
+          deliveryEvidenceLat: evidence.lat,
+          deliveryEvidenceLng: evidence.lng,
+        });
+      }
     },
   };
 }
@@ -783,5 +799,57 @@ describe("changeOrderFulfillmentStatus", () => {
   it("rechaza si la orden no existe", async () => {
     const repo = makeFakeOrderRepo([]);
     await expect(change(repo, "received")).rejects.toThrow("Order not found: order-1");
+  });
+});
+
+describe("recordDeliveryEvidence", () => {
+  const evidence = { key: "delivery-evidence/order-1/u1.jpg", capturedAt: new Date("2026-10-20T12:00:00Z"), lat: 25.7, lng: -80.2 };
+  const assigned = (status: Order["fulfillmentStatus"]) =>
+    makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: status, assignedDeliveryUserId: "delivery-1" }]);
+
+  it.each(["out_for_delivery", "delivered"] as const)("registra la evidencia con el usuario asignado en %s", async (status) => {
+    const repo = assigned(status);
+
+    await recordDeliveryEvidence({ orders: repo }, "order-1", "delivery-1", evidence);
+
+    const stored = await repo.findById("order-1");
+    expect(stored?.deliveryEvidenceKey).toBe(evidence.key);
+    expect(stored?.deliveryEvidenceLat).toBe(25.7);
+  });
+
+  it("rechaza un usuario no asignado", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: assigned("out_for_delivery") }, "order-1", "delivery-2", evidence),
+    ).rejects.toThrow();
+  });
+
+  it("rechaza el estado ready_for_pickup", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: assigned("ready_for_pickup") }, "order-1", "delivery-1", evidence),
+    ).rejects.toThrow();
+  });
+
+  it("rechaza lat fuera de rango", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: assigned("delivered") }, "order-1", "delivery-1", { ...evidence, lat: 91 }),
+    ).rejects.toThrow();
+  });
+
+  it("rechaza lng fuera de rango", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: assigned("delivered") }, "order-1", "delivery-1", { ...evidence, lng: -181 }),
+    ).rejects.toThrow();
+  });
+
+  it("rechaza una key vacia", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: assigned("delivered") }, "order-1", "delivery-1", { ...evidence, key: "" }),
+    ).rejects.toThrow();
+  });
+
+  it("rechaza una orden inexistente", async () => {
+    await expect(
+      recordDeliveryEvidence({ orders: makeFakeOrderRepo([]) }, "nope", "delivery-1", evidence),
+    ).rejects.toThrow();
   });
 });

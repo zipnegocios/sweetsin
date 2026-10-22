@@ -5,7 +5,8 @@ import { DrizzleProductRepository } from "./product-repository";
 import { DrizzleOrderRepository } from "./order-repository";
 import { DrizzleUserRepository } from "./user-repository";
 import { db } from "../index";
-import { productsTable } from "../schema";
+import { eq } from "drizzle-orm";
+import { productsTable, ordersTable } from "../schema";
 
 const minimalOrderInput: Omit<Order, "id"> = {
   customerId: null,
@@ -270,6 +271,26 @@ describe("DrizzleOrderRepository", () => {
 
       const assigned = await repo.findAssignedToDelivery(deliveryUser.id);
       expect(assigned.map((o) => o.id)).toContain(order.id);
+    });
+  });
+
+  describe("recordDeliveryEvidence", () => {
+    it("persiste las cuatro columnas de evidencia", async () => {
+      const repo = new DrizzleOrderRepository();
+      const order = await repo.create({ ...minimalOrderInput, fulfillmentStatus: "out_for_delivery" });
+      const capturedAt = new Date("2026-10-20T12:00:00Z");
+
+      try {
+        await repo.recordDeliveryEvidence(order.id, { key: "delivery-evidence/o/u.jpg", capturedAt, lat: 25.7, lng: -80.2 });
+
+        const stored = await repo.findById(order.id);
+        expect(stored?.deliveryEvidenceKey).toBe("delivery-evidence/o/u.jpg");
+        expect(stored?.deliveryEvidenceCapturedAt?.toISOString()).toBe(capturedAt.toISOString());
+        expect(stored?.deliveryEvidenceLat).toBe(25.7);
+        expect(stored?.deliveryEvidenceLng).toBe(-80.2);
+      } finally {
+        await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      }
     });
   });
 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DrizzleOrderRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleSettingsRepository } from "@workspace/db/repositories";
 import { requireMobileAuth } from "../../_lib/require-mobile-auth";
 
 export async function GET(req: Request): Promise<Response> {
@@ -8,5 +8,6 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const orders = await new DrizzleOrderRepository().findAssignedToDelivery(session.userId);
-  return NextResponse.json({ orders });
+  const { deliveryEvidenceRequired } = await new DrizzleSettingsRepository().get();
+  return NextResponse.json({ orders, deliveryEvidenceRequired });
 }

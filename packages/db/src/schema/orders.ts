@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, uuid, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, uuid, text, integer, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { trailerStopsTable } from "./trailer-stops";
 import { productsTable } from "./products";
@@ -36,6 +36,10 @@ export const ordersTable = pgTable("orders", {
   channel: orderChannelEnum("channel").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   assignedDeliveryUserId: uuid("assigned_delivery_user_id").references(() => usersTable.id),
+  deliveryEvidenceKey: text("delivery_evidence_key"),
+  deliveryEvidenceCapturedAt: timestamp("delivery_evidence_captured_at", { withTimezone: true }),
+  deliveryEvidenceLat: doublePrecision("delivery_evidence_lat"),
+  deliveryEvidenceLng: doublePrecision("delivery_evidence_lng"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

@@ -5,13 +5,17 @@ import { settingsTable } from "../schema";
 
 const SETTINGS_ROW_ID = 1;
 
+function toSettings(row: typeof settingsTable.$inferSelect): AppSettings {
+  return { deliveryFeeCents: row.deliveryFeeCents, deliveryEvidenceRequired: row.deliveryEvidenceRequired };
+}
+
 export class DrizzleSettingsRepository implements SettingsRepository {
   async get(): Promise<AppSettings> {
     const [row] = await db.select().from(settingsTable).where(eq(settingsTable.id, SETTINGS_ROW_ID));
-    if (row) return { deliveryFeeCents: row.deliveryFeeCents };
+    if (row) return toSettings(row);
 
     const [inserted] = await db.insert(settingsTable).values({ id: SETTINGS_ROW_ID }).returning();
-    return { deliveryFeeCents: inserted.deliveryFeeCents };
+    return toSettings(inserted);
   }
 
   async update(partial: Partial<AppSettings>): Promise<AppSettings> {
@@ -20,6 +24,6 @@ export class DrizzleSettingsRepository implements SettingsRepository {
       .values({ id: SETTINGS_ROW_ID, ...partial })
       .onConflictDoUpdate({ target: settingsTable.id, set: partial })
       .returning();
-    return { deliveryFeeCents: updated.deliveryFeeCents };
+    return toSettings(updated);
   }
 }

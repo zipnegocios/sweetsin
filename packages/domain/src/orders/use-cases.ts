@@ -1,5 +1,5 @@
 import type { ProductRepository } from "../products/ports";
-import type { OrderRepository, NewOrderInput, OrderFilters } from "./ports";
+import type { OrderRepository, NewOrderInput, OrderFilters, DeliveryEvidence } from "./ports";
 import type { Order, OrderItem, FulfillmentStatus } from "./entities";
 import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
@@ -174,6 +174,26 @@ export async function markOrderDelivered(
   }
   await deps.orders.updateFulfillmentStatus(orderId, "delivered");
   return { ...order, fulfillmentStatus: "delivered" };
+}
+
+export async function recordDeliveryEvidence(
+  deps: { orders: OrderRepository },
+  orderId: string,
+  actingUserId: string,
+  evidence: DeliveryEvidence,
+): Promise<void> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.assignedDeliveryUserId !== actingUserId) {
+    throw new Error("Only the assigned delivery user can record evidence for this order");
+  }
+  if (order.fulfillmentStatus !== "out_for_delivery" && order.fulfillmentStatus !== "delivered") {
+    throw new Error(`Cannot record delivery evidence from status: ${order.fulfillmentStatus}`);
+  }
+  if (!(evidence.lat >= -90 && evidence.lat <= 90)) throw new Error("Latitude out of range");
+  if (!(evidence.lng >= -180 && evidence.lng <= 180)) throw new Error("Longitude out of range");
+  if (!evidence.key) throw new Error("Evidence key is required");
+  await deps.orders.recordDeliveryEvidence(orderId, evidence);
 }
 
 const ALLOWED_TRANSITIONS: Record<FulfillmentStatus, FulfillmentStatus[]> = {

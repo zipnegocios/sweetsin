@@ -37,5 +37,11 @@ export interface Order {
   channel: OrderChannel;
   stripePaymentIntentId: string | null;
   assignedDeliveryUserId: string | null;
+  // Evidencia de entrega opcional (foto en bucket privado + GPS). Opcionales para
+  // no tocar todos los literales de Order; el repositorio los entrega via el spread de la fila.
+  deliveryEvidenceKey?: string | null;
+  deliveryEvidenceCapturedAt?: Date | null;
+  deliveryEvidenceLat?: number | null;
+  deliveryEvidenceLng?: number | null;
   items: OrderItem[];
 }

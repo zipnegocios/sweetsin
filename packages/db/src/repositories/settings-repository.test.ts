@@ -14,6 +14,11 @@ describe("DrizzleSettingsRepository", () => {
     const reread = await repo.get();
     expect(reread.deliveryFeeCents).toBe(700);
 
+    expect(initial.deliveryEvidenceRequired).toBe(false);
+    const flagged = await repo.update({ deliveryEvidenceRequired: true });
+    expect(flagged.deliveryEvidenceRequired).toBe(true);
+    await repo.update({ deliveryEvidenceRequired: false });
+
     // Deja la fila en el valor por defecto para no afectar otros tests o el checkout real.
     await repo.update({ deliveryFeeCents: 500 });
   });

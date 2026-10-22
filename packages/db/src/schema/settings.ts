@@ -1,4 +1,4 @@
-import { pgTable, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 
 // Fila única de configuración editable — id fijo en 1 por convención (no
 // hay multi-tenant ni necesidad de más de una fila). Se agregan columnas
@@ -7,6 +7,7 @@ import { pgTable, integer, timestamp } from "drizzle-orm/pg-core";
 export const settingsTable = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
   deliveryFeeCents: integer("delivery_fee_cents").notNull().default(500),
+  deliveryEvidenceRequired: boolean("delivery_evidence_required").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

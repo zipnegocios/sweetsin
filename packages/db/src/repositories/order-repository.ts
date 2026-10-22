@@ -1,5 +1,5 @@
 import { eq, and, or, gte, lte, ilike, asc, desc } from "drizzle-orm";
-import type { Order, OrderRepository, OrderFilters } from "@workspace/domain/orders";
+import type { Order, OrderRepository, OrderFilters, DeliveryEvidence } from "@workspace/domain/orders";
 import { db } from "../index";
 import { ordersTable, orderItemsTable } from "../schema";
 
@@ -145,6 +145,18 @@ export class DrizzleOrderRepository implements OrderRepository {
     await db
       .update(ordersTable)
       .set({ assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" })
+      .where(eq(ordersTable.id, orderId));
+  }
+
+  async recordDeliveryEvidence(orderId: string, evidence: DeliveryEvidence): Promise<void> {
+    await db
+      .update(ordersTable)
+      .set({
+        deliveryEvidenceKey: evidence.key,
+        deliveryEvidenceCapturedAt: evidence.capturedAt,
+        deliveryEvidenceLat: evidence.lat,
+        deliveryEvidenceLng: evidence.lng,
+      })
       .where(eq(ordersTable.id, orderId));
   }
 

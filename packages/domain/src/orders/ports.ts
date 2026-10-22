@@ -24,6 +24,17 @@ export interface OrderFilters {
   sortDir?: "asc" | "desc";
 }
 
+export interface DeliveryEvidence {
+  key: string;
+  capturedAt: Date;
+  lat: number;
+  lng: number;
+}
+
+export interface DeliveryEvidenceStorage {
+  createUploadUrl(key: string, contentType: "image/jpeg"): Promise<string>;
+}
+
 export interface OrderRepository {
   create(order: Omit<Order, "id">): Promise<Order>;
   findById(id: string): Promise<Order | null>;
@@ -36,4 +47,5 @@ export interface OrderRepository {
   findQueueForDespachador(): Promise<Order[]>;
   findAssignedToDelivery(deliveryUserId: string): Promise<Order[]>;
   assignDelivery(orderId: string, deliveryUserId: string): Promise<void>;
+  recordDeliveryEvidence(orderId: string, evidence: DeliveryEvidence): Promise<void>;
 }
