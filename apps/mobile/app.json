@@ -45,7 +45,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Sweet Sin Staff uses your location to record where a delivery was made."
+          "locationWhenInUsePermission": "Sweet Sin Staff uses your location to record where a delivery was made.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ]

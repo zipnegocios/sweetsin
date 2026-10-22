@@ -319,5 +319,16 @@ export interface Dictionary {
     loginInvalid: string;
     loginOffline: string;
     loginServerError: string;
+    shiftStart: string;
+    shiftEnd: string;
+    shiftOn: string;
+    shiftConsentTitle: string;
+    shiftConsentBody: string;
+    shiftConsentAccept: string;
+    shiftForegroundOnly: string;
+    shiftLocationDenied: string;
+    shiftFailed: string;
+    shiftNotificationTitle: string;
+    shiftNotificationBody: string;
   };
 }

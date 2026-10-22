@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Linking, RefreshControl } from "react-native";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
@@ -30,6 +30,7 @@ import { runEvidenceUpload } from "../evidence/evidence-upload";
 import { enqueueDeliver, flushQueue } from "../offline/command-queue";
 import { makeDeliverSender } from "../offline/deliver-sender";
 import { sqliteCommandStore } from "../offline/sqlite-command-store";
+import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent, startShift } from "../tracking/shift";
 
 const POLL_MS = 30_000;
 const s = strings.staffApp;
@@ -47,6 +48,8 @@ export function DeliveryQueueScreen() {
   const [evidenceRequired, setEvidenceRequired] = useState(false);
   const [evidenceSentIds, setEvidenceSentIds] = useState<Set<string>>(new Set());
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [shiftOn, setShiftOn] = useState(false);
+  const [shiftBusy, setShiftBusy] = useState(false);
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
   const cancelled = useRef(false);
@@ -80,6 +83,7 @@ export function DeliveryQueueScreen() {
       }
       setPendingIds(new Set((await sqliteCommandStore.list()).map((c) => c.orderId)));
       setNotice(nextNotice);
+      isShiftActive().then(setShiftOn, () => {}); // el turno puede haberse cortado en segundo plano (p. ej. 401)
     } catch {
       setNotice(s.serverError);
     } finally {
@@ -92,6 +96,11 @@ export function DeliveryQueueScreen() {
   const refresh = runner.call;
 
   usePolling(refresh, POLL_MS);
+
+  // Tras un reinicio con el turno activo, reanuda el seguimiento (sin pedir permisos).
+  useEffect(() => {
+    resumeShift().then(setShiftOn, () => {});
+  }, []);
 
   const pullToRefresh = async () => {
     setRefreshing(true);
@@ -151,9 +160,51 @@ export function DeliveryQueueScreen() {
     }
   };
 
+  const confirmConsent = () =>
+    new Promise<boolean>((resolve) =>
+      Alert.alert(s.shiftConsentTitle, s.shiftConsentBody, [
+        { text: s.cancelLabel, style: "cancel", onPress: () => resolve(false) },
+        { text: s.shiftConsentAccept, onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) }),
+    );
+
+  const toggleShift = async () => {
+    if (shiftBusy) return;
+    setShiftBusy(true);
+    try {
+      if (shiftOn) {
+        await withTimeout(endShift(), 10_000);
+        setShiftOn(false);
+        return;
+      }
+      // El consentimiento va antes de cualquier permiso y se pide una sola vez.
+      if (!(await hasShiftConsent())) {
+        if (!(await confirmConsent())) return;
+        await saveShiftConsent();
+      }
+      const result = await startShift();
+      if (result === "foreground-denied") {
+        Alert.alert(s.shiftStart, s.shiftLocationDenied, [
+          { text: s.cancelLabel, style: "cancel" },
+          { text: s.openSettings, onPress: () => void Linking.openSettings() },
+        ]);
+      } else if (result === "failed") {
+        setNotice(s.shiftFailed);
+      } else {
+        setShiftOn(true);
+        if (result === "foreground-only") Alert.alert(s.shiftStart, s.shiftForegroundOnly);
+      }
+    } catch {
+      setNotice(s.shiftFailed);
+    } finally {
+      setShiftBusy(false);
+    }
+  };
+
   const signOut = async () => {
     cancelled.current = true; // la corrida en curso ya no escribe caché ni estado
     try {
+      await withTimeout(endShift(), 4000).catch(() => undefined); // detiene el seguimiento y borra la posición, sin bloquear
       await withTimeout(runner.idle(), 3000); // sin red, la corrida podría no terminar nunca
       await clearAssigned();
     } finally {
@@ -200,6 +251,15 @@ export function DeliveryQueueScreen() {
       header={<ScreenHeader title={strings.dispatch.deliveryTitle} actionLabel={s.logout} onAction={() => void signOut()} />}
       banner={
         <>
+          <Surface tone="background" style={{ paddingHorizontal: theme.components.layout.paddingH, paddingTop: theme.components.layout.paddingV, gap: theme.components.layout.gap }}>
+            {shiftOn ? <StatusPill status="delivered" label={s.shiftOn} /> : null}
+            <Button
+              label={shiftOn ? s.shiftEnd : s.shiftStart}
+              variant="secondary"
+              loading={shiftBusy}
+              onPress={() => void toggleShift()}
+            />
+          </Surface>
           <OfflineBanner visible={offline} message={s.offlineBanner} />
           {notice && !serverFailed ? <Banner glyph="!" message={notice} /> : null}
         </>
