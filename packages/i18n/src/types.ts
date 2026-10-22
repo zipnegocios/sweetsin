@@ -164,6 +164,7 @@ export interface Dictionary {
     detailAddress: string;
     saveStatus: string;
     statusSaved: string;
+    statusChangeError: string;
     navOrders: string;
     navTrailerStops: string;
     navEventBookings: string;

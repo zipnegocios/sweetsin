@@ -167,6 +167,7 @@ export const es: Dictionary = {
     detailAddress: "Dirección",
     saveStatus: "Guardar",
     statusSaved: "Guardado",
+    statusChangeError: "Ese cambio de estado no está permitido para esta orden",
     navOrders: "Órdenes",
     navTrailerStops: "Paradas del Trailer",
     navEventBookings: "Reservas de Eventos",

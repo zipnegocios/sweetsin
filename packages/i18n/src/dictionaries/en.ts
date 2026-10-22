@@ -166,6 +166,7 @@ export const en: Dictionary = {
     detailAddress: "Address",
     saveStatus: "Save",
     statusSaved: "Saved",
+    statusChangeError: "That status change is not allowed for this order",
     navOrders: "Orders",
     navTrailerStops: "Trailer Stops",
     navEventBookings: "Event Bookings",

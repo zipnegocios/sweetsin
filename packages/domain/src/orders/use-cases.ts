@@ -1,6 +1,6 @@
 import type { ProductRepository } from "../products/ports";
 import type { OrderRepository, NewOrderInput, OrderFilters } from "./ports";
-import type { Order, OrderItem } from "./entities";
+import type { Order, OrderItem, FulfillmentStatus } from "./entities";
 import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
 import { decrementStockOnSale } from "../stock/use-cases";
@@ -174,4 +174,44 @@ export async function markOrderDelivered(
   }
   await deps.orders.updateFulfillmentStatus(orderId, "delivered");
   return { ...order, fulfillmentStatus: "delivered" };
+}
+
+const ALLOWED_TRANSITIONS: Record<FulfillmentStatus, FulfillmentStatus[]> = {
+  pending: ["received", "cancelled"],
+  received: ["in_prep", "cancelled"],
+  in_prep: ["ready_for_pickup", "cancelled"],
+  ready_for_pickup: ["out_for_delivery", "cancelled"],
+  out_for_delivery: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+
+export async function changeOrderFulfillmentStatus(
+  deps: { orders: OrderRepository; users: UserRepository; notifications?: StaffNotificationPort },
+  orderId: string,
+  target: FulfillmentStatus,
+  options?: { deliveryUserId?: string },
+): Promise<Order> {
+  const order = await deps.orders.findById(orderId);
+  if (!order) throw new Error(`Order not found: ${orderId}`);
+  if (order.fulfillmentStatus === target) return order;
+  if (!ALLOWED_TRANSITIONS[order.fulfillmentStatus].includes(target)) {
+    throw new Error(`Invalid transition: ${order.fulfillmentStatus} → ${target}`);
+  }
+
+  switch (target) {
+    case "in_prep":
+      return markOrderInPrep(deps, orderId);
+    case "ready_for_pickup":
+      return markOrderReady(deps, orderId);
+    case "out_for_delivery":
+      if (!options?.deliveryUserId) throw new Error("A delivery user is required for out_for_delivery");
+      return assignDeliveryToOrder(deps, orderId, options.deliveryUserId);
+    case "delivered":
+      if (!order.assignedDeliveryUserId) throw new Error("Order has no assigned delivery user");
+      return markOrderDelivered(deps, orderId, order.assignedDeliveryUserId);
+    default:
+      await deps.orders.updateFulfillmentStatus(orderId, target);
+      return { ...order, fulfillmentStatus: target };
+  }
 }

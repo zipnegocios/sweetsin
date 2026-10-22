@@ -23,11 +23,18 @@ export function OrderStatusForm({
   const [fulfillment, setFulfillment] = useState(fulfillmentStatus);
   const [payment, setPayment] = useState(paymentStatus);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
 
   async function handleSave() {
     setSaved(false);
-    await updateOrderStatusAction({ orderId, fulfillmentStatus: fulfillment, paymentStatus: payment });
-    setSaved(true);
+    setError(false);
+    const result = await updateOrderStatusAction({
+      orderId,
+      fulfillmentStatus: fulfillment !== fulfillmentStatus ? fulfillment : undefined,
+      paymentStatus: payment !== paymentStatus ? payment : undefined,
+    });
+    if ("error" in result) setError(true);
+    else setSaved(true);
   }
 
   return (
@@ -58,6 +65,7 @@ export function OrderStatusForm({
       </div>
       <button onClick={handleSave} className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm">{t("saveStatus")}</button>
       {saved && <span className="text-[12px] text-green-700">{t("statusSaved")}</span>}
+      {error && <span className="text-[12px] text-red-700">{t("statusChangeError")}</span>}
     </div>
   );
 }

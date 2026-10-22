@@ -7,6 +7,7 @@ import {
   markOrderInPrep,
   markOrderReady,
   markOrderDelivered,
+  changeOrderFulfillmentStatus,
 } from "./use-cases";
 import type { Order } from "./entities";
 import type { OrderRepository, OrderFilters } from "./ports";
@@ -396,6 +397,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
         "order-q",
       ),
     ).resolves.toBeUndefined();
+    expect(notify).toHaveBeenCalled();
     expect(order.paymentStatus).toBe("paid");
     expect(order.fulfillmentStatus).toBe("received");
   });
@@ -701,5 +703,85 @@ describe("markOrderDelivered", () => {
     ]);
 
     await expect(markOrderDelivered({ orders: repo }, "order-1", "delivery-2")).rejects.toThrow();
+  });
+});
+
+describe("changeOrderFulfillmentStatus", () => {
+  const withStatus = (fulfillmentStatus: Order["fulfillmentStatus"], extra: Partial<Order> = {}) =>
+    makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus, ...extra }]);
+  const change = (
+    repo: OrderRepository,
+    target: Order["fulfillmentStatus"],
+    options?: { deliveryUserId?: string },
+    users: User[] = [fakeUser()],
+  ) => changeOrderFulfillmentStatus({ orders: repo, users: fakeUserRepo(users) }, "order-1", target, options);
+  const statusOf = async (repo: OrderRepository) => (await repo.findById("order-1"))?.fulfillmentStatus;
+
+  it("rechaza pending -> delivered", async () => {
+    const repo = withStatus("pending");
+    await expect(change(repo, "delivered")).rejects.toThrow("Invalid transition: pending → delivered");
+  });
+
+  it("permite pending -> received", async () => {
+    const repo = withStatus("pending");
+    await change(repo, "received");
+    expect(await statusOf(repo)).toBe("received");
+  });
+
+  it("permite received -> in_prep", async () => {
+    const repo = withStatus("received");
+    await change(repo, "in_prep");
+    expect(await statusOf(repo)).toBe("in_prep");
+  });
+
+  it("permite in_prep -> ready_for_pickup", async () => {
+    const repo = withStatus("in_prep");
+    await change(repo, "ready_for_pickup");
+    expect(await statusOf(repo)).toBe("ready_for_pickup");
+  });
+
+  it("ready_for_pickup -> out_for_delivery rechaza sin deliveryUserId", async () => {
+    const repo = withStatus("ready_for_pickup");
+    await expect(change(repo, "out_for_delivery")).rejects.toThrow();
+    expect(await statusOf(repo)).toBe("ready_for_pickup");
+  });
+
+  it("ready_for_pickup -> out_for_delivery asigna al delivery activo", async () => {
+    const repo = withStatus("ready_for_pickup");
+    const updated = await change(repo, "out_for_delivery", { deliveryUserId: "delivery-1" });
+    expect(updated.assignedDeliveryUserId).toBe("delivery-1");
+    expect(await statusOf(repo)).toBe("out_for_delivery");
+  });
+
+  it("permite out_for_delivery -> delivered", async () => {
+    const repo = withStatus("out_for_delivery", { assignedDeliveryUserId: "delivery-1" });
+    await change(repo, "delivered");
+    expect(await statusOf(repo)).toBe("delivered");
+  });
+
+  it("rechaza delivered -> in_prep (terminal)", async () => {
+    const repo = withStatus("delivered");
+    await expect(change(repo, "in_prep")).rejects.toThrow("Invalid transition: delivered → in_prep");
+  });
+
+  it.each(["pending", "received", "in_prep", "ready_for_pickup", "out_for_delivery"] as const)(
+    "permite %s -> cancelled",
+    async (from) => {
+      const repo = withStatus(from);
+      await change(repo, "cancelled");
+      expect(await statusOf(repo)).toBe("cancelled");
+    },
+  );
+
+  it("mismo estado: sin escritura", async () => {
+    const repo = withStatus("in_prep");
+    const spy = vi.spyOn(repo, "updateFulfillmentStatus");
+    await change(repo, "in_prep");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rechaza si la orden no existe", async () => {
+    const repo = makeFakeOrderRepo([]);
+    await expect(change(repo, "received")).rejects.toThrow("Order not found: order-1");
   });
 });
