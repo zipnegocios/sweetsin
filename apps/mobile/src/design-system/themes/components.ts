@@ -99,6 +99,19 @@ export function buildComponentTokens(t: ThemeBase) {
       paddingH: space.lg,
       gap: space.sm,
     },
+    // Campo de texto de las pantallas: borde en textQuiet (llega a 3:1 sobre vanilla), foco en textPrimary.
+    field: {
+      bg: c.surface,
+      border: c.textQuiet,
+      borderFocus: c.textPrimary,
+      borderWidth: 1,
+      borderWidthFocus: 2,
+      radius: radius.inner,
+      minHeight: t.touch.primary,
+      paddingH: space.lg,
+      labelGap: space.xs,
+      placeholder: c.textQuiet,
+    },
     offlineBanner: { glyph: "⊘" }, // ⊘
     header: {
       bg: c.textPrimary,

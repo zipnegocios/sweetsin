@@ -156,6 +156,9 @@ importers:
       '@expo-google-fonts/atkinson-hyperlegible':
         specifier: ^0.4.1
         version: 0.4.1
+      '@expo-google-fonts/fraunces':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@react-navigation/native':
         specifier: ^7.4.1
         version: 7.4.1(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -1155,6 +1158,9 @@ packages:
 
   '@expo-google-fonts/atkinson-hyperlegible@0.4.1':
     resolution: {integrity: sha512-Xr1XAguU7oEVHy28WxCBmdjPT2BNwH5lFZF2adHb9Cy6qtNgXwDzeAgvESkoq4mQmYW5RzqJZknqQxrTkEm0Xw==}
+
+  '@expo-google-fonts/fraunces@0.4.1':
+    resolution: {integrity: sha512-gYc9P92ObyWvz1rWPOeWSvVKyBFIuA8hgOdhvo4DSiPBaWLbFA6v8uLIEIBwW+0oWTlXbBzjeBReHQI2H7UNjQ==}
 
   '@expo/cli@57.0.26':
     resolution: {integrity: sha512-vm769xuEyHMToi3uY66JLzRA2GGK+3WzdH71HNn67FuVhry82dKTvMUoeHYtHiindyeieiWfEvHT8Kr1VyEVPQ==}
@@ -7283,6 +7289,8 @@ snapshots:
       levn: 0.4.1
 
   '@expo-google-fonts/atkinson-hyperlegible@0.4.1': {}
+
+  '@expo-google-fonts/fraunces@0.4.1': {}
 
   '@expo/cli@57.0.26(expo-constants@57.0.19(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3)))(expo-font@57.0.4(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(expo@57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)':
     dependencies:

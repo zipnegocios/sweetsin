@@ -316,5 +316,11 @@ export const es: Dictionary = {
     openSettings: "Abrir ajustes",
     continueLabel: "Continuar",
     cancelLabel: "Cancelar",
+    loginEmailLabel: "Email",
+    loginPinLabel: "PIN de 6 dígitos",
+    loginButton: "Entrar",
+    loginInvalid: "Email o PIN incorrecto.",
+    loginOffline: "Sin conexión. Revisá tu red e intentá de nuevo.",
+    loginServerError: "Algo falló de nuestro lado. Intentá de nuevo en un momento.",
   },
 };

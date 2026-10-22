@@ -53,7 +53,7 @@ export const outdoor = createTheme({
   textPairs: operationalTextPairs,
   touch: { min: touch.min, primary: touch.primary },
   type: {
-    brand: textSpec(f.fraunces, "display"), // reservado para el wordmark del login (no empaquetado aún)
+    brand: textSpec(f.fraunces, "display"), // solo el wordmark del login; empaquetada solo la itálica Black
     title: textSpec(f.atkinsonBold, "xxl"),
     heading: textSpec(f.atkinsonBold, "lg"),
     body: textSpec(f.atkinson, "md"),

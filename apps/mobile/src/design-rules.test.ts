@@ -6,7 +6,6 @@ const screensDir = resolve(__dirname, "screens");
 
 /** Pantallas heredadas que todavía no cumplen la regla. Cada entrada tiene fecha de salida. */
 const EXCEPTIONS = [
-  "LoginScreen.tsx", // hasta la Task 14
   "DespachadorQueueScreen.tsx", // diferida por el alcance actual
 ];
 

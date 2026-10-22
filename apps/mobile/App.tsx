@@ -1,6 +1,8 @@
 // Subrutas por peso: importar la raíz del paquete empaquetaría también las dos itálicas.
 import { AtkinsonHyperlegible_400Regular } from "@expo-google-fonts/atkinson-hyperlegible/400Regular";
 import { AtkinsonHyperlegible_700Bold } from "@expo-google-fonts/atkinson-hyperlegible/700Bold";
+// Solo el wordmark del login usa la cara de display.
+import { Fraunces_900Black_Italic } from "@expo-google-fonts/fraunces/900Black_Italic";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -16,6 +18,7 @@ export default function App() {
   const [loaded, error] = useFonts({
     [outdoor.type.body.fontFamily]: AtkinsonHyperlegible_400Regular,
     [outdoor.type.bodyStrong.fontFamily]: AtkinsonHyperlegible_700Bold,
+    [outdoor.type.brand.fontFamily]: Fraunces_900Black_Italic,
   });
 
   useEffect(() => {

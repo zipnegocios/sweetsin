@@ -315,5 +315,11 @@ export const en: Dictionary = {
     openSettings: "Open settings",
     continueLabel: "Continue",
     cancelLabel: "Cancel",
+    loginEmailLabel: "Email",
+    loginPinLabel: "6-digit PIN",
+    loginButton: "Sign in",
+    loginInvalid: "Incorrect email or PIN.",
+    loginOffline: "No connection. Check your network and try again.",
+    loginServerError: "Something went wrong on our side. Try again in a moment.",
   },
 };

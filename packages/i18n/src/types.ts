@@ -313,5 +313,11 @@ export interface Dictionary {
     openSettings: string;
     continueLabel: string;
     cancelLabel: string;
+    loginEmailLabel: string;
+    loginPinLabel: string;
+    loginButton: string;
+    loginInvalid: string;
+    loginOffline: string;
+    loginServerError: string;
   };
 }
