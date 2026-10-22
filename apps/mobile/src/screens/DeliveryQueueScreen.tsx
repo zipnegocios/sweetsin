@@ -29,7 +29,7 @@ import { ROUTE_LOCATION_LOOKUP_TIMEOUT_MS, ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQU
 import { parseRouteInfo } from "../maps/parse-route-info";
 import { RouteMap } from "../maps/RouteMap";
 import type { RouteInfo } from "../maps/types";
-import { clearAssigned, loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
+import { loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
 import { captureEvidence, type CaptureResult } from "../evidence/capture-evidence";
 import { evidenceDeps } from "../evidence/evidence-deps";
 import { runEvidenceUpload } from "../evidence/evidence-upload";
@@ -88,6 +88,16 @@ export function DeliveryQueueScreen() {
   const routeSeq = useRef(0);
   const selectedIdRef = useRef<string | undefined>(undefined);
 
+  // Cierra la sesión: corta el seguimiento (sin bloquear) y luego el `logout` único del contexto.
+  const endSession = useCallback(async () => {
+    cancelled.current = true; // la corrida en curso ya no escribe caché ni estado
+    try {
+      await withTimeout(endShift(), SIGN_OUT_END_SHIFT_MS).catch(() => undefined); // detiene el seguimiento y borra la posición
+    } finally {
+      await logout();
+    }
+  }, [logout]);
+
   const run = useCallback(async () => {
     if (cancelled.current) return;
     try {
@@ -96,9 +106,12 @@ export function DeliveryQueueScreen() {
         const address = ordersRef.current.find((o) => o.id === c.orderId)?.deliveryAddress ?? c.orderId;
         Alert.alert(s.conflictTitle, `${address}\n${c.reason}`);
       }
-      let nextNotice = report.unauthorized ? s.sessionExpired : null;
+      // Sesión inválida (401): los comandos quedan en cola y se reenvían tras volver a ingresar el PIN.
+      if (report.unauthorized) return void (await endSession());
+      let nextNotice: string | null = null;
       try {
         const res = await apiFetch("/api/mobile/orders/assigned");
+        if (res.status === 401) return void (await endSession());
         if (res.ok) {
           const data = (await res.json()) as { orders: AssignedOrder[]; deliveryEvidenceRequired?: boolean };
           if (cancelled.current) return;
@@ -107,7 +120,7 @@ export function DeliveryQueueScreen() {
           setEvidenceRequired(data.deliveryEvidenceRequired === true);
           setOffline(false);
         } else {
-          nextNotice = res.status === 401 ? s.sessionExpired : s.serverError;
+          nextNotice = s.serverError;
           setOffline(false); // cualquier respuesta HTTP prueba que hay red
           setOrders(await loadAssigned());
         }
@@ -124,7 +137,7 @@ export function DeliveryQueueScreen() {
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [endSession]);
 
   // Nunca dos corridas a la vez; un pedido durante una corrida agenda exactamente una repetición.
   const [runner] = useState(() => makeCoalescer(run));
@@ -300,14 +313,9 @@ export function DeliveryQueueScreen() {
   };
 
   const signOut = async () => {
-    cancelled.current = true; // la corrida en curso ya no escribe caché ni estado
-    try {
-      await withTimeout(endShift(), SIGN_OUT_END_SHIFT_MS).catch(() => undefined); // detiene el seguimiento y borra la posición, sin bloquear
-      await withTimeout(runner.idle(), 3000); // sin red, la corrida podría no terminar nunca
-      await clearAssigned();
-    } finally {
-      logout();
-    }
+    cancelled.current = true;
+    await withTimeout(runner.idle(), 3000).catch(() => undefined); // sin red, la corrida podría no terminar nunca
+    await endSession();
   };
 
   const open = async (url: string) => {

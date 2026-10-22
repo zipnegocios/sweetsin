@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
-import { getToken, clearToken } from "../auth/session";
+import { clearSession, getCachedRole, getToken, saveRole } from "../auth/session";
 import { AuthContext } from "../auth/context";
+import { resolveStartupSession, type StaffRole } from "../auth/startup";
 import { apiFetch } from "../api/client";
+import { clearAssigned } from "../offline/assigned-cache";
 
 const Stack = createNativeStackNavigator();
 
@@ -37,21 +39,19 @@ async function registerPushToken(): Promise<void> {
 }
 
 export function RootNavigator() {
-  const [role, setRole] = useState<"despachador" | "delivery" | null | "loading">("loading");
+  const [role, setRole] = useState<StaffRole | null | "loading">("loading");
+
+  // Único cierre de sesión (botón o 401). No toca la cola de entregas: se reenvía tras volver a ingresar el PIN.
+  const logout = useCallback(async () => {
+    await Promise.allSettled([clearAssigned(), clearSession()]);
+    setRole(null);
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      const token = await getToken();
-      if (!token) return setRole(null);
-      const res = await apiFetch("/api/mobile/auth/me");
-      if (!res.ok) {
-        await clearToken();
-        return setRole(null);
-      }
-      const data = (await res.json()) as { role: "despachador" | "delivery" };
-      setRole(data.role);
-    })();
-  }, []);
+    resolveStartupSession({ getToken, getCachedRole, saveRole, fetchMe: () => apiFetch("/api/mobile/auth/me") })
+      .then(({ role: next, invalid }) => (invalid ? logout() : setRole(next)))
+      .catch(() => setRole(null)); // nunca queda en blanco; el token se conserva
+  }, [logout]);
 
   useEffect(() => {
     if (role === "despachador" || role === "delivery") {
@@ -60,11 +60,6 @@ export function RootNavigator() {
   }, [role]);
 
   if (role === "loading") return null;
-
-  async function logout(): Promise<void> {
-    await clearToken();
-    setRole(null);
-  }
 
   return (
     <AuthContext.Provider value={{ logout }}>

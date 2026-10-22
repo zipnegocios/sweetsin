@@ -6,13 +6,11 @@ import {
   getR2Config,
   R2DeliveryEvidenceStorage,
 } from "@/infra/r2-delivery-evidence-storage";
-import { requireMobileAuth } from "../../../../_lib/require-mobile-auth";
+import { authorizeMobile } from "../../../../_lib/authorize-mobile";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session || session.role !== "delivery") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await authorizeMobile(req, "delivery");
+  if (session instanceof Response) return session;
   const { id } = await params;
 
   try {

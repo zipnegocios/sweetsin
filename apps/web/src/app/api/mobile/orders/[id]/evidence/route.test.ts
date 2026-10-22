@@ -46,6 +46,12 @@ describe("POST /api/mobile/orders/[id]/evidence", () => {
     expect((await POST(req(valid), ctx)).status).toBe(403);
   });
 
+  it("responde 401 sin sesion valida", async () => {
+    state.session = null;
+    expect((await POST(req(valid), ctx)).status).toBe(401);
+    expect(state.recorded).toHaveLength(0);
+  });
+
   it("responde 503 sin variables R2", async () => {
     vi.stubEnv("R2_BUCKET", "");
     const res = await POST(req(valid), ctx);

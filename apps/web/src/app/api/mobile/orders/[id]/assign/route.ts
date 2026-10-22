@@ -3,15 +3,13 @@ import { z } from "zod";
 import { assignDeliveryToOrder } from "@workspace/domain/orders";
 import { DrizzleOrderRepository, DrizzleUserRepository } from "@workspace/db/repositories";
 import { createStaffNotifications } from "@/lib/staff-notifications";
-import { requireMobileAuth } from "../../../_lib/require-mobile-auth";
+import { authorizeMobile } from "../../../_lib/authorize-mobile";
 
 const bodySchema = z.object({ deliveryUserId: z.string().uuid() });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session || session.role !== "despachador") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await authorizeMobile(req, "despachador");
+  if (session instanceof Response) return session;
   const { id } = await params;
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });

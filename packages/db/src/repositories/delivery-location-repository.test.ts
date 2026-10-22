@@ -37,6 +37,18 @@ describe("DrizzleDeliveryLocationRepository", () => {
     });
   });
 
+  it("an upsert with an older recordedAt does not overwrite a newer position", async () => {
+    await repo.upsert({ userId, lat: 1, lng: 1, accuracyMeters: 5, recordedAt: new Date("2026-10-20T11:59:00Z") });
+
+    expect(await repo.findLatest(userId)).toEqual({
+      userId,
+      lat: 25.8,
+      lng: -80.3,
+      accuracyMeters: null,
+      recordedAt: new Date("2026-10-20T12:01:00Z"),
+    });
+  });
+
   it("remove deletes the row", async () => {
     await repo.remove(userId);
     expect(await repo.findLatest(userId)).toBeNull();

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, lte } from "drizzle-orm";
 import type { DeliveryLocation, DeliveryLocationRepository } from "@workspace/domain/delivery-tracking";
 import { db } from "../index";
 import { deliveryLocationsTable } from "../schema";
@@ -14,7 +14,12 @@ export class DrizzleDeliveryLocationRepository implements DeliveryLocationReposi
     await db
       .insert(deliveryLocationsTable)
       .values({ userId: location.userId, ...values })
-      .onConflictDoUpdate({ target: deliveryLocationsTable.userId, set: values });
+      // Un PUT que llega tarde (recordedAt más viejo) no pisa una posición más nueva.
+      .onConflictDoUpdate({
+        target: deliveryLocationsTable.userId,
+        set: values,
+        setWhere: lte(deliveryLocationsTable.recordedAt, location.recordedAt),
+      });
   }
 
   async findLatest(userId: string): Promise<DeliveryLocation | null> {

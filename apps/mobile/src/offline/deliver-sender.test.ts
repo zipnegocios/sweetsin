@@ -13,7 +13,7 @@ describe("makeDeliverSender", () => {
     );
   });
 
-  it("401 -> unauthorized", async () => {
+  it("401 (sesion invalida: JWT vencido o usuario inactivo) -> unauthorized, el comando queda en cola", async () => {
     const send = makeDeliverSender(async () => new Response("{}", { status: 401 }));
     expect(await send(command)).toEqual({ kind: "unauthorized" });
   });
@@ -24,7 +24,7 @@ describe("makeDeliverSender", () => {
     expect(await send(command)).toEqual({ kind: "conflict", reason: error });
   });
 
-  it("403 sin JSON -> conflict HTTP 403", async () => {
+  it("403 (el servidor solo lo emite por rol incorrecto) sin JSON -> conflict HTTP 403", async () => {
     const send = makeDeliverSender(async () => new Response("nope", { status: 403 }));
     expect(await send(command)).toEqual({ kind: "conflict", reason: "HTTP 403" });
   });
@@ -39,7 +39,7 @@ describe("makeDeliverSender", () => {
     expect(await send(command)).toEqual({ kind: "retry" });
   });
 
-  it.each([400, 403, 404, 409])("%i sigue siendo conflict", async (status) => {
+  it.each([400, 403, 404, 409])("%i (rechazo definitivo, no de sesion) -> conflict", async (status) => {
     const send = makeDeliverSender(async () => new Response("{}", { status }));
     expect(await send(command)).toEqual({ kind: "conflict", reason: `HTTP ${status}` });
   });

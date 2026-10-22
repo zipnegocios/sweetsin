@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { KeyboardAvoidingView, TextInput, type TextInputProps } from "react-native";
 import { apiFetch } from "../api/client";
-import { saveToken } from "../auth/session";
+import { saveRole, saveToken } from "../auth/session";
 import { canSubmitLogin, classifyLoginFailure, normalizeLoginEmail, type LoginError } from "../auth/login-rules";
 import { BrandMark, Button, ScreenLayout, Spacer, Surface, Text, useTheme } from "../design-system";
 import { strings } from "../i18n";
@@ -75,6 +75,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (role: "despachador" |
       }
       const data = (await res.json()) as { token: string; role: "despachador" | "delivery" };
       await saveToken(data.token);
+      await saveRole(data.role);
       onLoggedIn(data.role);
     } catch (thrown) {
       setError(classifyLoginFailure({ thrown }));

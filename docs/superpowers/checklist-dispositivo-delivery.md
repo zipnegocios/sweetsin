@@ -6,6 +6,7 @@ Verificación manual en un teléfono Android real (Task 20, Steps 2 y 3). Solo f
 
 - [ ] Los workflows `build-apk.yml` (release) y `build-dev-apk.yml` (desarrollo) terminaron en verde con el código final, y bajaste los dos APK de los artefactos (`sweetsin-staff-<n>` y `sweetsin-staff-dev-<n>`).
 - [ ] Están cargados los secretos de GitHub (`ANDROID_KEYSTORE_*`, `ANDROID_KEY_*`, `GOOGLE_MAPS_ANDROID_API_KEY`) y, en el servidor, `R2_*`, `GOOGLE_ROUTES_API_KEY` y `MOBILE_JWT_SECRET`.
+- [ ] **Sin `GOOGLE_MAPS_ANDROID_API_KEY` el release no compila:** `build-apk.yml` falla en el prebuild con un error explícito. El de desarrollo (`build-dev-apk.yml`) sí compila, solo con un aviso, y su mapa queda en blanco.
 - [ ] Hay un usuario `delivery` con PIN de 6 dígitos y al menos 3 órdenes pagadas (`paid`) asignadas a él, con dirección real. Una de ellas servirá para la prueba de evidencia y otra para la de modo avión.
 - [ ] Tienes acceso de lectura a la base (órdenes y `delivery_locations`) y al bucket `sweet-delivery` de R2 para comprobar resultados.
 - [ ] Instalaste el APK de **release** en el teléfono. Para los puntos marcados "(desarrollo)" usa además el de desarrollo.
@@ -26,7 +27,8 @@ Verificación manual en un teléfono Android real (Task 20, Steps 2 y 3). Solo f
 - [ ] **Doble toque.** Toca dos veces seguidas "Marcar entregada". Esperado: un solo comando en cola, sin duplicados.
 - [ ] **Sincronización.** Desactiva el modo avión. Esperado: en 30 s o menos la orden desaparece de la cola pendiente y en la base queda `fulfillment_status = delivered`, una sola vez (revisa que no haya registros duplicados ni otro cambio de estado).
 - [ ] **Cierre con comando pendiente.** En modo avión marca una entrega, mata la app desde recientes, reábrela y recién entonces vuelve la red. Esperado: el comando sobrevive al cierre y se envía.
-- [ ] **Sesión expirada.** Con una entrega pendiente, deja vencer la sesión (o invalida el token). Esperado: aviso "Your session has expired..."; tras volver a iniciar sesión la entrega pendiente se sincroniza.
+- [ ] **Sesión expirada.** Con una entrega pendiente, deja vencer la sesión (o invalida el token / desactiva al usuario). Esperado: la app vuelve sola al login (sin datos de clientes en caché); tras volver a ingresar el PIN la entrega pendiente se sincroniza.
+- [ ] **Arranque sin red con sesión iniciada.** En modo avión, mata y reabre la app. Esperado: entra directo a la lista desde la caché (nunca pantalla en blanco ni vuelta al login); un error 5xx del servidor tampoco cierra la sesión.
 - [ ] **Conflicto.** Marca como entregada desde el admin web una orden y luego intenta marcarla desde la app. Esperado: mensaje de "Delivery not registered" / equivalente en español, sin romper la lista.
 
 ## 3. Evidencia de entrega (foto + GPS)

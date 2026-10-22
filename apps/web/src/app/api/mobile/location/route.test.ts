@@ -49,6 +49,12 @@ describe("PUT /api/mobile/location", () => {
     expect(state.saved).toHaveLength(0);
   });
 
+  it("responde 401 sin sesion valida (la app debe pedir el PIN otra vez)", async () => {
+    state.session = null;
+    expect((await PUT(req("PUT", valid()))).status).toBe(401);
+    expect(state.saved).toHaveLength(0);
+  });
+
   it("responde 400 con body invalido", async () => {
     expect((await PUT(req("PUT", "no-json"))).status).toBe(400);
     expect((await PUT(req("PUT", { ...valid(), lat: "x" }))).status).toBe(400);
@@ -86,6 +92,12 @@ describe("DELETE /api/mobile/location", () => {
   it("responde 403 para roles distintos de delivery", async () => {
     state.session = { userId: "x", role: "customer" };
     expect((await DELETE(req("DELETE"))).status).toBe(403);
+    expect(state.removed).toHaveLength(0);
+  });
+
+  it("responde 401 sin sesion valida", async () => {
+    state.session = null;
+    expect((await DELETE(req("DELETE"))).status).toBe(401);
     expect(state.removed).toHaveLength(0);
   });
 

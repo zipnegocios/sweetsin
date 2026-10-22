@@ -1,9 +1,10 @@
 import { verifyMobileJwt } from "@/lib/mobile-auth";
 import { DrizzleUserRepository } from "@workspace/db/repositories";
 
-export async function requireMobileAuth(
-  req: Request,
-): Promise<{ userId: string; role: "despachador" | "delivery" } | null> {
+export type MobileSession = { userId: string; role: "despachador" | "delivery" };
+
+/** null = sesión inválida (sin Bearer, JWT vencido/inválido o usuario inactivo/inexistente). */
+export async function requireMobileAuth(req: Request): Promise<MobileSession | null> {
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
 

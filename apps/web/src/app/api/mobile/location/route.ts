@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { endDeliveryShift, recordDeliveryLocation } from "@workspace/domain/delivery-tracking";
 import { DrizzleDeliveryLocationRepository, DrizzleUserRepository } from "@workspace/db/repositories";
-import { requireMobileAuth } from "../_lib/require-mobile-auth";
+import { authorizeMobile } from "../_lib/authorize-mobile";
 
 const bodySchema = z.object({
   lat: z.number().finite(),
@@ -12,10 +12,8 @@ const bodySchema = z.object({
 });
 
 export async function PUT(req: Request): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session || session.role !== "delivery") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await authorizeMobile(req, "delivery");
+  if (session instanceof Response) return session;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
@@ -38,10 +36,8 @@ export async function PUT(req: Request): Promise<Response> {
 }
 
 export async function DELETE(req: Request): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session || session.role !== "delivery") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await authorizeMobile(req, "delivery");
+  if (session instanceof Response) return session;
   await endDeliveryShift({ locations: new DrizzleDeliveryLocationRepository() }, session.userId);
   return NextResponse.json({ ok: true });
 }

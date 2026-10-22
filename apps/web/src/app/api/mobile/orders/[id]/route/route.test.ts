@@ -86,11 +86,11 @@ afterEach(() => {
 });
 
 describe("GET /api/mobile/orders/[id]/route", () => {
-  it("403 para otro rol antes de tocar DB o red", async () => {
+  it("403 para otro rol y 401 sin sesion valida, antes de tocar DB o red", async () => {
     state.session = { userId: "x", role: "despachador" };
     expect((await GET(req("?lat=1&lng=1"), ctx)).status).toBe(403);
     state.session = null;
-    expect((await GET(req("?lat=1&lng=1"), ctx)).status).toBe(403);
+    expect((await GET(req("?lat=1&lng=1"), ctx)).status).toBe(401);
     expect(state.dbCalls).toBe(0);
   });
 

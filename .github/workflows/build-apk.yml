@@ -67,7 +67,8 @@ jobs:
           GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
         run: |
           if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
-            echo "::warning::Falta el secreto GOOGLE_MAPS_ANDROID_API_KEY: el mapa de la ruta no cargara en este APK"
+            echo "::error::Falta el secreto GOOGLE_MAPS_ANDROID_API_KEY: un APK de release sin clave deja el mapa de la ruta en blanco"
+            exit 1
           fi
           npx expo prebuild --platform android --clean --no-install
 

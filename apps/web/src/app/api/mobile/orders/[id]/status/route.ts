@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markOrderInPrep, markOrderReady } from "@workspace/domain/orders";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
-import { requireMobileAuth } from "../../../_lib/require-mobile-auth";
+import { authorizeMobile } from "../../../_lib/authorize-mobile";
 
 const bodySchema = z.object({ status: z.enum(["in_prep", "ready_for_pickup"]) });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session || session.role !== "despachador") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await authorizeMobile(req, "despachador");
+  if (session instanceof Response) return session;
   const { id } = await params;
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });

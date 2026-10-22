@@ -39,6 +39,11 @@ describe("POST /api/mobile/orders/[id]/evidence/upload-url", () => {
     expect((await POST(req({ contentType: "image/jpeg" }), ctx)).status).toBe(403);
   });
 
+  it("responde 401 sin sesion valida", async () => {
+    state.session = null;
+    expect((await POST(req({ contentType: "image/jpeg" }), ctx)).status).toBe(401);
+  });
+
   it("responde 503 sin variables R2", async () => {
     for (const n of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]) vi.stubEnv(n, "");
     const res = await POST(req({ contentType: "image/jpeg" }), ctx);

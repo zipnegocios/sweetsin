@@ -268,8 +268,11 @@ fallidos #17/#26, mismo patrón de siempre).
   real (nodemailer), validación lazy de credenciales (nunca simula un envío
   exitoso sin `SMTP_HOST/PORT/USER/PASSWORD/FROM` reales — hoy no
   configuradas, todo intento queda logueado `blocked`), plantillas EN/ES en
-  texto plano. `ExpoNotificationAdapter` sigue como scaffold sin consumidor
-  real (Fase 7).
+  texto plano. `ExpoNotificationAdapter` era entonces un scaffold sin
+  consumidor real; desde Fase 7 lo consumen el webhook de Stripe, la
+  asignación de delivery (`/api/mobile/orders/[id]/assign` y `/dispatch`) y
+  `admin-orders` vía `apps/web/src/lib/staff-notifications.ts`. La app
+  mobile es solo Android (APK), no iOS.
 - `User.preferredLocale` nuevo (columna `preferred_locale`, default `'en'`),
   editable en `/account/settings` (nuevo, con layout compartido
   `account/layout.tsx` que centraliza el guard de sesión y la nav de

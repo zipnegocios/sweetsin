@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireMobileAuth } from "../../_lib/require-mobile-auth";
+import { authorizeMobile } from "../../_lib/authorize-mobile";
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await requireMobileAuth(req);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await authorizeMobile(req);
+  if (session instanceof Response) return session;
   return NextResponse.json(session);
 }

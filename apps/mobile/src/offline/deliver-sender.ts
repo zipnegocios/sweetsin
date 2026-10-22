@@ -13,7 +13,8 @@ export function makeDeliverSender(
       throw error;
     }
     if (res.ok) return { kind: "ok" };
-    if (res.status === 401) return { kind: "unauthorized" };
+    if (res.status === 401) return { kind: "unauthorized" }; // sesión inválida: se reintenta tras reingresar el PIN
+    // 403 = rol incorrecto (contrato de /api/mobile): rechazo definitivo, cae en conflict.
     if (res.status === 408 || res.status === 429 || res.status >= 500) return { kind: "retry" };
     const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
     return {
