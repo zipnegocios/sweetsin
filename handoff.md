@@ -1297,7 +1297,10 @@ Fase 7 (nuevo en esta sesión):
     #21/#22/#44, volvió a acumularse por corridas de tests desde
     entonces); no interfieren con la cola del despachador porque nunca
     llegan a `paid`, así que se dejaron sin borrar a la espera de que el
-    owner confirme si quiere limpiarlas.
+    owner confirme si quiere limpiarlas. **Actualización, mismo turno**:
+    el owner confirmó — las 66 se borraron también, mismo script temporal
+    desechable, DB real sin ninguna orden de test conocida al cierre de
+    esta sesión.
 
 ## Próximos pasos
 
