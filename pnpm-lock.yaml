@@ -159,9 +159,6 @@ importers:
       '@react-navigation/native-stack':
         specifier: ^7.19.2
         version: 7.19.2(@react-navigation/native@7.4.1(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.10.0(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native-screens@4.28.0(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
-      crypto-js:
-        specifier: ^4.2.0
-        version: 4.2.0
       expo:
         specifier: ~57.0.24
         version: 57.0.24(@babel/core@7.29.7)(react-dom@19.1.0(react@19.2.3))(react-native@0.86.3(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -193,9 +190,6 @@ importers:
       '@expo/ngrok':
         specifier: ^4.1.3
         version: 4.1.3
-      '@types/crypto-js':
-        specifier: ^4.2.2
-        version: 4.2.2
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.17
@@ -2585,9 +2579,6 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
-  '@types/crypto-js@4.2.2':
-    resolution: {integrity: sha512-sDOLlVbHhXpAUAL0YHDUUwDZf3iN4Bwi4W6a0W0b+QcAezUbRtH4FVb+9J4h+XFPW7l/gQ9F8qC7P+Ec4k8QVQ==}
-
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
 
@@ -3322,10 +3313,6 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
-
-  crypto-js@4.2.0:
-    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
-    deprecated: Active development of CryptoJS has been discontinued. This library is no longer maintained.
 
   cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -8384,8 +8371,6 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
-  '@types/crypto-js@4.2.2': {}
-
   '@types/d3-array@3.2.2': {}
 
   '@types/d3-color@3.1.3': {}
@@ -9199,8 +9184,6 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
-
-  crypto-js@4.2.0: {}
 
   cssesc@3.0.0: {}
 

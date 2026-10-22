@@ -1,5 +1,4 @@
 import { SignJWT, jwtVerify } from "jose";
-import { createHmac, timingSafeEqual } from "node:crypto";
 
 const MOBILE_JWT_TTL = "12h";
 
@@ -26,14 +25,4 @@ export async function verifyMobileJwt(token: string): Promise<{ sub: string; rol
   } catch {
     return null;
   }
-}
-
-export function verifyAppSignature(signature: string, rawBody: string): boolean {
-  const secret = process.env.EXPO_PUBLIC_APP_SECRET;
-  if (!secret) throw new Error("EXPO_PUBLIC_APP_SECRET is not set");
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const expectedBuf = Buffer.from(expected, "hex");
-  const receivedBuf = Buffer.from(signature, "hex");
-  if (expectedBuf.length !== receivedBuf.length) return false;
-  return timingSafeEqual(expectedBuf, receivedBuf);
 }
