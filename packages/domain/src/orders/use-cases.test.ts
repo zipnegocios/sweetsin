@@ -576,4 +576,24 @@ describe("markOrderDelivered", () => {
 
     await expect(markOrderDelivered({ orders: repo }, "order-1", "delivery-2")).rejects.toThrow();
   });
+
+  it("es idempotente: el mismo delivery reintenta sobre una orden ya delivered", async () => {
+    const repo = makeFakeOrderRepo([
+      { ...baseOrder, fulfillmentStatus: "delivered", assignedDeliveryUserId: "delivery-1" },
+    ]);
+    const spy = vi.spyOn(repo, "updateFulfillmentStatus");
+
+    const result = await markOrderDelivered({ orders: repo }, "order-1", "delivery-1");
+
+    expect(result.fulfillmentStatus).toBe("delivered");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rechaza el reintento de otro usuario sobre una orden ya delivered", async () => {
+    const repo = makeFakeOrderRepo([
+      { ...baseOrder, fulfillmentStatus: "delivered", assignedDeliveryUserId: "delivery-1" },
+    ]);
+
+    await expect(markOrderDelivered({ orders: repo }, "order-1", "delivery-2")).rejects.toThrow();
+  });
 });

@@ -141,6 +141,10 @@ export async function markOrderDelivered(
 ): Promise<Order> {
   const order = await deps.orders.findById(orderId);
   if (!order) throw new Error(`Order not found: ${orderId}`);
+  // Idempotente: un reintento offline del mismo delivery sobre una orden ya entregada es un no-op.
+  if (order.fulfillmentStatus === "delivered" && order.assignedDeliveryUserId === actingUserId) {
+    return order;
+  }
   if (order.fulfillmentStatus !== "out_for_delivery") {
     throw new Error(`Cannot mark delivered from status: ${order.fulfillmentStatus}`);
   }
