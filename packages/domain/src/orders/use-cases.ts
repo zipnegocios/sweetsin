@@ -6,6 +6,7 @@ import type { StockRepository } from "../stock/ports";
 import { decrementStockOnSale } from "../stock/use-cases";
 import type { StaffNotificationPort } from "../notifications";
 import type { UserRepository } from "../users/ports";
+import { listActiveStaff } from "../users/use-cases";
 
 export async function createOrder(
   deps: { products: ProductRepository; orders: OrderRepository },
@@ -62,7 +63,12 @@ export async function createOrder(
 }
 
 export async function confirmOrderPayment(
-  deps: { orders: OrderRepository; stock: StockRepository },
+  deps: {
+    orders: OrderRepository;
+    stock: StockRepository;
+    users?: UserRepository;
+    notifications?: StaffNotificationPort;
+  },
   orderId: string,
 ): Promise<void> {
   const order = await deps.orders.findById(orderId);
@@ -74,6 +80,21 @@ export async function confirmOrderPayment(
   if (order.stopId) {
     for (const item of order.items) {
       await decrementStockOnSale(deps.stock, order.stopId, item.productId, item.quantity);
+    }
+  }
+
+  if (order.fulfillmentStatus !== "pending") return;
+  await deps.orders.updateFulfillmentStatus(orderId, "received");
+
+  if (deps.users && deps.notifications) {
+    try {
+      const staff = await listActiveStaff(deps.users, "despachador");
+      await deps.notifications.notifyNewOrderInQueue(
+        staff.map((u) => u.id),
+        { id: order.id, customerName: order.customerName },
+      );
+    } catch {
+      // Un fallo de push nunca bloquea la confirmacion del pago.
     }
   }
 }

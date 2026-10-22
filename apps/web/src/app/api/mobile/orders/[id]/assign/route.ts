@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assignDeliveryToOrder } from "@workspace/domain/orders";
-import {
-  DrizzleOrderRepository,
-  DrizzleUserRepository,
-  DrizzlePushTokenRepository,
-  DrizzlePushLogRepository,
-} from "@workspace/db/repositories";
-import { ExpoNotificationAdapter } from "@workspace/notifications";
+import { DrizzleOrderRepository, DrizzleUserRepository } from "@workspace/db/repositories";
+import { createStaffNotifications } from "@/lib/staff-notifications";
 import { requireMobileAuth } from "../../../_lib/require-mobile-auth";
 
 const bodySchema = z.object({ deliveryUserId: z.string().uuid() });
@@ -26,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       {
         orders: new DrizzleOrderRepository(),
         users: new DrizzleUserRepository(),
-        notifications: new ExpoNotificationAdapter(new DrizzlePushTokenRepository(), new DrizzlePushLogRepository()),
+        notifications: createStaffNotifications(),
       },
       id,
       parsed.data.deliveryUserId,

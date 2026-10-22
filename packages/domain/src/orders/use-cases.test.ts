@@ -204,7 +204,9 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
     async listByCustomerId() {
       return [];
     },
-    async updateFulfillmentStatus() {},
+    async updateFulfillmentStatus(_id, status) {
+      order.fulfillmentStatus = status;
+    },
     async updatePaymentStatus() {},
     async findQueueForDespachador() {
       return [];
@@ -326,6 +328,110 @@ describe("confirmOrderPayment", () => {
 
     expect(orders.paidCalls).toEqual([]);
     expect(stock.events).toHaveLength(0);
+  });
+});
+
+describe("confirmOrderPayment: cola de despacho", () => {
+  const pendingOrder = (overrides: Partial<Order> = {}): Order => ({
+    id: "order-q",
+    customerId: null,
+    customerName: "Jane",
+    customerEmail: "jane@example.com",
+    customerPhone: "+61400000000",
+    fulfillmentType: "pickup",
+    deliveryAddress: null,
+    stopId: "stop-1",
+    paymentStatus: "pending",
+    fulfillmentStatus: "pending",
+    subtotalCents: 1000,
+    discountCents: 0,
+    deliveryFeeCents: 0,
+    totalCents: 1000,
+    channel: "web",
+    stripePaymentIntentId: "pi_q",
+    assignedDeliveryUserId: null,
+    items: [{ productId: "p1", quantity: 1, unitPriceCents: 1000, lineDiscountCents: 0 }],
+    ...overrides,
+  });
+  const stockFor = () => fakeStockRepo([{ id: "stock-1", stopId: "stop-1", productId: "p1", maxStock: 10, currentStock: 10 }]);
+  const staff = () =>
+    fakeUserRepo([
+      fakeUser({ id: "d1", role: "despachador" }),
+      fakeUser({ id: "d2", role: "despachador" }),
+      fakeUser({ id: "d3", role: "despachador", isActive: false }),
+    ]);
+
+  it("mueve una orden pending a received", async () => {
+    const order = pendingOrder();
+    await confirmOrderPayment({ orders: fakeOrderRepoWithOrder(order), stock: stockFor() }, "order-q");
+    expect(order.fulfillmentStatus).toBe("received");
+  });
+
+  it("notifica una vez a los despachadores activos", async () => {
+    const notify = vi.fn().mockResolvedValue(undefined);
+    await confirmOrderPayment(
+      {
+        orders: fakeOrderRepoWithOrder(pendingOrder()),
+        stock: stockFor(),
+        users: staff(),
+        notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
+      },
+      "order-q",
+    );
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(["d1", "d2"], { id: "order-q", customerName: "Jane" });
+  });
+
+  it("no falla si la notificacion falla: la orden queda paid y received", async () => {
+    const order = pendingOrder();
+    const notify = vi.fn().mockRejectedValue(new Error("push down"));
+    await expect(
+      confirmOrderPayment(
+        {
+          orders: fakeOrderRepoWithOrder(order),
+          stock: stockFor(),
+          users: staff(),
+          notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
+        },
+        "order-q",
+      ),
+    ).resolves.toBeUndefined();
+    expect(order.paymentStatus).toBe("paid");
+    expect(order.fulfillmentStatus).toBe("received");
+  });
+
+  it("reintento sobre orden ya paid: no cambia estado, no notifica, no descuenta stock", async () => {
+    const order = pendingOrder({ paymentStatus: "paid" });
+    const stock = stockFor();
+    const notify = vi.fn();
+    await confirmOrderPayment(
+      {
+        orders: fakeOrderRepoWithOrder(order),
+        stock,
+        users: staff(),
+        notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
+      },
+      "order-q",
+    );
+    expect(order.fulfillmentStatus).toBe("pending");
+    expect(notify).not.toHaveBeenCalled();
+    expect(stock.events).toHaveLength(0);
+  });
+
+  it("orden que ya no esta pending: no vuelve a cambiar estado ni notifica", async () => {
+    const order = pendingOrder({ fulfillmentStatus: "in_prep" });
+    const notify = vi.fn();
+    await confirmOrderPayment(
+      {
+        orders: fakeOrderRepoWithOrder(order),
+        stock: stockFor(),
+        users: staff(),
+        notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
+      },
+      "order-q",
+    );
+    expect(order.fulfillmentStatus).toBe("in_prep");
+    expect(notify).not.toHaveBeenCalled();
   });
 });
 

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { confirmOrderPayment } from "@workspace/domain/orders";
-import { DrizzleOrderRepository, DrizzleStockRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleStockRepository, DrizzleUserRepository } from "@workspace/db/repositories";
+import { createStaffNotifications } from "@/lib/staff-notifications";
 
 export async function POST(request: Request): Promise<Response> {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -26,7 +27,12 @@ export async function POST(request: Request): Promise<Response> {
     const orderId = paymentIntent.metadata.orderId;
     if (orderId) {
       await confirmOrderPayment(
-        { orders: new DrizzleOrderRepository(), stock: new DrizzleStockRepository() },
+        {
+          orders: new DrizzleOrderRepository(),
+          stock: new DrizzleStockRepository(),
+          users: new DrizzleUserRepository(),
+          notifications: createStaffNotifications(),
+        },
         orderId,
       );
     }
