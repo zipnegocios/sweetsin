@@ -88,4 +88,24 @@ describe("CachingRoutePlanner", () => {
     await planner.computeRoute(o, "nueva");
     expect(planner.size).toBe(1);
   });
+
+  it("devuelve los mismos trafficSegments en la segunda llamada sin llamar al interno", async () => {
+    const trafficSegments = [{ startIndex: 0, endIndex: 1, speed: "jam" as const }];
+    const inner: RoutePlanner = {
+      computeRoute: vi.fn(async (origin) => ({
+        etaSeconds: 1,
+        distanceMeters: 1,
+        encodedPolyline: "p",
+        origin,
+        destination: { lat: 0, lng: 0 },
+        computedAt: new Date(0),
+        trafficSegments,
+      })),
+    };
+    const planner = new CachingRoutePlanner(inner, { ttlMs: 60_000, now: () => 1_000 });
+    await planner.computeRoute(o, "A");
+    const second = await planner.computeRoute(o, "A");
+    expect(second.trafficSegments).toEqual(trafficSegments);
+    expect(inner.computeRoute).toHaveBeenCalledTimes(1);
+  });
 });
