@@ -1,8 +1,8 @@
-import type { LatLng, RouteInfo, RoutePlanner } from "@workspace/domain/routing";
+import type { LatLng, RouteInfo, RoutePlanner, TrafficSegment } from "@workspace/domain/routing";
 
 const ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes";
 const ROUTES_TIMEOUT_MS = 10_000;
-const FIELD_MASK = "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation";
+const FIELD_MASK = "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation,routes.travelAdvisory";
 
 export class RoutesNotConfiguredError extends Error {
   constructor() {
@@ -29,7 +29,36 @@ interface ComputeRoutesResponse {
     distanceMeters: number;
     polyline: { encodedPolyline: string };
     legs: { endLocation: { latLng: { latitude: number; longitude: number } } }[];
+    travelAdvisory?: { speedReadingIntervals?: unknown };
   }[];
+}
+
+const SPEEDS: Record<string, TrafficSegment["speed"]> = { NORMAL: "normal", SLOW: "slow", TRAFFIC_JAM: "jam" };
+
+// Cuenta los puntos de una polilinea codificada: cada coordenada termina en un byte < 0x20 tras restar 63; un punto son dos.
+function countPolylinePoints(encoded: string): number {
+  let terminators = 0;
+  for (let i = 0; i < encoded.length; i++) if (encoded.charCodeAt(i) - 63 < 0x20) terminators++;
+  return Math.floor(terminators / 2);
+}
+
+// proto3 omite startPolylinePointIndex cuando vale 0. Google usa fin EXCLUSIVO (el ultimo intervalo puede terminar en
+// pointCount); el contrato es inclusivo (<= pointCount - 1), asi que se recorta. Mal formados o fuera de rango se descartan.
+function parseTrafficSegments(raw: unknown, pointCount: number): TrafficSegment[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const segments = raw.flatMap((item): TrafficSegment[] => {
+    if (typeof item !== "object" || item === null) return [];
+    const { startPolylinePointIndex = 0, endPolylinePointIndex, speed } = item as Record<string, unknown>;
+    const mapped = typeof speed === "string" ? SPEEDS[speed] : undefined;
+    if (!mapped || !Number.isInteger(startPolylinePointIndex) || !Number.isInteger(endPolylinePointIndex)) return [];
+    const start = startPolylinePointIndex as number;
+    const end = endPolylinePointIndex as number;
+    if (start < 0 || end <= start || end > pointCount) return [];
+    const endIndex = Math.min(end, pointCount - 1);
+    if (endIndex <= start) return [];
+    return [{ startIndex: start, endIndex, speed: mapped }];
+  });
+  return segments.length > 0 ? segments : undefined;
 }
 
 // Clave solo de servidor, distinta de NEXT_PUBLIC_GOOGLE_MAPS_API_KEY. Se valida al usarse, no al importar.
@@ -56,6 +85,7 @@ export class GoogleRoutesPlanner implements RoutePlanner {
           destination: { address: destinationAddress },
           travelMode: "DRIVE",
           routingPreference: "TRAFFIC_AWARE",
+          extraComputations: ["TRAFFIC_ON_POLYLINE"],
           languageCode: "en-US",
           units: "METRIC",
         }),
@@ -92,6 +122,10 @@ export class GoogleRoutesPlanner implements RoutePlanner {
     ) {
       throw new RoutesUpstreamError("invalid body");
     }
+    const trafficSegments = parseTrafficSegments(
+      route.travelAdvisory?.speedReadingIntervals,
+      countPolylinePoints(polyline),
+    );
     return {
       etaSeconds,
       distanceMeters,
@@ -99,6 +133,7 @@ export class GoogleRoutesPlanner implements RoutePlanner {
       origin,
       destination: { lat: end.latitude, lng: end.longitude },
       computedAt: new Date(),
+      ...(trafficSegments && { trafficSegments }),
     };
   }
 }
