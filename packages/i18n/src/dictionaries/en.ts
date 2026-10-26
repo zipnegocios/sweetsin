@@ -349,7 +349,7 @@ export const en: Dictionary = {
     dispatchAssignTitle: "Assign courier",
     dispatchAssignConfirm: "Assign",
     dispatchNoStaff: "No couriers available.",
-    dispatchPickupNoAction: "Pickup order: no courier needed.",
+    dispatchPickupNoAction: "Trailer pickup: no courier needed.",
     dispatchActionFailed: "Couldn't complete the action. Try again.",
     dispatchConflictTitle: "The order changed",
     dispatchForbidden: "Your account isn't allowed to do this.",
@@ -358,5 +358,6 @@ export const en: Dictionary = {
     dispatchStatusReceived: "New",
     dispatchStatusInPrep: "In prep",
     dispatchStatusReady: "Ready",
+    dispatchStaffLoadError: "We couldn't load the couriers. Pull down to refresh.",
   },
 };

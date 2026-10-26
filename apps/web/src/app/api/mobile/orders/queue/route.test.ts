@@ -64,7 +64,6 @@ describe("GET /api/mobile/orders/queue", () => {
         {
           id: "o1",
           customerName: "Ana",
-          customerPhone: "+61 400",
           fulfillmentType: "self_delivery",
           fulfillmentStatus: "received",
           deliveryAddress: "1 Main St",

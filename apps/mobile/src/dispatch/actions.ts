@@ -30,10 +30,10 @@ function rowsOf(body: unknown, key: string): unknown[] {
 
 function toQueueOrder(r: unknown): QueueOrder | null {
   if (!isRow(r)) return null;
-  const { id, customerName, customerPhone, fulfillmentType, fulfillmentStatus } = r;
+  const { id, customerName, fulfillmentType, fulfillmentStatus } = r;
   const { deliveryAddress, totalCents, itemCount } = r;
   if (typeof id !== "string" || id === "") return null;
-  if (typeof customerName !== "string" || typeof customerPhone !== "string") return null;
+  if (typeof customerName !== "string") return null;
   if (fulfillmentType !== "pickup" && fulfillmentType !== "self_delivery") return null;
   if (
     fulfillmentStatus !== "received" &&
@@ -47,7 +47,6 @@ function toQueueOrder(r: unknown): QueueOrder | null {
   return {
     id,
     customerName,
-    customerPhone,
     fulfillmentType,
     fulfillmentStatus,
     deliveryAddress,

@@ -164,6 +164,9 @@ Valores de movimiento aprobados por el owner (decisión 10).
 | EmptyState | — | background | título textPrimary / mensaje textQuiet | — |
 | OfflineBanner | visible | warning | textPrimary | — |
 | StatusPill | por estado | ver sección 5 | ver sección 5 | ver sección 5 |
+| OptionRow | no elegida | surface | glifo `○` + etiqueta `body` en textPrimary | 1 dp textQuiet |
+| | elegida | surface | glifo `●` + etiqueta `bodyStrong` en textPrimary | 3 dp textPrimary |
+| | presionada | ripple tintPressed | igual que su estado | igual que su estado |
 | BrandMark | — | transparente | — | — |
 
 Estado de error: ningún componente tiene variante "error". Un error se muestra en la pantalla como texto `body` en `danger` junto a la acción que lo resuelve (p. ej. un `Button secondary` "Reintentar"), con `accessibilityLiveRegion="assertive"`.
@@ -242,6 +245,13 @@ Presentacionales (sin datos ni red), en `apps/mobile/src/design-system/` (capas 
 - **Medidas:** radio `pill`, padding vertical `xs`, horizontal `md`, `minHeight` 24 (no tocable), `alignSelf: "flex-start"`; glifo + `xs` + `label` en `text.label` (Atkinson bold 13 sp). Colores y glifo por estado en la sección 5.
 - **Accesibilidad:** `accessibilityRole="text"`, `accessibilityLabel={label}`; el glifo es decorativo (`importantForAccessibility="no"`).
 - **Movimiento:** ninguno.
+
+### OptionRow
+- **Props:** `{ label: string; selected: boolean; onPress: () => void; disabled?: boolean }`. Fila de elección única (p. ej. elegir repartidor en el despachador); la pantalla arma el grupo y guarda cuál está elegida.
+- **Medidas:** sobre `Touchable` (`minHeight`/`minWidth` = `touch.min` del tema), fila: glifo → `sm` → etiqueta (flex 1, envuelve); padding horizontal `lg`, radio `inner`, fondo `surface`.
+- **Estados:** no elegida: glifo `○`, etiqueta `text.body`, borde 1 dp `textQuiet` (5,62:1 sobre vanilla). Elegida: glifo `●`, etiqueta `text.bodyStrong`, borde **3 dp** `textPrimary`. El estado lo portan el glifo y el grosor del borde, nunca solo el color (regla 1). Presionada: ripple `tintPressed` (Android).
+- **Accesibilidad:** `accessibilityRole="radio"`, `accessibilityLabel={label}`, `accessibilityState={{ checked: selected, disabled }}`; el glifo es decorativo.
+- **Movimiento:** ninguno (solo el ripple del sistema).
 
 ### ScreenHeader
 - **Props:** `{ title: string; actionLabel?: string; onAction?: () => void }`.
@@ -374,7 +384,7 @@ Todo vive en `apps/mobile/src/design-system/`. Diseño Atómico sobre tokens por
 | 3. Tokens de componente | `themes/components.ts` | `buildComponentTokens(theme)`: qué token usa cada componente en cada estado (2.3 y 5), con medidas | `tokens/`, `themes/` |
 | Núcleo | raíz | `ThemeProvider`, `useTheme()`, `useReduceMotion()` | capas 1-3 |
 | Átomos | `atoms/` | `Text`, `Glyph`, `Touchable`, `Surface`, `Spacer` | capas anteriores, React, react-native |
-| Moléculas | `molecules/` | `Button`, `StatusPill`, `Card`, `Banner`, `BrandMark` | átomos y capas anteriores |
+| Moléculas | `molecules/` | `Button`, `StatusPill`, `OptionRow`, `Card`, `Banner`, `BrandMark` | átomos y capas anteriores |
 | Organismos | `organisms/` | `ScreenHeader`, `EmptyState`, `OfflineBanner` | moléculas, átomos y capas anteriores |
 | Plantillas | `templates/` | `ScreenLayout({ header?, banner?, bottomBar?, scroll?, children })`: área segura, cabecera, banner, contenido y barra de acción inferior en la zona del pulgar. Con `scroll` (por defecto `true`) el contenido va en un `ScrollView` con padding `lg` y separación `md`; con `scroll={false}` va en un `View` `flex: 1` sin padding, para que una `FlatList` con `RefreshControl` haga su propio scroll (nunca una lista virtualizada dentro de un `ScrollView`) | todo lo anterior |
 | API pública | `index.ts` | temas, núcleo y componentes | — |
@@ -384,18 +394,18 @@ Reglas (las hace cumplir `src/design-system/architecture.test.ts`, que lee los `
 - Dirección de capas de la tabla; `tokens/` no importa nada; nadie de adentro importa `index.ts`; **solo los temas leen `palette`**.
 - Frontera: dentro de `design-system/` solo se importan los paquetes de una lista cerrada: `react`, `react-native`, `react-native-safe-area-context`, `expo-image` y `expo-status-bar` (así no entran `@expo/vector-icons` ni módulos de almacenamiento o efectos como `expo-secure-store`, `expo-sqlite` o `expo-notifications`). Única salida permitida: las imágenes de `assets/brand/` (las usa `BrandMark`). Nada de `packages/i18n`, la API, el almacenamiento ni `src/screens`: los textos llegan por props, así la carpeta se puede extraer a un paquete compartido con un `git mv`.
 - Ningún archivo del núcleo, átomos, moléculas, organismos ni plantillas contiene colores literales (`#RRGGBB`, `rgb(`, `rgba(`) ni `fontFamily:` con un nombre literal: todo sale de `useTheme()`.
-- Las pantallas importan UI solo desde `design-system` (su `index.ts`), sin colores ni `fontFamily:` literales (`src/design-rules.test.ts`, con una lista explícita de excepciones heredadas).
+- Las pantallas importan UI solo desde `design-system` (su `index.ts`), sin colores ni `fontFamily:` literales (`src/design-rules.test.ts`; su lista de excepciones heredadas hoy está vacía: todas las pantallas cumplen).
 
 `App.tsx` carga Atkinson Hyperlegible (regular y bold, `@expo-google-fonts/atkinson-hyperlegible`; los nombres de familia son las claves del tema), retiene `expo-splash-screen` hasta que las fuentes cargan **o fallan** (con fallo abre con la fuente del sistema) y envuelve la app en `ThemeProvider theme={outdoor}`.
 
 ## 11. Temas
 
-Los tres temas cumplen **el mismo tipo `Theme`** (paridad de claves probada en `themes.test.ts`) y cada par de `textPairs` cumple su umbral (`contrast.test.ts`). Solo `outdoor` tiene consumidores hoy; `indoor` y `brand` se definen y se prueban para que una APK futura los elija sin tocar componentes.
+Los tres temas cumplen **el mismo tipo `Theme`** (paridad de claves probada en `themes.test.ts`) y cada par de `textPairs` cumple su umbral (`contrast.test.ts`). Hoy `outdoor` lo usa el delivery (tema de toda la app, en `App.tsx`) e `indoor` el despachador (`navigation/index.tsx` envuelve solo esa pantalla en `ThemeProvider theme={indoor}`); `brand` se define y se prueba para que una APK futura lo elija sin tocar componentes.
 
 | tema | para quién | colores | tocables | tipografía | movimiento |
 |------|-----------|---------|----------|------------|------------|
 | `outdoor` | delivery a pleno sol (APK actual) | paleta base de 6 (2.1 y 2.2) | `min` 48, `primary` **56** | Atkinson; píldora 13 sp bold, botón 18, título 24 | sección 6 |
-| `indoor` | despachador y admin (sin consumidores) | **idénticos** a `outdoor` (mismos pares, mismos contrastes, sección 3) | `min` 48, `primary` 48 (densidad relajada) | Atkinson; título 22/28 y botón 16/24, el resto como `outdoor` | igual |
+| `indoor` | despachador (en uso) y admin (todavía sin pantalla) | **idénticos** a `outdoor` (mismos pares, mismos contrastes, sección 3) | `min` 48, `primary` 48 (densidad relajada) | Atkinson; título 22/28 y botón 16/24, el resto como `outdoor` | igual |
 | `brand` | APK de clientes (sin consumidores) | paleta de marca (abajo) | `min` 48, `primary` 48 | **Fraunces** (display: `brand` y `title`) + **DM Sans** (cuerpo), declaradas por nombre y **no empaquetadas**: la APK que use el tema las carga | igual |
 
 En `outdoor` la variante `brand` (Fraunces Black Italic, 32/36) queda reservada para el wordmark del login; la APK de delivery todavía no empaqueta Fraunces.

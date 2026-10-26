@@ -7,6 +7,8 @@ export type Fetched = { status: number; body: unknown };
 
 export type LoadOutcome = {
   unauthorized: boolean;
+  /** 403 en alguna carga: la sesión sigue, se avisa que la cuenta no tiene permiso. */
+  forbidden: boolean;
   /** Solo si nada respondió y hubo un error de red (un timeout no cuenta como "sin red"). */
   offline: boolean;
   /** `null`: esta corrida no trajo dato (se conserva el anterior). */
@@ -28,6 +30,7 @@ export function interpretLoad(
   const staffBody = okBody(staff);
   return {
     unauthorized: answered.includes(401),
+    forbidden: answered.includes(403),
     offline: answered.length === 0 && both.some((r) => r.status === "rejected" && isNetworkError(r.reason)),
     orders: queueBody === undefined ? null : parseQueue(queueBody),
     staff: staffBody === undefined ? null : parseStaff(staffBody),

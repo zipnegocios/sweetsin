@@ -93,6 +93,7 @@ export function DespachadorQueueScreen() {
       } else if (!out.offline) {
         setNotice(s.dispatchLoadError);
       }
+      if (out.forbidden) setNotice(s.dispatchForbidden); // 403: la sesión sigue, se explica el motivo
     } catch {
       setNotice(s.dispatchLoadError);
     } finally {
@@ -190,7 +191,7 @@ export function DespachadorQueueScreen() {
   } else if (loadFailed) {
     empty = (
       <Surface tone="background" style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text variant="body">{s.dispatchLoadError}</Text>
+        <Text variant="body">{notice ?? s.dispatchLoadError}</Text>
         <Spacer size="md" />
         <Button label={s.retry} variant="secondary" onPress={() => void refresh()} />
       </Surface>
@@ -218,7 +219,7 @@ export function DespachadorQueueScreen() {
     } else if (!staff || staff.length === 0) {
       bottomBar = (
         <>
-          <Text variant="body">{staff ? s.dispatchNoStaff : s.dispatchLoadError}</Text>
+          <Text variant="body">{staff ? s.dispatchNoStaff : s.dispatchStaffLoadError}</Text>
           <Button label={s.dispatchAssignTitle} accessibilityHint={hint} disabled onPress={() => undefined} />
         </>
       );

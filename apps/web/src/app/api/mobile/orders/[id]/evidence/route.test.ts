@@ -33,6 +33,8 @@ beforeEach(() => {
   state.session = { userId: "d1", role: "delivery" };
   state.order = { id: "o1", assignedDeliveryUserId: "d1", fulfillmentStatus: "out_for_delivery" };
   state.recorded = [];
+  // Aísla el prefijo de cualquier .env.local: los tests asumen el default.
+  vi.stubEnv("R2_DELIVERY_EVIDENCE_PREFIX", "delivery-evidence/");
   vi.stubEnv("R2_ACCOUNT_ID", "acct");
   vi.stubEnv("R2_ACCESS_KEY_ID", "ak");
   vi.stubEnv("R2_SECRET_ACCESS_KEY", "sk");

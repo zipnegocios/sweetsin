@@ -5,7 +5,6 @@ import type { QueueOrder } from "./types";
 const base: QueueOrder = {
   id: "o1",
   customerName: "Ana",
-  customerPhone: "+61400000000",
   fulfillmentType: "pickup",
   fulfillmentStatus: "received",
   deliveryAddress: null,
@@ -39,6 +38,9 @@ describe("parseQueue", () => {
     expect(parseQueue("x")).toEqual([]);
     expect(parseQueue(null)).toEqual([]);
     expect(parseQueue({ orders: "x" })).toEqual([]);
+  });
+  it("no exige ni conserva campos ajenos a la pantalla (p. ej. teléfono)", () => {
+    expect(parseQueue({ orders: [{ ...base, customerPhone: "+61400000000" }] })).toEqual([base]);
   });
   it("descarta estados fuera del subconjunto", () => {
     expect(parseQueue({ orders: [{ ...base, fulfillmentStatus: "delivered" }] })).toEqual([]);

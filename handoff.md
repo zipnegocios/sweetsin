@@ -379,11 +379,12 @@ corrida tarea por tarea durante la ejecución).
 
 ### Sesión APK del despachador (2026-10-26)
 
-- **Código completo, sin commitear (en el índice de git):** pantalla del despachador en `apps/mobile` (`screens/DespachadorQueueScreen.tsx`, `src/dispatch/*`, `OptionRow`, textos ES/EN) y proyección de la cola del servidor a 8 campos. Plan: `docs/superpowers/plans/2026-10-26-apk-despachador.md`.
+- **Código completo, sin commitear (en el índice de git):** pantalla del despachador en `apps/mobile` (`screens/DespachadorQueueScreen.tsx`, `src/dispatch/*`, `OptionRow`, textos ES/EN) y proyección de la cola del servidor a 7 campos (sin teléfono). Plan: `docs/superpowers/plans/2026-10-26-apk-despachador.md`.
 - **Solo en línea:** sin cola offline; sin red, banner y acciones deshabilitadas. Peticiones con plazo de 15 s; 401 cierra sesión; 409 muestra una alerta con el motivo. Tema `indoor`.
 - **No probado en teléfono real:** falta recorrer la sección "Despachador" de `docs/superpowers/checklist-dispositivo-delivery.md`.
 - **Menor diferido abierto:** el motivo del 409 llega crudo del servidor, en inglés (`error.message` del dominio), también con el teléfono en español.
 - **Órdenes de retiro:** quedan en `ready_for_pickup`; el dominio no tiene transición a entregada para ellas, y la pantalla no ofrece acción (muestra un texto informativo).
+- **Salida de las órdenes de retiro:** quedan en `ready_for_pickup` y hoy la única salida es cancelarlas desde `/admin/orders`; como siguen en la cola, la selección por defecto (la primera) puede caer en una de ellas.
 - **La ruta `assign` convierte cualquier excepción en 409** (`catch` genérico con `error.message` o "Conflict"), así que un fallo inesperado de servidor o de base también se ve como conflicto en la app.
 
 ## Archivos y cambios
@@ -765,7 +766,7 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 ### Sesión APK del despachador (2026-10-26)
 
 - **App (`apps/mobile`):** `src/screens/DespachadorQueueScreen.tsx`, `src/dispatch/{actions,load,types}.ts` con sus tests, `src/design-system/molecules/OptionRow.tsx` (y export en `index.ts`), ajustes en `themes/components.ts` y `themes/indoor.ts`, `navigation/index.tsx` y `design-rules.test.ts`.
-- **Servidor (`apps/web`):** `api/mobile/orders/queue/route.ts` proyecta la cola a 8 campos (`route.test.ts` nuevo).
+- **Servidor (`apps/web`):** `api/mobile/orders/queue/route.ts` proyecta la cola a 7 campos, sin teléfono (`route.test.ts` nuevo).
 - **i18n:** `packages/i18n` (`en.ts`, `es.ts`, `types.ts`), textos `dispatch*` de `staffApp`.
 - **Docs:** `CLAUDE.md` (Where things live y Architecture decisions: el despachador ya no está diferido), este `handoff.md` y la sección "Despachador" del checklist de dispositivo.
 

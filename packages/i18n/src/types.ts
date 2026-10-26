@@ -356,5 +356,6 @@ export interface Dictionary {
     dispatchStatusReceived: string;
     dispatchStatusInPrep: string;
     dispatchStatusReady: string;
+    dispatchStaffLoadError: string;
   };
 }

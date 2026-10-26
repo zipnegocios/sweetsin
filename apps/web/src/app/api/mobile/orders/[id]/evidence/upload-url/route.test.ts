@@ -30,6 +30,8 @@ function configureR2() {
 beforeEach(() => {
   state.session = { userId: "d1", role: "delivery" };
   state.order = { id: "o1", assignedDeliveryUserId: "d1", fulfillmentStatus: "out_for_delivery" };
+  // Aísla el prefijo de cualquier .env.local: los tests asumen el default.
+  vi.stubEnv("R2_DELIVERY_EVIDENCE_PREFIX", "delivery-evidence/");
 });
 afterEach(() => vi.unstubAllEnvs());
 

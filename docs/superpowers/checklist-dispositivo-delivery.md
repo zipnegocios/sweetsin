@@ -106,6 +106,7 @@ Requiere un usuario `despachador` con PIN de 6 dígitos, al menos una orden paga
 - [ ] **Modo avión.** Esperado: banner de sin conexión, acciones deshabilitadas (no se encolan), la última cola sigue visible y la app no se cierra; al volver la red, el banner desaparece y las acciones se rehabilitan.
 - [ ] **Conflicto.** Desde otra sesión (por ejemplo `/admin/orders`) mueve la misma orden y luego actúa desde el teléfono. Esperado: alerta con el motivo y la cola se recarga. Anota que el motivo viene en inglés del servidor (menor conocido).
 - [ ] **Orden de retiro.** Esperado: no ofrece asignar; la barra inferior muestra el texto informativo y la orden queda en "listo para retiro" (no hay paso a entregada).
+- [ ] **Retiro sin salida (conocido).** Las órdenes de retiro quedan en `ready_for_pickup` y hoy la salida es cancelarlas desde `/admin/orders`. Esperado: siguen en la cola y la selección por defecto puede caer en una de ellas (la barra muestra el texto informativo); anótalo si molesta en el uso real.
 - [ ] **Sin repartidores activos.** Desactiva a todos los repartidores. Esperado: con una orden de entrega propia lista, aviso de que no hay repartidores y botón de asignar deshabilitado.
 - [ ] **Sesión vencida.** Revoca `is_active` del despachador o espera el vencimiento del token. Esperado: al siguiente refresco o acción vuelve al login.
 - [ ] **Escala de fuente** al 130 % y 200 %: nada se corta ni se solapa en la cola, el selector de repartidores ni la barra inferior.

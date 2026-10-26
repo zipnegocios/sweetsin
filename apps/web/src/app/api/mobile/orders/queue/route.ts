@@ -3,12 +3,11 @@ import { DrizzleOrderRepository } from "@workspace/db/repositories";
 import type { Order } from "@workspace/domain/orders";
 import { authorizeMobile } from "../../_lib/authorize-mobile";
 
-// Solo lo que muestra la pantalla del despachador: nada de email, Stripe ni ítems.
+// Solo lo que muestra la pantalla del despachador: nada de teléfono, email, Stripe ni detalle de ítems.
 function toQueueOrder(o: Order) {
   return {
     id: o.id,
     customerName: o.customerName,
-    customerPhone: o.customerPhone,
     fulfillmentType: o.fulfillmentType,
     fulfillmentStatus: o.fulfillmentStatus,
     deliveryAddress: o.deliveryAddress,

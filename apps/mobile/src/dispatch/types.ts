@@ -4,7 +4,6 @@ export type FulfillmentType = "pickup" | "self_delivery";
 export type QueueOrder = {
   id: string;
   customerName: string;
-  customerPhone: string;
   fulfillmentType: FulfillmentType;
   fulfillmentStatus: QueueStatus;
   deliveryAddress: string | null;

@@ -8,7 +8,6 @@ const fail = (reason: unknown): PromiseSettledResult<Fetched> => ({ status: "rej
 const order = {
   id: "o1",
   customerName: "Ana",
-  customerPhone: "+61400000000",
   fulfillmentType: "pickup",
   fulfillmentStatus: "received",
   deliveryAddress: null,
@@ -20,6 +19,7 @@ describe("interpretLoad", () => {
   it("ambas bien: cola y repartidores, con red", () => {
     expect(interpretLoad(ok({ orders: [order] }), ok({ staff: [{ id: "d1", name: "Leo" }] }))).toEqual({
       unauthorized: false,
+      forbidden: false,
       offline: false,
       orders: [order],
       staff: [{ id: "d1", name: "Leo" }],
@@ -46,6 +46,14 @@ describe("interpretLoad", () => {
     expect(r.orders).toBeNull();
     expect(r.staff).toEqual([]);
     expect(r.offline).toBe(false);
+  });
+
+  it("un 403 en cualquiera de las dos marca forbidden sin cerrar sesión", () => {
+    const r = interpretLoad(http(403), ok({ staff: [] }));
+    expect(r.forbidden).toBe(true);
+    expect(r.unauthorized).toBe(false);
+    expect(interpretLoad(ok({ orders: [order] }), http(403)).forbidden).toBe(true);
+    expect(interpretLoad(ok({ orders: [] }), ok({ staff: [] })).forbidden).toBe(false);
   });
 
   it("sin red solo si nada respondió y hubo error de red", () => {
