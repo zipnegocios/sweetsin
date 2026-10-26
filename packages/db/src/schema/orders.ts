@@ -26,6 +26,7 @@ export const ordersTable = pgTable("orders", {
   customerPhone: text("customer_phone").notNull(),
   fulfillmentType: fulfillmentTypeEnum("fulfillment_type").notNull(),
   deliveryAddress: text("delivery_address"),
+  deliveryNotes: text("delivery_notes"),
   stopId: uuid("stop_id").references(() => trailerStopsTable.id),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
   fulfillmentStatus: fulfillmentStatusEnum("fulfillment_status").notNull().default("pending"),

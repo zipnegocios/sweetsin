@@ -48,6 +48,7 @@ export async function createOrder(
     customerPhone: input.customerPhone,
     fulfillmentType: input.fulfillmentType,
     deliveryAddress: input.deliveryAddress,
+    deliveryNotes: input.deliveryNotes,
     stopId: input.stopId,
     paymentStatus: "pending",
     fulfillmentStatus: "pending",

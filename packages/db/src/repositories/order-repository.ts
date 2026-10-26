@@ -15,6 +15,7 @@ export class DrizzleOrderRepository implements OrderRepository {
           customerPhone: order.customerPhone,
           fulfillmentType: order.fulfillmentType,
           deliveryAddress: order.deliveryAddress,
+          deliveryNotes: order.deliveryNotes ?? null,
           stopId: order.stopId,
           paymentStatus: order.paymentStatus,
           fulfillmentStatus: order.fulfillmentStatus,

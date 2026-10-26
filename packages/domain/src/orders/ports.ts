@@ -7,6 +7,7 @@ export interface NewOrderInput {
   customerPhone: string;
   fulfillmentType: FulfillmentType;
   deliveryAddress: string | null;
+  deliveryNotes: string | null;
   stopId: string | null;
   deliveryFeeCents: number;
   channel: OrderChannel;

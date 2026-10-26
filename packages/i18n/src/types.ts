@@ -115,6 +115,8 @@ export interface Dictionary {
     addressLine1Placeholder: string;
     addressSuburbPlaceholder: string;
     addressError: string;
+    deliveryNotesPlaceholder: string;
+    contactPhoneHint: string;
     continueButton: string;
     backButton: string;
     stepContactTitle: string;
