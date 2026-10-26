@@ -112,3 +112,18 @@ Requiere un usuario `despachador` con PIN de 6 dígitos, al menos una orden paga
 - [ ] **Escala de fuente** al 130 % y 200 %: nada se corta ni se solapa en la cola, el selector de repartidores ni la barra inferior.
 - [ ] **TalkBack.** Esperado: cada orden se lee con nombre, tipo y estado e indica si está seleccionada; los botones de acción se leen con su etiqueta y el nombre del cliente como pista.
 
+## 11. Detalle del pedido, contacto y mapa
+
+- [ ] **Detalle.** Esperado: cada orden muestra productos con cantidad, subtotal, descuento, fee, total y las notas del cliente.
+- [ ] **Llamar.** Esperado: abre el marcador con el teléfono del cliente.
+- [ ] **WhatsApp móvil AU.** Con un teléfono `04…`. Esperado: abre el chat en WhatsApp con el número `61…`.
+- [ ] **WhatsApp internacional.** Con un `+44…`. Esperado: abre el chat con el número del Reino Unido.
+- [ ] **Número inválido.** Esperado: no aparece el botón de WhatsApp.
+- [ ] **Mapa visible.** Con el permiso de ubicación concedido, en la orden seleccionada. Esperado: el mapa aparece solo, sin tocar "Ver ruta".
+- [ ] **Arrastrar sobre el mapa.** Esperado: no bloquea el desplazamiento de la lista.
+- [ ] **ETA, distancia, hora y tráfico.** Esperado: valores coherentes con Google Maps y tramos de color según el tráfico.
+- [ ] **Ruta desactualizada.** Sin red unos 5 min. Esperado: aparece "Ruta desactualizada"; al volver la red se refresca (cada 60 s con el mapa visible).
+- [ ] **Iniciar navegación.** Esperado: abre Google Maps con el destino.
+- [ ] **Sin red.** Esperado: el detalle sigue visible desde la caché local.
+- [ ] **Pedido desde la web con notas.** Haz un pedido de entrega a domicilio con notas. Esperado: llega a la app con las notas.
+- [ ] **Fuente 130 % y 200 %.** Esperado: la tarjeta del mapa no se corta ni se solapa.

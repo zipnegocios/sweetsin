@@ -45,6 +45,10 @@ Dejar la APK de staff (`apps/mobile`) lista para un repartidor real **enfocada s
 
 Agregar a la APK de staff la pantalla del despachador (ver la cola, empezar preparación, marcar listo y asignar a un repartidor), solo en línea y con el tema `indoor`. Plan: `docs/superpowers/plans/2026-10-26-apk-despachador.md`.
 
+### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
+
+Mostrar al delivery el detalle del pedido (productos, totales, notas), permitirle llamar o escribir por WhatsApp y ver el mapa con ETA, distancia y tráfico dentro de la app. Plan: `docs/superpowers/plans/2026-10-26-apk-delivery-detalle-mapa-contacto.md`.
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -386,6 +390,10 @@ corrida tarea por tarea durante la ejecución).
 - **Órdenes de retiro:** quedan en `ready_for_pickup`; el dominio no tiene transición a entregada para ellas, y la pantalla no ofrece acción (muestra un texto informativo).
 - **Salida de las órdenes de retiro:** quedan en `ready_for_pickup` y hoy la única salida es cancelarlas desde `/admin/orders`; como siguen en la cola, la selección por defecto (la primera) puede caer en una de ellas.
 - **La ruta `assign` convierte cualquier excepción en 409** (`catch` genérico con `error.message` o "Conflict"), así que un fallo inesperado de servidor o de base también se ve como conflicto en la app.
+
+### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
+
+- **Código completo, sin commitear (en el índice de git):** detalle del pedido en la tarjeta del delivery (productos, totales, notas), botones Llamar/WhatsApp, mapa visible por defecto con tráfico por tramo, ETA/distancia/hora y "Iniciar navegación". Servidor: `/assigned` con el detalle y `orders.delivery_notes`; checkout web con notas para entrega a domicilio. Plan: `docs/superpowers/plans/2026-10-26-apk-delivery-detalle-mapa-contacto.md`.
 
 ## Archivos y cambios
 
@@ -769,6 +777,12 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **Servidor (`apps/web`):** `api/mobile/orders/queue/route.ts` proyecta la cola a 7 campos, sin teléfono (`route.test.ts` nuevo).
 - **i18n:** `packages/i18n` (`en.ts`, `es.ts`, `types.ts`), textos `dispatch*` de `staffApp`.
 - **Docs:** `CLAUDE.md` (Where things live y Architecture decisions: el despachador ya no está diferido), este `handoff.md` y la sección "Despachador" del checklist de dispositivo.
+
+### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
+
+- **App (`apps/mobile`):** `src/contact/whatsapp.ts`, `src/format/money.ts`, `src/maps/{arrival-time,clamp-segments,navigation-url,traffic-runs}.ts` (con tests), `maps/RouteMap.tsx`, `maps/{parse-route-info,types}.ts`, `offline/{assigned-cache,parse-assigned-rows}.ts`, `screens/DeliveryQueueScreen.tsx`, `design-system/molecules/Button.tsx`.
+- **Servidor y datos:** `apps/web/src/app/api/mobile/orders/assigned/route.ts`, `actions/checkout.ts`, `components/cart/checkout-modal.tsx`, `infra/google-routes-planner.ts`; `packages/db` (`schema/orders.ts` con `delivery_notes`, repositorios de órdenes y productos); `packages/domain` (órdenes y `routing/entities.ts`); `packages/i18n`.
+- **Docs:** `CLAUDE.md`, este `handoff.md` y el checklist de dispositivo.
 
 ## Intentos fallidos
 
@@ -1374,6 +1388,14 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **Fuera de alcance a propósito:** órdenes de retiro hasta "entregada" (no existe la transición en el dominio), mapa de flota, historial, posición de los repartidores, notificación al despachador (push descartado), filtros y búsqueda.
 - **Riesgo conocido:** la ruta `assign` convierte cualquier excepción en 409, por lo que un error real de servidor se presenta como conflicto con su mensaje.
 
+### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
+
+(Solo se agregan entradas.)
+- **Defecto del mapa que no aparecía:** el mapa no se mostraba en una versión intermedia de la pantalla; se corrigió en este plan (mapa visible por defecto para la orden seleccionada con permiso concedido).
+- **`scrollEnabled={false}` en el mapa:** el mapa capturaba el gesto de arrastre y bloqueaba el desplazamiento de la lista; se desactiva el scroll del mapa.
+- **Nombres de producto solo en inglés (R3):** `/assigned` envía `nameEn`; no se localizan al español.
+- **No probado contra la API real de Google ni en dispositivo:** el tráfico por tramo (`TRAFFIC_ON_POLYLINE`) y el mapa solo están cubiertos por tests unitarios.
+
 ## Próximos pasos
 
 - **Deploy a producción (Tarea 17 del plan de Fase 2): completo y
@@ -1619,3 +1641,11 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 3. Decidir si se traducen los motivos de conflicto del dominio (hoy llegan en inglés).
 4. Valorar acotar el `catch` de la ruta `assign` para no presentar errores de servidor como 409.
 5. Siguen diferidos: mapa de flota, admin móvil, TV, pedidos presenciales y órdenes de retiro hasta "entregada".
+
+### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
+
+1. Commitear el trabajo del índice (el owner, manualmente).
+2. Recorrer las casillas nuevas de las secciones de detalle/contacto/mapa de `docs/superpowers/checklist-dispositivo-delivery.md` en un teléfono real.
+3. Recompilar el build de desarrollo si es anterior a `react-native-maps` (los módulos nativos exigen un build nuevo).
+4. Confirmar que `GOOGLE_ROUTES_API_KEY` está cargada en EasyPanel y que el secreto de Maps (`GOOGLE_MAPS_ANDROID_API_KEY`) existe en GitHub antes de la release.
+5. Decidir si se localizan los nombres de producto (R3) y vigilar el costo de Routes API (refresco cada 60 s con el mapa visible).
