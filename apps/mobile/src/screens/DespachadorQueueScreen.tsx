@@ -23,6 +23,7 @@ import {
 import { classifyDispatchResponse, nextAction } from "../dispatch/actions";
 import { interpretLoad, type Fetched } from "../dispatch/load";
 import type { DeliveryStaff, QueueOrder, QueueStatus } from "../dispatch/types";
+import { formatCents } from "../format/money";
 import { makeCoalescer } from "../hooks/coalesce";
 import { usePolling } from "../hooks/use-polling";
 import { rejectAfter } from "../hooks/with-timeout";
@@ -306,7 +307,7 @@ export function DespachadorQueueScreen() {
                   </>
                 ) : null}
                 <Text variant="body">
-                  {strings.cart.total}: ${(item.totalCents / 100).toFixed(2)} · {s.dispatchItems}: {item.itemCount}
+                  {strings.cart.total}: {formatCents(item.totalCents)} · {s.dispatchItems}: {item.itemCount}
                 </Text>
                 {isSelected && picking ? (
                   <>

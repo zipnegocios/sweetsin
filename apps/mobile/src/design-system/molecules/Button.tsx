@@ -14,9 +14,11 @@ export type ButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   accessibilityHint?: string;
+  /** Por defecto el texto del botón; se cambia cuando hace falta nombrar a quién afecta (p. ej. "Llamar: Ana"). */
+  accessibilityLabel?: string;
 };
 
-export function Button({ label, onPress, variant = "primary", loading = false, disabled = false, accessibilityHint }: ButtonProps) {
+export function Button({ label, onPress, variant = "primary", loading = false, disabled = false, accessibilityHint, accessibilityLabel }: ButtonProps) {
   const theme = useTheme();
   const t = theme.components.button;
   const reduceMotion = useReduceMotion();
@@ -44,7 +46,7 @@ export function Button({ label, onPress, variant = "primary", loading = false, d
         onPressIn={() => press(true)}
         onPressOut={() => press(false)}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel ?? label}
         accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled: inactive, busy: loading }}
         style={{
