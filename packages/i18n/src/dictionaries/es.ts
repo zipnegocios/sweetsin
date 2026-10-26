@@ -118,6 +118,8 @@ export const es: Dictionary = {
     addressLine1Placeholder: "Empezá a escribir tu dirección…",
     addressSuburbPlaceholder: "Barrio",
     addressError: "Completá ambos campos.",
+    deliveryNotesPlaceholder: "Notas de entrega (opcional): portón, timbre, referencias",
+    contactPhoneHint: "Si tu número no es de Australia, incluí el código de país (por ejemplo +54).",
     continueButton: "Continuar",
     backButton: "Atrás",
     stepContactTitle: "Tus datos",

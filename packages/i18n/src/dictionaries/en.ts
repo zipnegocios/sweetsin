@@ -117,6 +117,8 @@ export const en: Dictionary = {
     addressLine1Placeholder: "Start typing your address…",
     addressSuburbPlaceholder: "Suburb",
     addressError: "Please fill in both fields.",
+    deliveryNotesPlaceholder: "Delivery notes (optional): gate, buzzer, landmarks",
+    contactPhoneHint: "If your number is not Australian, include the country code (for example +54).",
     continueButton: "Continue",
     backButton: "Back",
     stepContactTitle: "Your details",

@@ -6,7 +6,7 @@ import { DrizzleOrderRepository } from "./order-repository";
 import { DrizzleUserRepository } from "./user-repository";
 import { db } from "../index";
 import { eq } from "drizzle-orm";
-import { productsTable, ordersTable } from "../schema";
+import { productsTable, ordersTable, orderItemsTable } from "../schema";
 
 const minimalOrderInput: Omit<Order, "id"> = {
   customerId: null,
@@ -60,6 +60,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000000",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",
@@ -76,6 +77,34 @@ describe("DrizzleOrderRepository", () => {
     expect(found?.items).toHaveLength(1);
   });
 
+  it("persiste deliveryNotes y las devuelve al leer la orden", async () => {
+    const orders = new DrizzleOrderRepository();
+    const order = await createOrder(
+      { products: new DrizzleProductRepository(), orders },
+      {
+        customerId: null,
+        customerName: "TEST-notas-entrega",
+        customerEmail: `test-notas-entrega-${Date.now()}@example.com`,
+        customerPhone: "+61400000000",
+        fulfillmentType: "self_delivery",
+        deliveryAddress: "1 Test St, Test",
+        deliveryNotes: "Portón azul, llamar al llegar",
+        stopId: null,
+        deliveryFeeCents: 500,
+        channel: "web",
+        items: [{ productId, quantity: 1 }],
+      },
+    );
+
+    try {
+      const found = await orders.findById(order.id);
+      expect(found?.deliveryNotes).toBe("Portón azul, llamar al llegar");
+    } finally {
+      await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+      await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+    }
+  });
+
   it("attaches a payment intent and marks the order as paid", async () => {
     const products = new DrizzleProductRepository();
     const orders = new DrizzleOrderRepository();
@@ -89,6 +118,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000000",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",
@@ -119,6 +149,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000001",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",
@@ -134,6 +165,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000002",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "whatsapp",
@@ -163,6 +195,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000003",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",
@@ -207,6 +240,7 @@ describe("DrizzleOrderRepository", () => {
         customerPhone: "+61400000004",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",

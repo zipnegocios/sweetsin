@@ -96,6 +96,7 @@ describe("createOrder", () => {
         customerPhone: "+61400000000",
         fulfillmentType: "pickup",
         deliveryAddress: null,
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 0,
         channel: "web",
@@ -114,6 +115,28 @@ describe("createOrder", () => {
     ]);
   });
 
+  it("conserva deliveryNotes y guarda null cuando no viene", async () => {
+    const products = fakeProductRepo([fakeProduct({ id: "p1", priceCents: 1000, category: "virtue" })]);
+    const base = {
+      customerId: null,
+      customerName: "Jane Doe",
+      customerEmail: "jane@example.com",
+      customerPhone: "+61400000000",
+      fulfillmentType: "self_delivery" as const,
+      deliveryAddress: "1 Test St",
+      stopId: null,
+      deliveryFeeCents: 500,
+      channel: "web" as const,
+      items: [{ productId: "p1", quantity: 1 }],
+    };
+
+    const withNotes = await createOrder({ products, orders: fakeOrderRepo() }, { ...base, deliveryNotes: "Timbre roto, llamar" });
+    const withoutNotes = await createOrder({ products, orders: fakeOrderRepo() }, { ...base, deliveryNotes: null });
+
+    expect(withNotes.deliveryNotes).toBe("Timbre roto, llamar");
+    expect(withoutNotes.deliveryNotes).toBeNull();
+  });
+
   it("adds the delivery fee on top of the discounted subtotal", async () => {
     const products = fakeProductRepo([fakeProduct({ id: "p1", priceCents: 1000, category: "virtue" })]);
     const orders = fakeOrderRepo();
@@ -127,6 +150,7 @@ describe("createOrder", () => {
         customerPhone: "+61400000000",
         fulfillmentType: "self_delivery",
         deliveryAddress: "1 Test St",
+        deliveryNotes: null,
         stopId: null,
         deliveryFeeCents: 500,
         channel: "web",
@@ -153,6 +177,7 @@ describe("createOrder", () => {
           customerPhone: "+61400000000",
           fulfillmentType: "pickup",
           deliveryAddress: null,
+          deliveryNotes: null,
           stopId: null,
           deliveryFeeCents: 0,
           channel: "web",
@@ -176,6 +201,7 @@ describe("createOrder", () => {
           customerPhone: "+61400000000",
           fulfillmentType: "pickup",
           deliveryAddress: null,
+          deliveryNotes: null,
           stopId: null,
           deliveryFeeCents: 0,
           channel: "web",
