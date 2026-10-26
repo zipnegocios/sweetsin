@@ -45,15 +45,13 @@ describe("GoogleRoutesPlanner", () => {
     expect(init.headers).toMatchObject({
       "Content-Type": "application/json",
       "X-Goog-Api-Key": KEY,
-      "X-Goog-FieldMask":
-        "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation,routes.travelAdvisory",
+      "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation",
     });
     expect(JSON.parse(init.body as string)).toEqual({
       origin: { location: { latLng: { latitude: 25.7, longitude: -80.2 } } },
       destination: { address: "1 Main St" },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
-      extraComputations: ["TRAFFIC_ON_POLYLINE"],
       languageCode: "en-US",
       units: "METRIC",
     });
@@ -129,68 +127,5 @@ describe("GoogleRoutesPlanner", () => {
   ])("un 200 con forma inesperada (%s) es RoutesUpstreamError", async (_n, route) => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ routes: [route] }), { status: 200 })));
     await expect(new GoogleRoutesPlanner().computeRoute(origin, "x")).rejects.toBeInstanceOf(RoutesUpstreamError);
-  });
-
-  describe("trafficSegments", () => {
-    // "_p~iF~ps|U_ulLnnqC_mqNvxq`@" decodifica a 3 puntos (indices 0..2).
-    const poly3 = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
-    const withAdvisory = (intervals: unknown) => ({
-      ...okBody.routes[0],
-      polyline: { encodedPolyline: poly3 },
-      travelAdvisory: { speedReadingIntervals: intervals },
-    });
-    const run = async (route: unknown) => {
-      vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ routes: [route] }), { status: 200 })));
-      return new GoogleRoutesPlanner().computeRoute(origin, "x");
-    };
-
-    it("mapea NORMAL/SLOW/TRAFFIC_JAM y trata el indice de inicio omitido como 0", async () => {
-      const r = await run(
-        withAdvisory([
-          { endPolylinePointIndex: 1, speed: "NORMAL" },
-          { startPolylinePointIndex: 1, endPolylinePointIndex: 2, speed: "TRAFFIC_JAM" },
-        ]),
-      );
-      expect(r.trafficSegments).toEqual([
-        { startIndex: 0, endIndex: 1, speed: "normal" },
-        { startIndex: 1, endIndex: 2, speed: "jam" },
-      ]);
-      const slow = await run(withAdvisory([{ startPolylinePointIndex: 0, endPolylinePointIndex: 2, speed: "SLOW" }]));
-      expect(slow.trafficSegments).toEqual([{ startIndex: 0, endIndex: 2, speed: "slow" }]);
-    });
-
-    it("sin intervalos no incluye trafficSegments", async () => {
-      expect((await run(okBody.routes[0])).trafficSegments).toBeUndefined();
-      expect((await run(withAdvisory([]))).trafficSegments).toBeUndefined();
-      expect((await run(withAdvisory("x"))).trafficSegments).toBeUndefined();
-    });
-
-    it("recorta un intervalo final con fin exclusivo (end == nº de puntos) a N-1", async () => {
-      const r = await run(
-        withAdvisory([
-          { endPolylinePointIndex: 1, speed: "NORMAL" },
-          { startPolylinePointIndex: 1, endPolylinePointIndex: 3, speed: "SLOW" },
-        ]),
-      );
-      expect(r.trafficSegments).toEqual([
-        { startIndex: 0, endIndex: 1, speed: "normal" },
-        { startIndex: 1, endIndex: 2, speed: "slow" },
-      ]);
-    });
-
-    it("descarta intervalos fuera de rango o mal formados", async () => {
-      const r = await run(
-        withAdvisory([
-          { startPolylinePointIndex: 0, endPolylinePointIndex: 4, speed: "SLOW" },
-          { startPolylinePointIndex: 2, endPolylinePointIndex: 1, speed: "SLOW" },
-          { startPolylinePointIndex: -1, endPolylinePointIndex: 1, speed: "SLOW" },
-          { endPolylinePointIndex: 1, speed: "SPEED_UNSPECIFIED" },
-          { endPolylinePointIndex: "1", speed: "SLOW" },
-          null,
-          { startPolylinePointIndex: 1, endPolylinePointIndex: 2, speed: "SLOW" },
-        ]),
-      );
-      expect(r.trafficSegments).toEqual([{ startIndex: 1, endIndex: 2, speed: "slow" }]);
-    });
   });
 });

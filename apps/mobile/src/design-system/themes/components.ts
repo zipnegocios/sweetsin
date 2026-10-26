@@ -126,16 +126,6 @@ export function buildComponentTokens(t: ThemeBase) {
       glyphOn: "●",
       glyphOff: "○",
     },
-    // Mapa de la ruta: tramos por velocidad (el texto "con tráfico" de la tarjeta es el portador, no el color).
-    map: {
-      traffic: { normal: c.actionFill, slow: c.warning, jam: c.danger },
-      strokeWidth: 6,
-      markerOrigin: c.info,
-      markerDestination: c.actionFill,
-      heightRatio: 0.4,
-      radius: radius.card,
-      overlay: { bg: c.surface, border: c.border, borderWidth: 1, radius: radius.inner, padding: space.md, gap: space.xs, inset: space.sm },
-    },
     offlineBanner: { glyph: "⊘" }, // ⊘
     header: {
       bg: c.textPrimary,

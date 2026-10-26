@@ -28,9 +28,6 @@ export default async function AdminOrderDetailPage({
         {order.deliveryAddress && (
           <p className="text-sm mt-1">{t("detailAddress")}: {order.deliveryAddress}</p>
         )}
-        {order.deliveryNotes?.trim() && (
-          <p className="text-sm mt-1">{t("detailDeliveryNotes")}: {order.deliveryNotes}</p>
-        )}
       </div>
 
       <div className="bg-white rounded-xl p-5 mb-6">

@@ -27,27 +27,4 @@ describe("parseRouteInfo", () => {
   ])("devuelve null: %s", (_n, input) => {
     expect(parseRouteInfo(input)).toBeNull();
   });
-
-  it("acepta trafficSegments validos y descarta los invalidos", () => {
-    const r = parseRouteInfo({
-      ...valid,
-      trafficSegments: [
-        { startIndex: 0, endIndex: 2, speed: "slow" },
-        { startIndex: 2, endIndex: 1, speed: "jam" },
-        { startIndex: 0, endIndex: 1, speed: "fast" },
-        { startIndex: "0", endIndex: 1, speed: "normal" },
-        null,
-        { startIndex: 1, endIndex: 3, speed: "jam" },
-      ],
-    });
-    expect(r?.trafficSegments).toEqual([
-      { startIndex: 0, endIndex: 2, speed: "slow" },
-      { startIndex: 1, endIndex: 3, speed: "jam" },
-    ]);
-  });
-  it("ignora trafficSegments que no es un arreglo o queda vacio", () => {
-    expect(parseRouteInfo({ ...valid, trafficSegments: "x" })).toEqual(valid);
-    expect(parseRouteInfo({ ...valid, trafficSegments: [{ bad: 1 }] })).toEqual(valid);
-    expect(parseRouteInfo({ ...valid, trafficSegments: [] })).toEqual(valid);
-  });
 });

@@ -9,7 +9,6 @@ import { auth } from "@/auth";
 const checkoutSchema = z.object({
   fulfillmentType: z.enum(["pickup", "self_delivery"]),
   deliveryAddress: z.string().trim().min(1).optional(),
-  deliveryNotes: z.string().trim().max(500).optional(),
   name: z.string().trim().min(1),
   phone: z.string().trim().min(1),
   email: z.string().trim().email(),
@@ -21,7 +20,6 @@ const checkoutSchema = z.object({
 export interface PlaceOrderInput {
   fulfillmentType: "pickup" | "self_delivery";
   deliveryAddress?: string;
-  deliveryNotes?: string;
   name: string;
   phone: string;
   email: string;
@@ -50,7 +48,6 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
       customerPhone: parsed.phone,
       fulfillmentType: parsed.fulfillmentType,
       deliveryAddress: parsed.deliveryAddress ?? null,
-      deliveryNotes: parsed.fulfillmentType === "self_delivery" ? parsed.deliveryNotes || null : null,
       stopId: null,
       deliveryFeeCents,
       channel: parsed.channel,

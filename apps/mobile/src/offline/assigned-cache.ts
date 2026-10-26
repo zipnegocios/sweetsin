@@ -7,16 +7,6 @@ export type AssignedOrder = {
   customerPhone: string;
   deliveryAddress: string | null;
   deliveryEvidenceKey?: string | null;
-  // Detalle del pedido: opcionales porque la caché puede traer filas viejas sin ellos.
-  fulfillmentType?: "pickup" | "self_delivery";
-  items?: { name: string; quantity: number }[];
-  subtotalCents?: number;
-  discountCents?: number;
-  deliveryFeeCents?: number;
-  totalCents?: number;
-  channel?: "web" | "whatsapp";
-  paymentStatus?: "pending" | "paid" | "failed" | "refunded";
-  deliveryNotes?: string | null;
 };
 
 /** Reemplaza la caché completa (conserva el orden recibido: la más antigua primero). */

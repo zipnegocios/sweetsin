@@ -34,7 +34,6 @@ export function CheckoutModal() {
   const [step, setStep] = useState<Step>("fulfillment");
   const [fulfillment, setFulfillment] = useState<Fulfillment | null>(null);
   const [address, setAddress] = useState({ line1: "", suburb: "" });
-  const [deliveryNotes, setDeliveryNotes] = useState("");
   const [contact, setContact] = useState({ name: "", phone: "", email: "" });
   const [addressError, setAddressError] = useState("");
   const [contactError, setContactError] = useState("");
@@ -77,7 +76,6 @@ export function CheckoutModal() {
     setStep("fulfillment");
     setFulfillment(null);
     setAddress({ line1: "", suburb: "" });
-    setDeliveryNotes("");
     setContact({ name: "", phone: "", email: "" });
     setAddressError("");
     setContactError("");
@@ -135,7 +133,6 @@ export function CheckoutModal() {
       const result = await placeOrderAction({
         fulfillmentType: fulfillment ?? "pickup",
         deliveryAddress,
-        deliveryNotes: fulfillment === "self_delivery" ? deliveryNotes : undefined,
         name: contact.name,
         phone: contact.phone,
         email: contact.email,
@@ -178,7 +175,6 @@ export function CheckoutModal() {
       const result = await placeOrderAction({
         fulfillmentType: fulfillment ?? "pickup",
         deliveryAddress,
-        deliveryNotes: fulfillment === "self_delivery" ? deliveryNotes : undefined,
         name: contact.name,
         phone: contact.phone,
         email: contact.email,
@@ -259,15 +255,6 @@ export function CheckoutModal() {
                   placeholder={t("addressSuburbPlaceholder")}
                   className={inputClass}
                 />
-                <textarea
-                  value={deliveryNotes}
-                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                  placeholder={t("deliveryNotesPlaceholder")}
-                  aria-label={t("deliveryNotesPlaceholder")}
-                  maxLength={500}
-                  rows={3}
-                  className={inputClass}
-                />
               </div>
               {addressError && <p className="text-sin-red text-[12px] mb-4">{addressError}</p>}
               <button
@@ -293,11 +280,8 @@ export function CheckoutModal() {
                   value={contact.phone}
                   onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
                   placeholder={t("contactPhonePlaceholder")}
-                  type="tel"
-                  autoComplete="tel"
                   className={inputClass}
                 />
-                <p className="text-[12px] text-navy/60 -mt-1">{t("contactPhoneHint")}</p>
                 <input
                   value={contact.email}
                   onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}

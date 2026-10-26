@@ -27,7 +27,6 @@ export interface Order {
   customerPhone: string;
   fulfillmentType: FulfillmentType;
   deliveryAddress: string | null;
-  deliveryNotes?: string | null;
   stopId: string | null;
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
