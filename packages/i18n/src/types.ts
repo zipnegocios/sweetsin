@@ -336,5 +336,22 @@ export interface Dictionary {
     routeLoading: string;
     shiftNotificationTitle: string;
     shiftNotificationBody: string;
+    dispatchTitle: string;
+    dispatchEmptyTitle: string;
+    dispatchEmptyBody: string;
+    dispatchLoading: string;
+    dispatchLoadError: string;
+    dispatchOfflineBanner: string;
+    dispatchStartPrep: string;
+    dispatchMarkReady: string;
+    dispatchAssignTitle: string;
+    dispatchAssignConfirm: string;
+    dispatchNoStaff: string;
+    dispatchPickupNoAction: string;
+    dispatchActionFailed: string;
+    dispatchConflictTitle: string;
+    dispatchForbidden: string;
+    dispatchItems: string;
+    dispatchSelectOrder: string;
   };
 }
