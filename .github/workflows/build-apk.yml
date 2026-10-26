@@ -148,7 +148,8 @@ jobs:
             echo "::error::el APK esta firmado con el certificado de debug"
             fail=1
           fi
-          signer=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt" | tr -d ':' | tr 'A-F' 'a-f')
+          # apksigner imprime "Signer #1 certificate ..." o "V3.0 Signer: certificate ..." segun la version de build-tools
+          signer=$(grep -m1 'certificate SHA-256 digest:' "$RUNNER_TEMP/certs.txt" | sed 's/.*digest: //' | tr -d ':' | tr 'A-F' 'a-f')
           release=$(keytool -list -v -keystore "$KEYSTORE_PATH" -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEYSTORE_PASSWORD \
             | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f')
           if [ -z "$signer" ] || [ "$signer" != "$release" ]; then
