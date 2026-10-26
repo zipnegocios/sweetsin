@@ -263,6 +263,7 @@ export function CheckoutModal() {
                   value={deliveryNotes}
                   onChange={(e) => setDeliveryNotes(e.target.value)}
                   placeholder={t("deliveryNotesPlaceholder")}
+                  aria-label={t("deliveryNotesPlaceholder")}
                   maxLength={500}
                   rows={3}
                   className={inputClass}

@@ -164,6 +164,7 @@ export interface Dictionary {
     detailItems: string;
     detailCustomer: string;
     detailAddress: string;
+    detailDeliveryNotes: string;
     saveStatus: string;
     statusSaved: string;
     statusChangeError: string;

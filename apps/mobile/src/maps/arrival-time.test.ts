@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatArrival, routeTiming } from "./arrival-time";
+import { formatArrival, routeAgeMs, routeTiming } from "./arrival-time";
 
 // Fechas locales: el resultado no depende de la zona horaria de la maquina.
 const now = new Date(2026, 9, 26, 14, 20, 0);
@@ -55,5 +55,13 @@ describe("routeTiming", () => {
 
   it("sin computedAt valido usa el ETA tal cual", () => {
     expect(routeTiming(900, "", now)).toEqual({ remainingSeconds: 900, stale: false });
+  });
+});
+
+describe("routeAgeMs", () => {
+  it("edad desde computedAt, nunca negativa; null si la fecha no es valida", () => {
+    expect(routeAgeMs(now.toISOString(), new Date(now.getTime() + 45_000))).toBe(45_000);
+    expect(routeAgeMs(now.toISOString(), new Date(now.getTime() - 10_000))).toBe(0);
+    expect(routeAgeMs("", now)).toBeNull();
   });
 });

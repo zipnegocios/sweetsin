@@ -26,7 +26,7 @@ import { usePolling } from "../hooks/use-polling";
 import { whatsappUrl } from "../contact/whatsapp";
 import { formatCents } from "../format/money";
 import { locale, strings } from "../i18n";
-import { formatArrival, routeTiming } from "../maps/arrival-time";
+import { formatArrival, routeAgeMs, routeTiming } from "../maps/arrival-time";
 import { formatEta } from "../maps/format-eta";
 import { navigationUrl } from "../maps/navigation-url";
 import { ROUTE_LOCATION_LOOKUP_TIMEOUT_MS, ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQUEST_TIMEOUT_MS } from "../maps/limits";
@@ -44,7 +44,11 @@ import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent
 
 const POLL_MS = 30_000;
 const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
-const ROUTE_REFRESH_MS = 60_000; // el servidor cachea 60 s por destino y origen redondeado: no se paga de más
+// Cada ruta con tráfico por tramo (TRAFFIC_ON_POLYLINE) se factura como Compute Routes Enterprise: 120 s acota el
+// costo con el mapa a la vista (el servidor además cachea 60 s por destino y origen redondeado).
+const ROUTE_REFRESH_MS = 120_000;
+// Volver a primer plano no recalcula una ruta más nueva que esto (evita una llamada paga por cada cambio de app).
+const ROUTE_MIN_AGE_MS = 60_000;
 const s = strings.staffApp;
 
 const CHANNEL_LABEL = { web: s.channelWeb, whatsapp: s.channelWhatsapp } as const;
@@ -226,13 +230,15 @@ export function DeliveryQueueScreen() {
     if (currentSelectedId) void loadRoute(currentSelectedId, false);
   }, [currentSelectedId, loadRoute]);
 
-  // Refresco del ETA y del tráfico cada 60 s (y al volver a primer plano) solo mientras el mapa de la orden
-  // seleccionada está a la vista y la app activa.
+  // Refresco del ETA y del tráfico cada 120 s (y al volver a primer plano) solo mientras el mapa de la orden
+  // seleccionada está a la vista y la app activa; una ruta de menos de 60 s no se recalcula.
   usePolling(() => {
     const id = currentSelectedId;
     const current = routeState;
     if (AppState.currentState !== "active" || !id || mapHiddenId === id) return;
     if (current?.orderId !== id || current.status !== "ok") return;
+    const age = routeAgeMs(current.route.computedAt, new Date());
+    if (age !== null && age < ROUTE_MIN_AGE_MS) return;
     void loadRoute(id, false);
   }, ROUTE_REFRESH_MS);
 
@@ -533,6 +539,7 @@ export function DeliveryQueueScreen() {
                     <Button
                       label={detailOpen ? s.orderDetailHide : s.orderDetailShow}
                       variant="ghost"
+                      expanded={detailOpen}
                       accessibilityHint={item.customerName}
                       onPress={() => setDetailOpenId(detailOpen ? null : item.id)}
                     />
@@ -576,6 +583,7 @@ export function DeliveryQueueScreen() {
                   <Button
                     label={mapVisible ? s.routeHide : s.routeShow}
                     variant="ghost"
+                    expanded={mapVisible}
                     accessibilityHint={item.customerName}
                     onPress={() => void toggleRoute(item.id, mapVisible)}
                   />
@@ -587,26 +595,26 @@ export function DeliveryQueueScreen() {
                     overlay={({ hasTraffic }) => {
                       const timing = routeTiming(route.route.etaSeconds, route.route.computedAt, now);
                       return (
-                      <Surface
-                        tone="surface"
-                        accessible
-                        style={{
-                          borderRadius: theme.components.map.overlay.radius,
-                          borderWidth: theme.components.map.overlay.borderWidth,
-                          borderColor: theme.components.map.overlay.border,
-                          padding: theme.components.map.overlay.padding,
-                          gap: theme.components.map.overlay.gap,
-                        }}
-                      >
-                        <Text variant="heading">
-                          {s.etaLabel}: {formatEta(timing.remainingSeconds, route.route.distanceMeters, locale)}
-                        </Text>
-                        <Text variant="body">
-                          {s.arrivalAt} {formatArrival(timing.remainingSeconds, now, locale)}
-                        </Text>
-                        {hasTraffic ? <Text variant="bodyStrong">{s.routeWithTraffic}</Text> : null}
-                        {timing.stale ? <Text variant="bodyStrong">{s.routeStale}</Text> : null}
-                      </Surface>
+                        <Surface
+                          tone="surface"
+                          accessible
+                          style={{
+                            borderRadius: theme.components.map.overlay.radius,
+                            borderWidth: theme.components.map.overlay.borderWidth,
+                            borderColor: theme.components.map.overlay.border,
+                            padding: theme.components.map.overlay.padding,
+                            gap: theme.components.map.overlay.gap,
+                          }}
+                        >
+                          <Text variant="heading">
+                            {s.etaLabel}: {formatEta(timing.remainingSeconds, route.route.distanceMeters, locale)}
+                          </Text>
+                          <Text variant="body">
+                            {s.arrivalAt} {formatArrival(timing.remainingSeconds, now, locale)}
+                          </Text>
+                          {hasTraffic ? <Text variant="bodyStrong">{s.routeWithTraffic}</Text> : null}
+                          {timing.stale ? <Text variant="bodyStrong">{s.routeStale}</Text> : null}
+                        </Surface>
                       );
                     }}
                   />
