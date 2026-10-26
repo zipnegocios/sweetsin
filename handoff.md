@@ -41,6 +41,10 @@ cierre.
 
 Dejar la APK de staff (`apps/mobile`) lista para un repartidor real **enfocada solo en el delivery**: login por PIN, cola offline, evidencia opcional, ruta/ETA con tráfico y turno con seguimiento. Plan: `docs/superpowers/plans/2026-10-20-apk-fundacion-delivery-offline.md`; spec: `docs/superpowers/specs/2026-10-20-apk-multirol-design.md`; decisiones y acciones del owner: `docs/superpowers/decisiones-pendientes-apk.md`; ledger de la ejecución (rulings R1-R25 y menores diferidos): `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline/progress.md`. Push remoto descartado (D1). Diferidos: despachador, mapa de flota, admin, TV y pedidos presenciales.
 
+### Sesión APK del despachador (2026-10-26)
+
+Agregar a la APK de staff la pantalla del despachador (ver la cola, empezar preparación, marcar listo y asignar a un repartidor), solo en línea y con el tema `indoor`. Plan: `docs/superpowers/plans/2026-10-26-apk-despachador.md`.
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -372,6 +376,15 @@ corrida tarea por tarea durante la ejecución).
 - **Retención de la evidencia:** hoy 7 días (ampliable a 30), **pendiente de confirmación legal**. No hay job de borrado implementado; definir la regla de ciclo de vida del bucket de R2 cuando legal confirme.
 - **La subida de la foto a R2 podría quedar vacía** (el endpoint de registro no hace HEAD del objeto): verificar tamaño > 0 en la Task 20; si falla, cambiar a `expo-file-system` con subida BINARY_CONTENT por PUT.
 - **El build de desarrollo nunca debe llegar a un repartidor real** (ver `CLAUDE.md`).
+
+### Sesión APK del despachador (2026-10-26)
+
+- **Código completo, sin commitear (en el índice de git):** pantalla del despachador en `apps/mobile` (`screens/DespachadorQueueScreen.tsx`, `src/dispatch/*`, `OptionRow`, textos ES/EN) y proyección de la cola del servidor a 8 campos. Plan: `docs/superpowers/plans/2026-10-26-apk-despachador.md`.
+- **Solo en línea:** sin cola offline; sin red, banner y acciones deshabilitadas. Peticiones con plazo de 15 s; 401 cierra sesión; 409 muestra una alerta con el motivo. Tema `indoor`.
+- **No probado en teléfono real:** falta recorrer la sección "Despachador" de `docs/superpowers/checklist-dispositivo-delivery.md`.
+- **Menor diferido abierto:** el motivo del 409 llega crudo del servidor, en inglés (`error.message` del dominio), también con el teléfono en español.
+- **Órdenes de retiro:** quedan en `ready_for_pickup`; el dominio no tiene transición a entregada para ellas, y la pantalla no ofrece acción (muestra un texto informativo).
+- **La ruta `assign` convierte cualquier excepción en 409** (`catch` genérico con `error.message` o "Conflict"), así que un fallo inesperado de servidor o de base también se ve como conflicto en la app.
 
 ## Archivos y cambios
 
@@ -748,6 +761,13 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **App (`apps/mobile`):** identidad (nombre "Sweet Sin Staff", íconos, splash), `app.config.ts` con variante `APP_VARIANT=development`, `src/offline/` (SQLite + cola), `src/evidence/`, `src/maps/`, `src/tracking/`, `src/design-system/` (atómico, temas outdoor/indoor/brand), `src/i18n`, `DeliveryQueueScreen` y `LoginScreen` reconstruidas sobre el design system.
 - **CI:** `.github/workflows/build-apk.yml` (release firmada, falla si el APK trae `devlauncher`/`devmenu`) y `.github/workflows/build-dev-apk.yml`.
 - **Docs:** `CLAUDE.md` (Run & Operate, Where things live y Architecture decisions actualizados; quitadas las notas ya resueltas de `notifyNewOrderInQueue` y de `/admin/orders`), `docs/design/mobile-design-system*.md`, `docs/superpowers/checklist-dispositivo-delivery.md`, este `handoff.md`.
+
+### Sesión APK del despachador (2026-10-26)
+
+- **App (`apps/mobile`):** `src/screens/DespachadorQueueScreen.tsx`, `src/dispatch/{actions,load,types}.ts` con sus tests, `src/design-system/molecules/OptionRow.tsx` (y export en `index.ts`), ajustes en `themes/components.ts` y `themes/indoor.ts`, `navigation/index.tsx` y `design-rules.test.ts`.
+- **Servidor (`apps/web`):** `api/mobile/orders/queue/route.ts` proyecta la cola a 8 campos (`route.test.ts` nuevo).
+- **i18n:** `packages/i18n` (`en.ts`, `es.ts`, `types.ts`), textos `dispatch*` de `staffApp`.
+- **Docs:** `CLAUDE.md` (Where things live y Architecture decisions: el despachador ya no está diferido), este `handoff.md` y la sección "Despachador" del checklist de dispositivo.
 
 ## Intentos fallidos
 
@@ -1346,6 +1366,13 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **Credenciales pegadas en el chat:** el secreto de R2 llegó enmascarado y no se escribió en ningún archivo; el token mostrado cubre todos los buckets (ver M4).
 - **Menores diferidos, aún abiertos:** en el ledger (p. ej. `db.ts` cachea un rechazo de `openDatabaseAsync`, guard de doble toque en la evidencia, `trim()` del email en el login).
 
+### Sesión APK del despachador (2026-10-26)
+
+(Solo se agregan entradas.)
+- **Menor diferido:** el motivo del 409 llega crudo del servidor, en inglés, y se muestra tal cual en la alerta; no se traduce. Pendiente decidir si se mapean los motivos del dominio a textos de `packages/i18n`.
+- **Fuera de alcance a propósito:** órdenes de retiro hasta "entregada" (no existe la transición en el dominio), mapa de flota, historial, posición de los repartidores, notificación al despachador (push descartado), filtros y búsqueda.
+- **Riesgo conocido:** la ruta `assign` convierte cualquier excepción en 409, por lo que un error real de servidor se presenta como conflicto con su mensaje.
+
 ## Próximos pasos
 
 - **Deploy a producción (Tarea 17 del plan de Fase 2): completo y
@@ -1583,3 +1610,11 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Decisiones abiertas** (sección A del documento de decisiones): Q-A (botón primario navy), C1/C2 (contraste del verde sobre Concha y del borde dorado), Q3 (Fraunces solo en el wordmark), Q-F (glifo "→" a validar en fabricantes), Q-E (mascota en SVG/PNG de al menos 1024 px), Q7 (botón de turno, ya implementado), Q8 y Q9. Q6 (consentimiento legal) y la retención de evidencia 7 a 30 días, con legal.
 
 **Diferido:** pantalla del despachador, mapa de flota (Task 19: `GET /fleet`, `listSince`, `listFleetPositions`), admin móvil, TV, pedidos presenciales, ETA del despachador; vista admin web que lea las fotos con URL prefirmada; job de retención de evidencia; menores recomendados antes del merge (ver ledger).
+
+### Sesión APK del despachador (2026-10-26)
+
+1. Commitear el trabajo del índice (el owner, manualmente).
+2. Recorrer la sección "Despachador" de `docs/superpowers/checklist-dispositivo-delivery.md` en un teléfono real, con un usuario `despachador` y otro `delivery`.
+3. Decidir si se traducen los motivos de conflicto del dominio (hoy llegan en inglés).
+4. Valorar acotar el `catch` de la ruta `assign` para no presentar errores de servidor como 409.
+5. Siguen diferidos: mapa de flota, admin móvil, TV, pedidos presenciales y órdenes de retiro hasta "entregada".

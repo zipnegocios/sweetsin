@@ -1,6 +1,6 @@
 # Checklist en dispositivo: APK de delivery
 
-Verificación manual en un teléfono Android real (Task 20, Steps 2 y 3). Solo flujos del delivery: el despachador, el mapa de flota, el admin y el push quedan fuera (diferidos o descartados).
+Verificación manual en un teléfono Android real (Task 20, Steps 2 y 3). Flujos del delivery y, en la sección "Despachador", de la pantalla del despachador: el mapa de flota, el admin y el push quedan fuera (diferidos o descartados).
 
 ## Antes de empezar
 
@@ -93,3 +93,21 @@ Verificación manual en un teléfono Android real (Task 20, Steps 2 y 3). Solo f
 
 - [ ] **Limpiar los datos de prueba** (Task 20, Step 4): borrar las órdenes de prueba, las filas de `delivery_locations` y los objetos de evidencia del bucket `sweet-delivery` y de la base.
 - [ ] **Registrar lo encontrado:** fallas, marcas y modelos probados, y consumo medido, en `handoff.md` (sección "Intentos fallidos" si algo falló).
+
+## 10. Despachador
+
+Requiere un usuario `despachador` con PIN de 6 dígitos, al menos una orden pagada en cada estado (`received`, `in_prep`, `ready_for_pickup`), una de retiro y otra de entrega propia (`self_delivery`), y al menos un usuario `delivery` activo.
+
+- [ ] **Login con PIN de despachador.** Esperado: entra a "Cola de despacho" (no a la lista del delivery).
+- [ ] **Ver la cola.** Esperado: cada orden muestra nombre, tipo, estado con ícono y texto, total e ítems; la dirección solo en entrega propia. La primera queda seleccionada y la cola se refresca sola (≤ 30 s) o con tirar para actualizar.
+- [ ] **Empezar preparación.** Selecciona una orden recibida y toca "Empezar preparación". Esperado: pasa a "en preparación" y el botón cambia a "Marcar listo".
+- [ ] **Marcar listo.** Esperado: pasa a "listo para retiro" sin cerrar la app.
+- [ ] **Asignar a un repartidor.** Con una orden de entrega propia lista, toca asignar, elige un repartidor y confirma. Esperado: la orden sale de la cola y aparece en la app del delivery en ≤ 30 s.
+- [ ] **Modo avión.** Esperado: banner de sin conexión, acciones deshabilitadas (no se encolan), la última cola sigue visible y la app no se cierra; al volver la red, el banner desaparece y las acciones se rehabilitan.
+- [ ] **Conflicto.** Desde otra sesión (por ejemplo `/admin/orders`) mueve la misma orden y luego actúa desde el teléfono. Esperado: alerta con el motivo y la cola se recarga. Anota que el motivo viene en inglés del servidor (menor conocido).
+- [ ] **Orden de retiro.** Esperado: no ofrece asignar; la barra inferior muestra el texto informativo y la orden queda en "listo para retiro" (no hay paso a entregada).
+- [ ] **Sin repartidores activos.** Desactiva a todos los repartidores. Esperado: con una orden de entrega propia lista, aviso de que no hay repartidores y botón de asignar deshabilitado.
+- [ ] **Sesión vencida.** Revoca `is_active` del despachador o espera el vencimiento del token. Esperado: al siguiente refresco o acción vuelve al login.
+- [ ] **Escala de fuente** al 130 % y 200 %: nada se corta ni se solapa en la cola, el selector de repartidores ni la barra inferior.
+- [ ] **TalkBack.** Esperado: cada orden se lee con nombre, tipo y estado e indica si está seleccionada; los botones de acción se leen con su etiqueta y el nombre del cliente como pista.
+
