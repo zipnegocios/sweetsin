@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, FlatList, Linking, RefreshControl } from "react-native";
+import { Alert, AppState, FlatList, Linking, RefreshControl, useWindowDimensions } from "react-native";
 import * as Location from "expo-location";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
@@ -23,8 +23,12 @@ import {
 import { makeCoalescer } from "../hooks/coalesce";
 import { rejectAfter, withTimeout } from "../hooks/with-timeout";
 import { usePolling } from "../hooks/use-polling";
+import { whatsappUrl } from "../contact/whatsapp";
+import { formatCents } from "../format/money";
 import { locale, strings } from "../i18n";
+import { formatArrival, routeTiming } from "../maps/arrival-time";
 import { formatEta } from "../maps/format-eta";
+import { navigationUrl } from "../maps/navigation-url";
 import { ROUTE_LOCATION_LOOKUP_TIMEOUT_MS, ROUTE_LOCATION_TIMEOUT_MS, ROUTE_REQUEST_TIMEOUT_MS } from "../maps/limits";
 import { parseRouteInfo } from "../maps/parse-route-info";
 import { RouteMap } from "../maps/RouteMap";
@@ -40,8 +44,29 @@ import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent
 
 const POLL_MS = 30_000;
 const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
-const ROUTE_MAP_HEIGHT = 200;
+const ROUTE_REFRESH_MS = 60_000; // el servidor cachea 60 s por destino y origen redondeado: no se paga de más
 const s = strings.staffApp;
+
+const CHANNEL_LABEL = { web: s.channelWeb, whatsapp: s.channelWhatsapp } as const;
+const PAYMENT_LABEL = {
+  pending: s.paymentPending,
+  paid: s.paymentPaid,
+  failed: s.paymentFailed,
+  refunded: s.paymentRefunded,
+} as const;
+
+type OrderDetail = AssignedOrder &
+  Required<Pick<AssignedOrder, "items" | "subtotalCents" | "discountCents" | "deliveryFeeCents" | "totalCents">>;
+
+/** Una fila de caché vieja no trae el detalle: sin él, la sección no aparece. */
+function hasDetail(o: AssignedOrder): o is OrderDetail {
+  return (
+    Array.isArray(o.items) &&
+    [o.subtotalCents, o.discountCents, o.deliveryFeeCents, o.totalCents].every((n) => typeof n === "number")
+  );
+}
+
+const CLOCK_TICK_MS = 30_000;
 
 type RouteState =
   | { orderId: string; status: "loading" }
@@ -64,6 +89,8 @@ async function readOrigin(ask: boolean): Promise<{ lat: number; lng: number } | 
 
 export function DeliveryQueueScreen() {
   const theme = useTheme();
+  const { height: windowHeight } = useWindowDimensions();
+  const mapHeight = Math.round(windowHeight * theme.components.map.heightRatio);
   const { logout } = useAuth();
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -82,7 +109,10 @@ export function DeliveryQueueScreen() {
   const cancelled = useRef(false);
   const evidenceBusy = useRef(false);
   const [routeState, setRouteState] = useState<RouteState | null>(null);
-  const [mapOrderId, setMapOrderId] = useState<string | null>(null);
+  // El mapa se ve solo cuando hay ruta; esto guarda la orden en la que el repartidor lo ocultó a mano.
+  const [mapHiddenId, setMapHiddenId] = useState<string | null>(null);
+  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date()); // reloj del ETA restante: solo avanza con el mapa a la vista
   const routeStateRef = useRef(routeState);
   routeStateRef.current = routeState;
   const routeSeq = useRef(0);
@@ -150,11 +180,15 @@ export function DeliveryQueueScreen() {
     resumeShift().then(setShiftOn, () => {});
   }, []);
 
-  // Nunca lanza: cualquier fallo deja la tarjeta sin ETA. Una respuesta tardía de otra orden se descarta.
+  // Nunca lanza. Una respuesta tardía de otra orden se descarta. Solo el pedido interactivo ("Ver ruta") muestra
+  // "cargando"/"no disponible": un refresco silencioso que falla conserva lo que ya se veía (p. ej. la última ruta).
   const loadRoute = useCallback(async (orderId: string, ask: boolean): Promise<"denied" | undefined> => {
     const seq = ++routeSeq.current;
     const apply = (next: RouteState | null) => {
       if (!cancelled.current && seq === routeSeq.current && selectedIdRef.current === orderId) setRouteState(next);
+    };
+    const fail = () => {
+      if (ask) apply({ orderId, status: "unavailable" });
     };
     try {
       if (ask) apply({ orderId, status: "loading" });
@@ -166,50 +200,70 @@ export function DeliveryQueueScreen() {
         else if (!(current?.orderId === orderId && current.status === "denied")) apply(null);
         return "denied";
       }
-      if (origin === "unavailable") {
-        apply({ orderId, status: "unavailable" });
-        return;
-      }
+      if (origin === "unavailable") return void fail();
       const res = await rejectAfter(
         apiFetch(`/api/mobile/orders/${orderId}/route?lat=${origin.lat}&lng=${origin.lng}`),
         ROUTE_REQUEST_TIMEOUT_MS,
       );
-      if (!res.ok) {
-        apply({ orderId, status: "unavailable" });
-        return;
-      }
+      if (!res.ok) return void fail();
       const route = parseRouteInfo(await res.json());
-      apply(route ? { orderId, status: "ok", route } : { orderId, status: "unavailable" });
+      if (route) apply({ orderId, status: "ok", route });
+      else fail();
     } catch {
-      apply({ orderId, status: "unavailable" });
+      fail();
     }
   }, []);
 
   const currentSelectedId = (orders.find((o) => o.id === selectedId) ?? orders[0])?.id;
   selectedIdRef.current = currentSelectedId;
 
-  // ETA de la orden seleccionada: al cambiar la selección (sin temporizador y sin pedir permisos).
+  // Ruta de la orden seleccionada al cambiar la selección, sin pedir permisos: con el permiso ya concedido el mapa
+  // aparece solo; sin él no pasa nada hasta que el repartidor toque "Ver ruta".
   useEffect(() => {
     routeSeq.current++; // invalida cualquier respuesta en vuelo de la orden anterior
     setRouteState(null);
-    setMapOrderId(null); // el mapa abierto pertenecia a la orden anterior
+    setMapHiddenId(null);
     if (currentSelectedId) void loadRoute(currentSelectedId, false);
   }, [currentSelectedId, loadRoute]);
+
+  // Refresco del ETA y del tráfico cada 60 s (y al volver a primer plano) solo mientras el mapa de la orden
+  // seleccionada está a la vista y la app activa.
+  usePolling(() => {
+    const id = currentSelectedId;
+    const current = routeState;
+    if (AppState.currentState !== "active" || !id || mapHiddenId === id) return;
+    if (current?.orderId !== id || current.status !== "ok") return;
+    void loadRoute(id, false);
+  }, ROUTE_REFRESH_MS);
+
+  const selectedMapVisible =
+    routeState?.orderId === currentSelectedId && routeState?.status === "ok" && mapHiddenId !== currentSelectedId;
+  useEffect(() => {
+    if (!selectedMapVisible) return;
+    setNow(new Date()); // también al llegar una ruta nueva
+    const timer = setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
+    return () => clearInterval(timer);
+  }, [selectedMapVisible, routeState]);
 
   const pullToRefresh = async () => {
     setRefreshing(true);
     const id = selectedIdRef.current;
-    if (id) void loadRoute(id, false);
+    const current = routeStateRef.current;
+    // Un "Ver ruta" en curso no se pisa: invalidarlo dejaría "Cargando ruta..." si el refresco silencioso falla.
+    if (id && !(current?.orderId === id && current.status === "loading")) void loadRoute(id, false);
     await refresh();
     setRefreshing(false);
   };
 
-  const toggleRoute = async (orderId: string) => {
-    if (mapOrderId === orderId) {
-      setMapOrderId(null);
+  // "Ver ruta" es lo único que pide el permiso de ubicación; con la ruta ya calculada solo vuelve a mostrar el mapa.
+  const toggleRoute = async (orderId: string, mapVisible: boolean) => {
+    if (mapVisible) {
+      setMapHiddenId(orderId);
       return;
     }
-    setMapOrderId(orderId);
+    setMapHiddenId(null);
+    const current = routeStateRef.current;
+    if (current?.orderId === orderId && current.status === "ok") return;
     if ((await loadRoute(orderId, true)) === "denied") alertSettings(s.routeLocationDenied, s.routeShow);
   };
 
@@ -396,7 +450,7 @@ export function DeliveryQueueScreen() {
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
-        extraData={[selected?.id, pendingIds, evidenceSentIds, routeState, mapOrderId]}
+        extraData={[selected?.id, pendingIds, evidenceSentIds, routeState, mapHiddenId, detailOpenId, mapHeight, now]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void pullToRefresh()} colors={[theme.colors.actionFill]} />
         }
@@ -411,6 +465,10 @@ export function DeliveryQueueScreen() {
           const isSelected = item.id === selected?.id;
           const isPending = pendingIds.has(item.id);
           const address = item.deliveryAddress;
+          const route = isSelected && routeState?.orderId === item.id ? routeState : null;
+          const mapVisible = route?.status === "ok" && mapHiddenId !== item.id;
+          const detailOpen = detailOpenId === item.id;
+          const wa = whatsappUrl(item.customerPhone);
           return (
             <Touchable
               accessible={false}
@@ -442,9 +500,7 @@ export function DeliveryQueueScreen() {
                   <Touchable
                     accessibilityRole="link"
                     accessibilityLabel={`${s.navigate}: ${address}`}
-                    onPress={() =>
-                      void open("https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address))
-                    }
+                    onPress={() => void open(navigationUrl(route?.status === "ok" ? route.route.destination : null, address))}
                   >
                     <Text variant="quiet">{s.addressLabel}</Text>
                     <Text variant="title" color={theme.colors.link} style={{ textDecorationLine: "underline" }}>
@@ -454,41 +510,133 @@ export function DeliveryQueueScreen() {
                 ) : (
                   <Text variant="title">{s.addressMissing}</Text>
                 )}
-                <Touchable
-                  accessibilityRole="link"
-                  accessibilityLabel={`${s.call}: ${item.customerPhone}`}
-                  onPress={() => void open(`tel:${item.customerPhone}`)}
-                >
-                  <Text variant="quiet">{s.phoneLabel}</Text>
-                  <Text variant="title" color={theme.colors.link} style={{ textDecorationLine: "underline" }}>
-                    {item.customerPhone}
-                  </Text>
-                </Touchable>
-                {isSelected && routeState?.orderId === item.id && routeState.status === "ok" ? (
+                <Text variant="quiet">{s.phoneLabel}</Text>
+                <Text variant="title">{item.customerPhone}</Text>
+                <Surface tone="surface" style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.components.layout.barGap }}>
+                  <Button
+                    label={s.call}
+                    variant="secondary"
+                    accessibilityLabel={`${s.call}: ${item.customerName}`}
+                    onPress={() => void open(`tel:${item.customerPhone}`)}
+                  />
+                  {wa ? (
+                    <Button
+                      label={s.whatsapp}
+                      variant="secondary"
+                      accessibilityLabel={`${s.whatsapp}: ${item.customerName}`}
+                      onPress={() => void open(wa)}
+                    />
+                  ) : null}
+                </Surface>
+                {isSelected && hasDetail(item) ? (
+                  <>
+                    <Button
+                      label={detailOpen ? s.orderDetailHide : s.orderDetailShow}
+                      variant="ghost"
+                      accessibilityHint={item.customerName}
+                      onPress={() => setDetailOpenId(detailOpen ? null : item.id)}
+                    />
+                    {detailOpen ? (
+                      <>
+                        {item.items.map((line, i) => (
+                          <Text key={i} variant="body">
+                            {line.quantity} × {line.name}
+                          </Text>
+                        ))}
+                        <Text variant="body">
+                          {strings.cart.subtotal}: {formatCents(item.subtotalCents)}
+                        </Text>
+                        <Text variant="body">
+                          {s.detailDiscount}: {formatCents(-item.discountCents)}
+                        </Text>
+                        <Text variant="body">
+                          {s.detailDeliveryFee}: {formatCents(item.deliveryFeeCents)}
+                        </Text>
+                        <Text variant="bodyStrong">
+                          {strings.cart.total}: {formatCents(item.totalCents)}
+                        </Text>
+                        {item.channel ? (
+                          <Text variant="body">
+                            {strings.admin.columnChannel}: {CHANNEL_LABEL[item.channel]}
+                          </Text>
+                        ) : null}
+                        {item.paymentStatus ? (
+                          <Text variant="body">
+                            {strings.admin.filterPaymentStatus}: {PAYMENT_LABEL[item.paymentStatus]}
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+                {isSelected && item.deliveryNotes?.trim() ? (
+                  <Banner glyph="✎" message={`${s.detailNotes}: ${item.deliveryNotes.trim()}`} />
+                ) : null}
+                {isSelected && address ? (
+                  <Button
+                    label={mapVisible ? s.routeHide : s.routeShow}
+                    variant="ghost"
+                    accessibilityHint={item.customerName}
+                    onPress={() => void toggleRoute(item.id, mapVisible)}
+                  />
+                ) : null}
+                {isSelected && address && route?.status === "ok" && mapVisible ? (
+                  <RouteMap
+                    route={route.route}
+                    height={mapHeight}
+                    overlay={({ hasTraffic }) => {
+                      const timing = routeTiming(route.route.etaSeconds, route.route.computedAt, now);
+                      return (
+                      <Surface
+                        tone="surface"
+                        accessible
+                        style={{
+                          borderRadius: theme.components.map.overlay.radius,
+                          borderWidth: theme.components.map.overlay.borderWidth,
+                          borderColor: theme.components.map.overlay.border,
+                          padding: theme.components.map.overlay.padding,
+                          gap: theme.components.map.overlay.gap,
+                        }}
+                      >
+                        <Text variant="heading">
+                          {s.etaLabel}: {formatEta(timing.remainingSeconds, route.route.distanceMeters, locale)}
+                        </Text>
+                        <Text variant="body">
+                          {s.arrivalAt} {formatArrival(timing.remainingSeconds, now, locale)}
+                        </Text>
+                        {hasTraffic ? <Text variant="bodyStrong">{s.routeWithTraffic}</Text> : null}
+                        {timing.stale ? <Text variant="bodyStrong">{s.routeStale}</Text> : null}
+                      </Surface>
+                      );
+                    }}
+                  />
+                ) : null}
+                {route?.status === "ok" && !mapVisible ? (
                   <Text variant="title">
-                    {s.etaLabel}: {formatEta(routeState.route.etaSeconds, routeState.route.distanceMeters, locale)}
+                    {s.etaLabel}:{" "}
+                    {formatEta(
+                      routeTiming(route.route.etaSeconds, route.route.computedAt, new Date()).remainingSeconds,
+                      route.route.distanceMeters,
+                      locale,
+                    )}
+                  </Text>
+                ) : null}
+                {isSelected && address && route && route.status !== "ok" && mapHiddenId !== item.id ? (
+                  <Text variant="quiet">
+                    {route.status === "loading"
+                      ? s.routeLoading
+                      : route.status === "denied"
+                        ? s.routeLocationDenied
+                        : s.routeUnavailable}
                   </Text>
                 ) : null}
                 {isSelected && address ? (
                   <Button
-                    label={mapOrderId === item.id ? s.routeHide : s.routeShow}
-                    variant="ghost"
-                    accessibilityHint={item.customerName}
-                    onPress={() => void toggleRoute(item.id)}
+                    label={s.navigateStart}
+                    variant="secondary"
+                    accessibilityHint={address}
+                    onPress={() => void open(navigationUrl(route?.status === "ok" ? route.route.destination : null, address))}
                   />
-                ) : null}
-                {isSelected && mapOrderId === item.id && routeState?.orderId === item.id ? (
-                  routeState.status === "ok" ? (
-                    <RouteMap route={routeState.route} height={ROUTE_MAP_HEIGHT} />
-                  ) : (
-                    <Text variant="quiet">
-                      {routeState.status === "loading"
-                        ? s.routeLoading
-                        : routeState.status === "denied"
-                          ? s.routeLocationDenied
-                          : s.routeUnavailable}
-                    </Text>
-                  )
                 ) : null}
                 {isSelected ? <Text variant="label">{s.selected}</Text> : null}
               </Card>
