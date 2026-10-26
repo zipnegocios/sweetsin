@@ -460,6 +460,10 @@ ${detail}`);
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
+        // En Android viene en true: desprende del árbol nativo las celdas fuera de vista, y react-native-maps 1.27
+        // pausa/restaura el MapView en cada desprendimiento (onDetachedFromWindow); es la causa más probable del mapa gris.
+        // La lista es corta (órdenes asignadas a un repartidor), así que no recortar no cuesta memoria relevante.
+        removeClippedSubviews={false}
         extraData={[selected?.id, pendingIds, evidenceSentIds, routeState, mapHiddenId, detailOpenId, mapHeight, now]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void pullToRefresh()} colors={[theme.colors.actionFill]} />

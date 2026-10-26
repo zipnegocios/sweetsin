@@ -343,6 +343,7 @@ export interface Dictionary {
     routeLoading: string;
     routeWithTraffic: string;
     routeStale: string;
+    mapNotLoaded: string;
     arrivalAt: string;
     navigateStart: string;
     whatsapp: string;

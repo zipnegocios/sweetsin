@@ -346,6 +346,7 @@ export const es: Dictionary = {
     routeLoading: "Cargando ruta...",
     routeWithTraffic: "Con tráfico en la ruta",
     routeStale: "Ruta desactualizada",
+    mapNotLoaded: "El mapa no cargó. Revisá la clave de Google Maps o tu conexión.",
     arrivalAt: "Llegás a las",
     navigateStart: "Iniciar navegación",
     whatsapp: "WhatsApp",
