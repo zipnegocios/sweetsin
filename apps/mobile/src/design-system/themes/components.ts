@@ -112,6 +112,20 @@ export function buildComponentTokens(t: ThemeBase) {
       labelGap: space.xs,
       placeholder: c.textQuiet,
     },
+    // Fila de elección única (p. ej. repartidor): glifo ●/○ + borde más grueso; el color solo refuerza.
+    option: {
+      bg: c.surface,
+      bgPressed: c.tintPressed,
+      border: c.textQuiet,
+      borderSelected: c.textPrimary,
+      borderWidth: 1,
+      borderWidthSelected: 3,
+      radius: radius.inner,
+      paddingH: space.lg,
+      gap: space.sm,
+      glyphOn: "●",
+      glyphOff: "○",
+    },
     offlineBanner: { glyph: "⊘" }, // ⊘
     header: {
       bg: c.textPrimary,

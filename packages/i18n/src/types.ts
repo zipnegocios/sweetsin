@@ -353,5 +353,8 @@ export interface Dictionary {
     dispatchForbidden: string;
     dispatchItems: string;
     dispatchSelectOrder: string;
+    dispatchStatusReceived: string;
+    dispatchStatusInPrep: string;
+    dispatchStatusReady: string;
   };
 }

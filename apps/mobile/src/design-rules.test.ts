@@ -5,9 +5,7 @@ import { describe, expect, it } from "vitest";
 const screensDir = resolve(__dirname, "screens");
 
 /** Pantallas heredadas que todavía no cumplen la regla. Cada entrada tiene fecha de salida. */
-const EXCEPTIONS = [
-  "DespachadorQueueScreen.tsx", // diferida por el alcance actual
-];
+const EXCEPTIONS: string[] = [];
 
 /** Primitivas visuales de react-native que una pantalla toma del design system, no directo. */
 const UI_PRIMITIVES = new Set([

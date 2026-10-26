@@ -9,6 +9,7 @@ import { AuthContext } from "../auth/context";
 import { resolveStartupSession, type StaffRole } from "../auth/startup";
 import { apiFetch } from "../api/client";
 import { clearAssigned } from "../offline/assigned-cache";
+import { indoor, ThemeProvider } from "../design-system";
 
 const Stack = createNativeStackNavigator();
 
@@ -66,7 +67,15 @@ export function RootNavigator() {
       <NavigationContainer>
         <Stack.Navigator>
           {role === null && <Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoggedIn={setRole} />}</Stack.Screen>}
-          {role === "despachador" && <Stack.Screen name="Cola" component={DespachadorQueueScreen} />}
+          {role === "despachador" && (
+            <Stack.Screen name="Cola" options={{ headerShown: false }}>
+              {() => (
+                <ThemeProvider theme={indoor}>
+                  <DespachadorQueueScreen />
+                </ThemeProvider>
+              )}
+            </Stack.Screen>
+          )}
           {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} options={{ headerShown: false }} />}
         </Stack.Navigator>
       </NavigationContainer>

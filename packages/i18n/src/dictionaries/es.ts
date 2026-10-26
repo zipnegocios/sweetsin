@@ -356,5 +356,8 @@ export const es: Dictionary = {
     dispatchForbidden: "Tu cuenta no tiene permiso para esta acción.",
     dispatchItems: "Ítems",
     dispatchSelectOrder: "Tocá para seleccionar el pedido",
+    dispatchStatusReceived: "Nuevo",
+    dispatchStatusInPrep: "En preparación",
+    dispatchStatusReady: "Listo",
   },
 };

@@ -15,6 +15,7 @@ export { Banner } from "./molecules/Banner";
 export { BrandMark } from "./molecules/BrandMark";
 export { Button } from "./molecules/Button";
 export { Card } from "./molecules/Card";
+export { OptionRow } from "./molecules/OptionRow";
 export { StatusPill } from "./molecules/StatusPill";
 
 export { EmptyState } from "./organisms/EmptyState";

@@ -355,5 +355,8 @@ export const en: Dictionary = {
     dispatchForbidden: "Your account isn't allowed to do this.",
     dispatchItems: "Items",
     dispatchSelectOrder: "Tap to select the order",
+    dispatchStatusReceived: "New",
+    dispatchStatusInPrep: "In prep",
+    dispatchStatusReady: "Ready",
   },
 };

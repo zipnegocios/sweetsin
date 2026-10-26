@@ -6,7 +6,7 @@ import { textSpec } from "./theme";
 
 /**
  * Interiores (despachador, admin): misma paleta y pares que outdoor, densidad más relajada
- * (primaria de 48 dp, título y botón un escalón más chicos). Sin consumidores todavía.
+ * (primaria de 48 dp, título y botón un escalón más chicos). Lo usa la pantalla del despachador.
  */
 export const indoor = createTheme({
   name: "indoor",
