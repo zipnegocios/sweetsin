@@ -1,12 +1,12 @@
 import { apiFetch } from "../api/client";
 import { rejectAfter } from "../hooks/with-timeout";
 import { EVIDENCE_NETWORK_TIMEOUT_MS, EVIDENCE_UPLOAD_TIMEOUT_MS } from "./limits";
-import type { EvidenceDeps } from "./evidence-upload";
+import { HttpStatusError, type EvidenceDeps } from "./evidence-upload";
 
 const CONTENT_TYPE = "image/jpeg";
 
 async function expectOk(res: Response): Promise<Response> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new HttpStatusError(res.status);
   return res;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runEvidenceUpload } from "./evidence-upload";
+import { evidenceFailureDetail, HttpStatusError, runEvidenceUpload } from "./evidence-upload";
 
 const input = { orderId: "o1", fileUri: "file:///p.jpg", capturedAt: "2026-10-21T10:00:00.000Z", lat: -33.8, lng: 151.2 };
 
@@ -50,5 +50,29 @@ describe("runEvidenceUpload", () => {
     const { deps } = makeDeps();
     deps.recordEvidence.mockRejectedValueOnce(new Error("x"));
     expect(await runEvidenceUpload(deps, input)).toEqual({ ok: false, stage: "record" });
+  });
+
+  it("conserva el status HTTP de cada etapa", async () => {
+    const a = makeDeps();
+    a.deps.requestUploadUrl.mockRejectedValueOnce(new HttpStatusError(503));
+    expect(await runEvidenceUpload(a.deps, input)).toEqual({ ok: false, stage: "upload-url", status: 503 });
+    const b = makeDeps();
+    b.deps.putFile.mockRejectedValueOnce(new HttpStatusError(403));
+    expect(await runEvidenceUpload(b.deps, input)).toEqual({ ok: false, stage: "upload", status: 403 });
+    const c = makeDeps();
+    c.deps.recordEvidence.mockRejectedValueOnce(new HttpStatusError(409));
+    expect(await runEvidenceUpload(c.deps, input)).toEqual({ ok: false, stage: "record", status: 409 });
+  });
+});
+
+describe("evidenceFailureDetail", () => {
+  const labels = { url: "pedir URL", upload: "subir foto", record: "registrar", offline: "sin conexión" };
+  it("arma etapa + status", () => {
+    expect(evidenceFailureDetail({ stage: "upload-url", status: 503 }, labels)).toBe("pedir URL (503)");
+    expect(evidenceFailureDetail({ stage: "upload", status: 403 }, labels)).toBe("subir foto (403)");
+    expect(evidenceFailureDetail({ stage: "record", status: 409 }, labels)).toBe("registrar (409)");
+  });
+  it("sin status es sin conexión", () => {
+    expect(evidenceFailureDetail({ stage: "upload" }, labels)).toBe("sin conexión");
   });
 });
