@@ -309,6 +309,10 @@ export interface Dictionary {
     evidenceUploading: string;
     evidenceSent: string;
     evidenceUploadFailed: string;
+    evidenceDetailUrl: string;
+    evidenceDetailUpload: string;
+    evidenceDetailRecord: string;
+    evidenceDetailOffline: string;
     evidenceWhy: string;
     cameraDenied: string;
     locationDenied: string;

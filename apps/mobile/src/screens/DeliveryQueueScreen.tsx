@@ -36,7 +36,7 @@ import type { RouteInfo } from "../maps/types";
 import { loadAssigned, replaceAssigned, type AssignedOrder } from "../offline/assigned-cache";
 import { captureEvidence, type CaptureResult } from "../evidence/capture-evidence";
 import { evidenceDeps } from "../evidence/evidence-deps";
-import { runEvidenceUpload } from "../evidence/evidence-upload";
+import { evidenceFailureDetail, runEvidenceUpload } from "../evidence/evidence-upload";
 import { enqueueDeliver, flushQueue } from "../offline/command-queue";
 import { makeDeliverSender } from "../offline/deliver-sender";
 import { sqliteCommandStore } from "../offline/sqlite-command-store";
@@ -324,7 +324,11 @@ export function DeliveryQueueScreen() {
       }
       const result = await runEvidenceUpload(evidenceDeps, { orderId, ...captured });
       if (result.ok) setEvidenceSentIds((ids) => new Set(ids).add(orderId));
-      else Alert.alert(s.evidenceAdd, s.evidenceUploadFailed);
+      else {
+        const detail = evidenceFailureDetail(result, { url: s.evidenceDetailUrl, upload: s.evidenceDetailUpload, record: s.evidenceDetailRecord, offline: s.evidenceDetailOffline });
+        Alert.alert(s.evidenceAdd, `${s.evidenceUploadFailed}
+${detail}`);
+      }
     } finally {
       evidenceBusy.current = false;
       setUploadingId(null);
