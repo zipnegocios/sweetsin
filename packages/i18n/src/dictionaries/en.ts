@@ -166,6 +166,7 @@ export const en: Dictionary = {
     detailItems: "Items",
     detailCustomer: "Customer",
     detailAddress: "Address",
+    detailDeliveryNotes: "Delivery notes",
     saveStatus: "Save",
     statusSaved: "Saved",
     statusChangeError: "That status change is not allowed for this order",

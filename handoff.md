@@ -1391,13 +1391,14 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 ### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
 
 (Solo se agregan entradas.)
-- **Defecto del mapa que no aparecía:** el mapa no se mostraba en una versión intermedia de la pantalla; se corrigió en este plan (mapa visible por defecto para la orden seleccionada con permiso concedido).
+- **Defecto del mapa que no aparecía (corregido en la Task 5):** el efecto que reacciona al cambio de selección hacía `setMapOrderId(null)` en cada carga, y el mapa solo se dibujaba cuando `mapOrderId === item.id`. Por eso nunca aparecía por defecto, solo después de tocar "Ver ruta", aunque la ruta ya estuviera calculada con el permiso concedido. Se reemplazó por `mapHiddenId`: el mapa se muestra cuando la ruta de la orden seleccionada está `ok` y se oculta solo si el repartidor toca "Ocultar ruta". En el teléfono además hacen falta orden `out_for_delivery`, permiso de ubicación concedido, `GOOGLE_ROUTES_API_KEY` en el servidor y `GOOGLE_MAPS_ANDROID_API_KEY` en el build.
 - **`scrollEnabled={false}` en el mapa:** el mapa capturaba el gesto de arrastre y bloqueaba el desplazamiento de la lista; se desactiva el scroll del mapa.
 - **Nombres de producto solo en inglés (R3):** `/assigned` envía `nameEn`; no se localizan al español.
 - **No probado contra la API real de Google ni en dispositivo:** el tráfico por tramo (`TRAFFIC_ON_POLYLINE`) y el mapa solo están cubiertos por tests unitarios.
 
 ## Próximos pasos
 
+- **Costo de Google Routes (tráfico por tramo = SKU Enterprise):** configurar en Google Cloud una cuota diaria de la Routes API y una alerta de presupuesto. Enterprise: 1.000 llamadas gratis/mes y USD 15,00 por 1.000 (consultado el 2026-10-26); la app refresca la ruta cada 120 s con el mapa visible y no recalcula al volver a primer plano si la ruta tiene menos de 60 s.
 - **Deploy a producción (Tarea 17 del plan de Fase 2): completo y
   verificado en `https://sweetsin.com.au/` real** — ver Intentos fallidos
   #13 y #14 para el detalle de los dos incidentes post-push y sus fixes.
@@ -1648,4 +1649,4 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 2. Recorrer las casillas nuevas de las secciones de detalle/contacto/mapa de `docs/superpowers/checklist-dispositivo-delivery.md` en un teléfono real.
 3. Recompilar el build de desarrollo si es anterior a `react-native-maps` (los módulos nativos exigen un build nuevo).
 4. Confirmar que `GOOGLE_ROUTES_API_KEY` está cargada en EasyPanel y que el secreto de Maps (`GOOGLE_MAPS_ANDROID_API_KEY`) existe en GitHub antes de la release.
-5. Decidir si se localizan los nombres de producto (R3) y vigilar el costo de Routes API (refresco cada 60 s con el mapa visible).
+5. Decidir si se localizan los nombres de producto (R3) y vigilar el costo de Routes API (SKU Enterprise por el tráfico por tramo; refresco cada 120 s con el mapa visible; cuota diaria y alerta de presupuesto en Google Cloud).
