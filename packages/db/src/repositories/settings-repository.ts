@@ -6,7 +6,16 @@ import { settingsTable } from "../schema";
 const SETTINGS_ROW_ID = 1;
 
 function toSettings(row: typeof settingsTable.$inferSelect): AppSettings {
-  return { deliveryFeeCents: row.deliveryFeeCents, deliveryEvidenceRequired: row.deliveryEvidenceRequired };
+  return {
+    deliveryFeeCents: row.deliveryFeeCents,
+    deliveryEvidenceRequired: row.deliveryEvidenceRequired,
+    requireStockConfirmationOnOpen: row.requireStockConfirmationOnOpen,
+    allowMultipleActiveStops: row.allowMultipleActiveStops,
+    liveStockEnabled: row.liveStockEnabled,
+    autoSoldOutEnabled: row.autoSoldOutEnabled,
+    timingEnabled: row.timingEnabled,
+    showPerStaffBreakdown: row.showPerStaffBreakdown,
+  };
 }
 
 export class DrizzleSettingsRepository implements SettingsRepository {

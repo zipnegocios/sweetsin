@@ -5,6 +5,7 @@ export * from "./stock";
 export * from "./event-bookings";
 export * from "./carts";
 export * from "./orders";
+export * from "./order-status-events";
 export * from "./settings";
 export * from "./email-logs";
 export * from "./push-tokens";

@@ -1,4 +1,4 @@
-export type StockEventType = "sale" | "waste" | "early_sellout" | "restock";
+export type StockEventType = "sale" | "waste" | "early_sellout" | "restock" | "sale_reversal";
 
 export interface StopProductStock {
   id: string;

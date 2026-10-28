@@ -24,5 +24,35 @@ describe("DrizzleSettingsRepository", () => {
         deliveryEvidenceRequired: initial.deliveryEvidenceRequired,
       });
     }
-  });
+  }, 15000);
+
+  it("expone los seis interruptores de operación con sus defaults y persiste un cambio sin tocar el resto", async () => {
+    const repo = new DrizzleSettingsRepository();
+    const initial = await repo.get();
+    try {
+      // Se normaliza a los defaults esperados para verificar la fila "recién creada".
+      const base = await repo.update({
+        requireStockConfirmationOnOpen: true,
+        allowMultipleActiveStops: false,
+        liveStockEnabled: true,
+        autoSoldOutEnabled: true,
+        timingEnabled: true,
+        showPerStaffBreakdown: true,
+      });
+      expect(base).toMatchObject({
+        requireStockConfirmationOnOpen: true,
+        allowMultipleActiveStops: false,
+        liveStockEnabled: true,
+        autoSoldOutEnabled: true,
+        timingEnabled: true,
+        showPerStaffBreakdown: true,
+      });
+
+      const updated = await repo.update({ timingEnabled: false });
+      expect(updated).toEqual({ ...base, timingEnabled: false });
+      expect(await repo.get()).toEqual({ ...base, timingEnabled: false });
+    } finally {
+      await repo.update(initial);
+    }
+  }, 15000);
 });

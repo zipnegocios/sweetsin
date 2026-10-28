@@ -2,8 +2,9 @@ import { pgEnum, pgTable, uuid, integer, text, timestamp } from "drizzle-orm/pg-
 import { trailerStopsTable } from "./trailer-stops";
 import { productsTable } from "./products";
 import { usersTable } from "./users";
+import { ordersTable } from "./orders";
 
-export const stockEventTypeEnum = pgEnum("stock_event_type", ["sale", "waste", "early_sellout", "restock"]);
+export const stockEventTypeEnum = pgEnum("stock_event_type", ["sale", "waste", "early_sellout", "restock", "sale_reversal"]);
 
 export const stopProductStockTable = pgTable("stop_product_stock", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -21,6 +22,7 @@ export const stockEventsTable = pgTable("stock_events", {
   eventType: stockEventTypeEnum("event_type").notNull(),
   quantity: integer("quantity").notNull(),
   reason: text("reason"),
+  orderId: uuid("order_id").references(() => ordersTable.id),
   reportedByUserId: uuid("reported_by_user_id").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
