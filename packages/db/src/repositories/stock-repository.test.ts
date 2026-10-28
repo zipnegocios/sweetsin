@@ -181,10 +181,10 @@ describe("DrizzleStockRepository — ventas por pedido", () => {
 
   it("(c) llegar a 0 por venta registra un solo early_sellout", async () => {
     const [row] = await freshRows([3]);
-    const orderId = await newOrder();
-    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 2 }])).toEqual({ ok: true });
-    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 1 }])).toEqual({ ok: true });
-    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 1 }])).toEqual({
+    const [o1, o2, o3] = [await newOrder(), await newOrder(), await newOrder()];
+    expect(await repo.decrementForOrder(stopId, o1, [{ productId: productIds[0], quantity: 2 }])).toEqual({ ok: true });
+    expect(await repo.decrementForOrder(stopId, o2, [{ productId: productIds[0], quantity: 1 }])).toEqual({ ok: true });
+    expect(await repo.decrementForOrder(stopId, o3, [{ productId: productIds[0], quantity: 1 }])).toEqual({
       ok: false,
       productId: productIds[0],
     });
@@ -192,7 +192,41 @@ describe("DrizzleStockRepository — ventas por pedido", () => {
     const sellouts = events.filter((e) => e.eventType === "early_sellout");
     expect(sellouts).toHaveLength(1);
     expect(sellouts[0]).toMatchObject({ quantity: 0, orderId: null });
-    expect(events.filter((e) => e.eventType === "sale").every((e) => e.orderId === orderId)).toBe(true);
+    expect(events.filter((e) => e.eventType === "sale").map((e) => e.orderId).sort()).toEqual([o1, o2].sort());
+  }, 15000);
+
+  it("(c2) es idempotente por pedido: repetir el descuento del mismo pedido no toca el stock", async () => {
+    const [row] = await freshRows([5]);
+    const orderId = await newOrder();
+    const line = [{ productId: productIds[0], quantity: 2 }];
+    expect(await repo.decrementForOrder(stopId, orderId, line)).toEqual({ ok: true });
+    expect(await repo.decrementForOrder(stopId, orderId, line)).toEqual({ ok: true });
+    // Aunque la segunda llamada pida más de lo que queda, ya está descontado: no evalúa el stock.
+    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 9 }])).toEqual({ ok: true });
+    expect(await currentOf(row.id)).toBe(3);
+    expect((await eventsOf([row.id])).filter((e) => e.eventType === "sale")).toHaveLength(1);
+  }, 15000);
+
+  it("(c3) reintentos simultáneos del mismo pedido descuentan una sola vez", async () => {
+    const [row] = await freshRows([5]);
+    const orderId = await newOrder();
+    const line = [{ productId: productIds[0], quantity: 2 }];
+    const results = await Promise.all([1, 2, 3].map(() => repo.decrementForOrder(stopId, orderId, line)));
+    expect(results).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
+    expect(await currentOf(row.id)).toBe(3);
+    expect((await eventsOf([row.id])).filter((e) => e.eventType === "sale")).toHaveLength(1);
+  }, 15000);
+
+  it("(c4) tras reverseOrderSale el mismo pedido puede volver a descontarse", async () => {
+    const [row] = await freshRows([5]);
+    const orderId = await newOrder();
+    const line = [{ productId: productIds[0], quantity: 2 }];
+    await repo.decrementForOrder(stopId, orderId, line);
+    await repo.reverseOrderSale(orderId);
+    expect(await currentOf(row.id)).toBe(5);
+    expect(await repo.decrementForOrder(stopId, orderId, line)).toEqual({ ok: true });
+    expect(await currentOf(row.id)).toBe(3);
+    expect(await repo.sumSold(row.id)).toBe(2);
   }, 15000);
 
   it("(d) reverseOrderSale devuelve el stock una sola vez y no toca pedidos sin ventas", async () => {

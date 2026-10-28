@@ -7,7 +7,7 @@ import type {
   StopStockSummary,
 } from "@workspace/domain/stock";
 import { db } from "../index";
-import { stockEventsTable, stopProductStockTable } from "../schema";
+import { ordersTable, stockEventsTable, stopProductStockTable } from "../schema";
 
 const sumOf = (type: StockEventType) =>
   sql<number>`coalesce(sum(${stockEventsTable.quantity}) filter (where ${stockEventsTable.eventType} = ${type}), 0)::int`;
@@ -83,6 +83,16 @@ export class DrizzleStockRepository implements StockRepository {
     const sorted = [...lines].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
     try {
       await db.transaction(async (tx) => {
+        // Idempotente por pedido: se bloquea la fila del pedido (dos reintentos simultáneos del
+        // webhook se serializan) y, si ya tiene ventas sin revertir, no se descuenta de nuevo.
+        await tx.select({ id: ordersTable.id }).from(ordersTable).where(eq(ordersTable.id, orderId)).for("update");
+        const sold = await tx
+          .select({ net: netSold })
+          .from(stockEventsTable)
+          .where(eq(stockEventsTable.orderId, orderId))
+          .groupBy(stockEventsTable.stopProductStockId);
+        if (sold.some((r) => r.net > 0)) return;
+
         for (const { productId, quantity } of sorted) {
           // UPDATE con guarda: la fila queda bloqueada hasta el commit, así que dos
           // pedidos por la última unidad se serializan y solo uno la descuenta.
@@ -140,6 +150,8 @@ export class DrizzleStockRepository implements StockRepository {
 
   async reverseOrderSale(orderId: string): Promise<void> {
     await db.transaction(async (tx) => {
+      // Mismo bloqueo por pedido que decrementForOrder: una reversa y un reintento del descuento no se cruzan.
+      await tx.select({ id: ordersTable.id }).from(ordersTable).where(eq(ordersTable.id, orderId)).for("update");
       const rowIds = await tx
         .selectDistinct({ id: stockEventsTable.stopProductStockId })
         .from(stockEventsTable)

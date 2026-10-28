@@ -8,6 +8,7 @@
     "./products": "./src/products/index.ts",
     "./pricing": "./src/pricing/index.ts",
     "./orders": "./src/orders/index.ts",
+    "./order-timing": "./src/order-timing/index.ts",
     "./stock": "./src/stock/index.ts",
     "./stock-templates": "./src/stock-templates/index.ts",
     "./users": "./src/users/index.ts",
