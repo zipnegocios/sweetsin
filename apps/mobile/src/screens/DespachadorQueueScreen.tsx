@@ -254,7 +254,7 @@ export function DespachadorQueueScreen() {
   return (
     <ScreenLayout
       scroll={false}
-      header={<ScreenHeader title={s.dispatchTitle} actionLabel={s.logout} onAction={() => void endSession()} avatar={headerAvatar} />}
+      header={<ScreenHeader title={s.dispatchTitle} avatar={headerAvatar} />}
       banner={
         <>
           <OfflineBanner visible={offline} message={s.dispatchOfflineBanner} />

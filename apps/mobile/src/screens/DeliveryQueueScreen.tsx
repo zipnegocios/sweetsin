@@ -44,7 +44,6 @@ import { sqliteCommandStore } from "../offline/sqlite-command-store";
 import { endShift, hasShiftConsent, isShiftActive, resumeShift, saveShiftConsent, startShift } from "../tracking/shift";
 
 const POLL_MS = 30_000;
-const SIGN_OUT_END_SHIFT_MS = 8000; // endShift espera hasta 3 s por envíos en curso y luego hace el DELETE
 // Cada ruta con tráfico por tramo (TRAFFIC_ON_POLYLINE) se factura como Compute Routes Enterprise: 120 s acota el
 // costo con el mapa a la vista (el servidor además cachea 60 s por destino y origen redondeado).
 const ROUTE_REFRESH_MS = 120_000;
@@ -124,14 +123,10 @@ export function DeliveryQueueScreen() {
   const routeSeq = useRef(0);
   const selectedIdRef = useRef<string | undefined>(undefined);
 
-  // Cierra la sesión: corta el seguimiento (sin bloquear) y luego el `logout` único del contexto.
+  // Cierra la sesión (401): el `logout` único del contexto también corta el seguimiento.
   const endSession = useCallback(async () => {
     cancelled.current = true; // la corrida en curso ya no escribe caché ni estado
-    try {
-      await withTimeout(endShift(), SIGN_OUT_END_SHIFT_MS).catch(() => undefined); // detiene el seguimiento y borra la posición
-    } finally {
-      await logout();
-    }
+    await logout();
   }, [logout]);
 
   const run = useCallback(async () => {
@@ -378,12 +373,6 @@ ${detail}`);
     }
   };
 
-  const signOut = async () => {
-    cancelled.current = true;
-    await withTimeout(runner.idle(), 3000).catch(() => undefined); // sin red, la corrida podría no terminar nunca
-    await endSession();
-  };
-
   const open = async (url: string) => {
     try {
       await Linking.openURL(url);
@@ -420,7 +409,7 @@ ${detail}`);
   return (
     <ScreenLayout
       scroll={false}
-      header={<ScreenHeader title={strings.dispatch.deliveryTitle} actionLabel={s.logout} onAction={() => void signOut()} avatar={headerAvatar} />}
+      header={<ScreenHeader title={strings.dispatch.deliveryTitle} avatar={headerAvatar} />}
       banner={
         <>
           <Surface tone="background" style={{ paddingHorizontal: theme.components.layout.paddingH, paddingTop: theme.components.layout.paddingV, gap: theme.components.layout.gap }}>

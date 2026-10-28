@@ -11,6 +11,8 @@ import { AuthContext } from "../auth/context";
 import { resolveStartupSession, type StaffRole } from "../auth/startup";
 import { apiFetch } from "../api/client";
 import { clearAssigned } from "../offline/assigned-cache";
+import { withTimeout } from "../hooks/with-timeout";
+import { endShift } from "../tracking/shift";
 import { indoor, outdoor, ThemeProvider } from "../design-system";
 
 const Stack = createNativeStackNavigator();
@@ -44,8 +46,9 @@ async function registerPushToken(): Promise<void> {
 export function RootNavigator() {
   const [role, setRole] = useState<StaffRole | null | "loading">("loading");
 
-  // Único cierre de sesión (botón o 401). No toca la cola de entregas: se reenvía tras volver a ingresar el PIN.
+  // Único cierre de sesión (credencial o 401). Corta el seguimiento del turno antes de borrar el token; no toca la cola de entregas.
   const logout = useCallback(async () => {
+    await withTimeout(endShift(), 8000).catch(() => undefined);
     await Promise.allSettled([clearAssigned(), clearSession()]);
     setRole(null);
   }, []);
