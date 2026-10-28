@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const state = vi.hoisted(() => ({
   created: [] as Array<Record<string, unknown>>,
+  deps: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@workspace/domain/orders", () => ({
-  createOrder: vi.fn(async (_deps: unknown, input: Record<string, unknown>) => {
+  createOrder: vi.fn(async (deps: Record<string, unknown>, input: Record<string, unknown>) => {
+    state.deps.push(deps);
     state.created.push(input);
     return { id: "o1", customerEmail: "a@b.co", totalCents: 1000 };
   }),
@@ -13,6 +15,8 @@ vi.mock("@workspace/domain/orders", () => ({
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {},
   DrizzleProductRepository: class {},
+  DrizzleStockRepository: class {},
+  DrizzleTrailerStopRepository: class {},
   DrizzleSettingsRepository: class {
     async get() {
       return { deliveryFeeCents: 500 };
@@ -45,6 +49,17 @@ const base: PlaceOrderInput = {
 
 beforeEach(() => {
   state.created.length = 0;
+  state.deps.length = 0;
+});
+
+describe("placeOrderAction - dependencias", () => {
+  it("cablea paradas y stock en createOrder y sigue mandando stopId null", async () => {
+    await placeOrderAction(base);
+    expect(state.deps[0]).toEqual(
+      expect.objectContaining({ stops: expect.any(Object), stock: expect.any(Object) }),
+    );
+    expect(state.created[0].stopId).toBeNull();
+  });
 });
 
 describe("placeOrderAction - deliveryNotes", () => {

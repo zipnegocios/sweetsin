@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isStopConflictMessage } from "@workspace/domain/trailer-stops";
 import { isStockConflictMessage } from "@workspace/domain/stock";
 import { isStockTemplateConflictMessage } from "@workspace/domain/stock-templates";
+import { isOrderConflictMessage } from "@workspace/domain/orders";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,7 +18,14 @@ const NOT_FOUND_MESSAGES = ["Stop not found", "Template not found", "Stock row n
 export function domainErrorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
   if (NOT_FOUND_MESSAGES.includes(message)) return notFoundResponse(message);
-  if (isStopConflictMessage(message) || isStockConflictMessage(message) || isStockTemplateConflictMessage(message)) {
+  // El dominio agrega el id ("Order not found: <id>"); la respuesta no lo repite.
+  if (message.startsWith("Order not found")) return notFoundResponse("Order not found");
+  if (
+    isStopConflictMessage(message) ||
+    isStockConflictMessage(message) ||
+    isStockTemplateConflictMessage(message) ||
+    isOrderConflictMessage(message)
+  ) {
     return NextResponse.json({ error: message }, { status: 409 });
   }
   // Violación de FK de Postgres (23503): productId con forma de UUID pero inexistente. drizzle la envuelve en .cause.

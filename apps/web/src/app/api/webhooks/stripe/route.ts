@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { confirmOrderPayment } from "@workspace/domain/orders";
-import { DrizzleOrderRepository, DrizzleStockRepository, DrizzleUserRepository } from "@workspace/db/repositories";
+import {
+  DrizzleOrderRepository,
+  DrizzleStockRepository,
+  DrizzleTrailerStopRepository,
+  DrizzleUserRepository,
+} from "@workspace/db/repositories";
 import { createStaffNotifications } from "@/lib/staff-notifications";
+import { buildTransitionContext } from "@/lib/transition-context";
 
 export async function POST(request: Request): Promise<Response> {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -30,10 +36,12 @@ export async function POST(request: Request): Promise<Response> {
         {
           orders: new DrizzleOrderRepository(),
           stock: new DrizzleStockRepository(),
+          stops: new DrizzleTrailerStopRepository(),
           users: new DrizzleUserRepository(),
           notifications: createStaffNotifications(),
         },
         orderId,
+        await buildTransitionContext({ actorUserId: null, source: "webhook" }),
       );
     }
   }

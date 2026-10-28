@@ -4,10 +4,12 @@ import type { Order } from "@workspace/domain/orders";
 const state = vi.hoisted(() => ({
   order: null as unknown as Order,
   fulfillmentWrites: [] as string[],
+  ctxs: [] as unknown[],
+  stockOk: true,
   notify: null as unknown as ReturnType<typeof vi.fn>,
 }));
 
-vi.mock("@/lib/require-admin", () => ({ requireAdmin: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/require-admin", () => ({ requireAdmin: vi.fn().mockResolvedValue({ userId: "admin-1" }) }));
 vi.mock("@/lib/staff-notifications", () => ({
   createStaffNotifications: () => ({ notifyNewOrderInQueue: state.notify, notifyDeliveryAssigned: vi.fn() }),
 }));
@@ -16,18 +18,35 @@ vi.mock("@workspace/db/repositories", () => ({
     async findById(id: string) {
       return id === state.order.id ? { ...state.order } : null;
     }
-    async markAsPaid() {
+    async markAsPaid(_id: string, ctx: unknown) {
+      state.ctxs.push(ctx);
       state.order.paymentStatus = "paid";
     }
-    async updateFulfillmentStatus(_id: string, status: Order["fulfillmentStatus"]) {
+    async updateFulfillmentStatus(_id: string, status: Order["fulfillmentStatus"], ctx: unknown) {
+      state.ctxs.push(ctx);
       state.fulfillmentWrites.push(status);
       state.order.fulfillmentStatus = status;
     }
     async updatePaymentStatus(_id: string, status: Order["paymentStatus"]) {
       state.order.paymentStatus = status;
     }
+    async resolveAttention(_id: string, ctx: unknown) {
+      state.ctxs.push(ctx);
+      state.order.attentionReason = null;
+      state.order.fulfillmentStatus = "received";
+    }
   },
-  DrizzleStockRepository: class {},
+  DrizzleStockRepository: class {
+    async decrementForOrder() {
+      return state.stockOk ? { ok: true } : { ok: false, productId: "p1" };
+    }
+  },
+  DrizzleTrailerStopRepository: class {},
+  DrizzleSettingsRepository: class {
+    async get() {
+      return { timingEnabled: true };
+    }
+  },
   DrizzleUserRepository: class {
     async listActiveByRole() {
       return [{ id: "d1" }];
@@ -35,10 +54,14 @@ vi.mock("@workspace/db/repositories", () => ({
   },
 }));
 
-import { updateOrderStatusAction } from "./admin-orders";
+import { updateOrderStatusAction, retryOrderStockAction, resolveOrderAttentionAction } from "./admin-orders";
+
+const webCtx = { actorUserId: "admin-1", source: "web", record: true };
 
 beforeEach(() => {
   state.fulfillmentWrites = [];
+  state.ctxs = [];
+  state.stockOk = true;
   state.notify = vi.fn();
   state.order = {
     id: "order-1",
@@ -58,8 +81,9 @@ beforeEach(() => {
     channel: "web",
     stripePaymentIntentId: null,
     assignedDeliveryUserId: null,
+    attentionReason: null,
     items: [],
-  };
+  } as unknown as Order;
 });
 
 describe("updateOrderStatusAction", () => {
@@ -88,5 +112,42 @@ describe("updateOrderStatusAction", () => {
 
     expect(result).toEqual({ ok: true });
     expect(state.order.fulfillmentStatus).toBe("received");
+  });
+});
+
+describe("contexto de transicion", () => {
+  it("updateOrderStatusAction registra pago y cumplimiento con el admin como actor web", async () => {
+    await updateOrderStatusAction({ orderId: "order-1", paymentStatus: "paid" });
+    expect(state.ctxs).toEqual([webCtx, webCtx]);
+  });
+});
+
+describe("retryOrderStockAction / resolveOrderAttentionAction", () => {
+  const attention = () => {
+    Object.assign(state.order, { stopId: "s1", paymentStatus: "paid", attentionReason: "insufficient_stock:p1" });
+  };
+
+  it("retry descuenta y resuelve el pedido en atencion", async () => {
+    attention();
+    expect(await retryOrderStockAction("order-1")).toEqual({ ok: true });
+    expect(state.order.fulfillmentStatus).toBe("received");
+    expect(state.ctxs).toEqual([webCtx]);
+  });
+
+  it("retry devuelve el motivo de dominio si el stock sigue sin alcanzar", async () => {
+    attention();
+    state.stockOk = false;
+    expect(await retryOrderStockAction("order-1")).toEqual({ ok: false, error: "Stock still insufficient" });
+  });
+
+  it("resolve marca resuelto sin tocar stock", async () => {
+    attention();
+    expect(await resolveOrderAttentionAction("order-1")).toEqual({ ok: true });
+    expect(state.order.fulfillmentStatus).toBe("received");
+  });
+
+  it("resolve sobre un pedido sin atencion devuelve el conflicto y un error desconocido sale generico", async () => {
+    expect(await resolveOrderAttentionAction("order-1")).toEqual({ ok: false, error: "Order does not require attention" });
+    expect(await resolveOrderAttentionAction("missing")).toEqual({ ok: false, error: "generic" });
   });
 });

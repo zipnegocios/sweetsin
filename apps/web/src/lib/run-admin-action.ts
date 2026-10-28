@@ -5,12 +5,12 @@ import { requireAdmin } from "@/lib/require-admin";
 export type AdminActionResult = { ok: true } | { ok: false; error: string };
 
 export async function runAdminAction(
-  fn: () => Promise<unknown>,
+  fn: (admin: { userId: string | null }) => Promise<unknown>,
   isKnownMessage: (message: string) => boolean,
 ): Promise<AdminActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
-    await fn();
+    await fn(admin);
     return { ok: true };
   } catch (e) {
     const message = e instanceof Error ? e.message : "";

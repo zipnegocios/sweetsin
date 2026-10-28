@@ -1318,6 +1318,7 @@ describe("isOrderConflictMessage", () => {
       "Invalid transition: delivered → in_prep",
       "Cannot mark delivered from status: in_prep",
       "Cannot move to in_prep from status: pending",
+      "Invalid delivery user: u1",
     ]) expect(isOrderConflictMessage(m)).toBe(true);
     expect(isOrderConflictMessage("Order not found: x")).toBe(false);
     expect(isOrderConflictMessage("boom")).toBe(false);

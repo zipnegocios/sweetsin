@@ -377,6 +377,7 @@ const ORDER_CONFLICT_PREFIXES = [
   "Cannot assign delivery from status: ",
   "Cannot mark delivered from status: ",
   "Cannot resolve attention from status: ",
+  "Invalid delivery user: ",
 ];
 
 /** Mensajes de reglas de negocio de pedidos que los adaptadores traducen a 409. */

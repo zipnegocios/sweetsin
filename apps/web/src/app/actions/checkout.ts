@@ -2,7 +2,14 @@
 
 import { z } from "zod";
 import { createOrder } from "@workspace/domain/orders";
-import { DrizzleOrderRepository, DrizzleProductRepository, DrizzleSettingsRepository, DrizzleEmailLogRepository } from "@workspace/db/repositories";
+import {
+  DrizzleOrderRepository,
+  DrizzleProductRepository,
+  DrizzleSettingsRepository,
+  DrizzleEmailLogRepository,
+  DrizzleStockRepository,
+  DrizzleTrailerStopRepository,
+} from "@workspace/db/repositories";
 import { SmtpNotificationAdapter, SmtpNotConfiguredError } from "@workspace/notifications";
 import { auth } from "@/auth";
 
@@ -42,7 +49,13 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   const deliveryFeeCents = parsed.fulfillmentType === "self_delivery" ? settings.deliveryFeeCents : 0;
 
   const order = await createOrder(
-    { products: new DrizzleProductRepository(), orders: new DrizzleOrderRepository() },
+    // Paradas y stock quedan cableados para cuando el checkout mande stopId (hoy siempre null).
+    {
+      products: new DrizzleProductRepository(),
+      orders: new DrizzleOrderRepository(),
+      stops: new DrizzleTrailerStopRepository(),
+      stock: new DrizzleStockRepository(),
+    },
     {
       customerId: null,
       customerName: parsed.name,

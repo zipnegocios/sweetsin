@@ -12,6 +12,7 @@ import {
 } from "@workspace/db/repositories";
 import { ExpoNotificationAdapter } from "@workspace/notifications";
 import { requireStaff } from "@/lib/require-staff";
+import { buildTransitionContext } from "@/lib/transition-context";
 
 export async function listQueueAction(): Promise<Order[]> {
   await requireStaff(["despachador"]);
@@ -24,17 +25,20 @@ export async function listDeliveryStaffAction(): Promise<User[]> {
 }
 
 export async function markInPrepAction(orderId: string): Promise<void> {
-  await requireStaff(["despachador"]);
-  await markOrderInPrep({ orders: new DrizzleOrderRepository() }, orderId);
+  const { userId } = await requireStaff(["despachador"]);
+  const ctx = await buildTransitionContext({ actorUserId: userId, source: "web" });
+  await markOrderInPrep({ orders: new DrizzleOrderRepository() }, orderId, ctx);
 }
 
 export async function markReadyAction(orderId: string): Promise<void> {
-  await requireStaff(["despachador"]);
-  await markOrderReady({ orders: new DrizzleOrderRepository() }, orderId);
+  const { userId } = await requireStaff(["despachador"]);
+  const ctx = await buildTransitionContext({ actorUserId: userId, source: "web" });
+  await markOrderReady({ orders: new DrizzleOrderRepository() }, orderId, ctx);
 }
 
 export async function assignDeliveryAction(orderId: string, deliveryUserId: string): Promise<void> {
-  await requireStaff(["despachador"]);
+  const { userId } = await requireStaff(["despachador"]);
+  const ctx = await buildTransitionContext({ actorUserId: userId, source: "web" });
   await assignDeliveryToOrder(
     {
       orders: new DrizzleOrderRepository(),
@@ -43,5 +47,6 @@ export async function assignDeliveryAction(orderId: string, deliveryUserId: stri
     },
     orderId,
     deliveryUserId,
+    ctx,
   );
 }
