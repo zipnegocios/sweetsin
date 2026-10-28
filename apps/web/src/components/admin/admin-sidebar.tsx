@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { Link, usePathname } from "@/i18n/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { useLocale } from "next-intl";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   OrdersIcon,
   TruckIcon,
@@ -33,6 +34,7 @@ type Labels = {
   open: string;
   close: string;
   signOut: string;
+  switchLanguage: string;
 };
 
 const STORAGE_KEY = "sweet-sin-admin-sidebar-collapsed";
@@ -49,6 +51,9 @@ export function AdminSidebar({
   signOutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const locale = useLocale();
+  const [switching, startSwitch] = useTransition();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Evita que la preferencia guardada se anime como si el usuario la acabara de cambiar.
@@ -81,6 +86,11 @@ export function AdminSidebar({
     } catch {
       // ver arriba
     }
+  }
+
+  // Misma navegación que el navbar público: cambia solo el prefijo de locale y conserva la ruta.
+  function switchLocale() {
+    startSwitch(() => router.replace(pathname, { locale: locale === "en" ? "es" : "en" }));
   }
 
   const activeIndex = items.findIndex((i) => pathname === i.href || pathname.startsWith(`${i.href}/`));
@@ -193,8 +203,23 @@ export function AdminSidebar({
           </ul>
         </nav>
 
-        {/* Cerrar sesión */}
-        <div className="shrink-0 border-t border-white/10 p-3">
+        {/* Idioma y cerrar sesión */}
+        <div className="shrink-0 border-t border-white/10 p-3 space-y-1">
+          <button
+            type="button"
+            onClick={switchLocale}
+            disabled={switching}
+            aria-label={labels.switchLanguage}
+            title={labels.switchLanguage}
+            className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-cream/65 transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <span className="grid size-5 shrink-0 place-items-center rounded-md border border-gold/60 text-[10px] font-bold tracking-wide text-gold-light">
+              {locale.toUpperCase()}
+            </span>
+            <span className={`overflow-hidden whitespace-nowrap ${motion} ${hideLabel}`}>
+              {locale === "en" ? "English → Español" : "Español → English"}
+            </span>
+          </button>
           <form action={signOutAction}>
             <button
               type="submit"

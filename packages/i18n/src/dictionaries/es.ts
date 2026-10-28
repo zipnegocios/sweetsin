@@ -178,6 +178,7 @@ export const es: Dictionary = {
     navEmailLogs: "Logs de emails",
     navStaff: "Staff",
     signOut: "Cerrar sesión",
+    switchLanguage: "Cambiar a inglés",
     collapseMenu: "Contraer menú",
     expandMenu: "Expandir menú",
     openMenu: "Abrir menú",

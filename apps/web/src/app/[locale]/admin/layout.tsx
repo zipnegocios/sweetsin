@@ -41,6 +41,7 @@ export default async function AdminLayout({
           open: t("openMenu"),
           close: t("closeMenu"),
           signOut: t("signOut"),
+          switchLanguage: t("switchLanguage"),
         }}
         signOutAction={async () => {
           "use server";

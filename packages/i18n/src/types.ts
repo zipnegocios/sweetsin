@@ -175,6 +175,7 @@ export interface Dictionary {
     navEmailLogs: string;
     navStaff: string;
     signOut: string;
+    switchLanguage: string;
     collapseMenu: string;
     expandMenu: string;
     openMenu: string;
