@@ -9,7 +9,13 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const GROUP_BY = ["none", "day", "type", "channel", "size", "composition", "stop", "staff"] as const satisfies readonly GroupBy[];
 
-const isoDate = z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), "Invalid date");
+// V8 desborda fechas imposibles ("2026-02-30" -> 1 de marzo): una fecha sola debe existir de verdad (ida y vuelta).
+const isValidDate = (v: string): boolean => {
+  const d = new Date(DAY.test(v) ? `${v}T00:00:00Z` : v);
+  if (Number.isNaN(d.getTime())) return false;
+  return !DAY.test(v) || d.toISOString().slice(0, 10) === v;
+};
+const isoDate = z.string().refine(isValidDate, "Invalid date");
 
 const querySchema = z.object({
   from: isoDate,
@@ -32,9 +38,16 @@ export function parseReportQuery(params: URLSearchParams): ReportQuery | null {
   const parsed = querySchema.safeParse(Object.fromEntries(params));
   if (!parsed.success) return null;
   const { from, to, ...rest } = parsed.data;
-  const fromDate = DAY.test(from) ? adelaideDayRange(from).start : new Date(from);
-  const toDate = DAY.test(to) ? adelaideDayRange(to).end : new Date(to);
-  if (fromDate > toDate) return null;
+  let fromDate: Date;
+  let toDate: Date;
+  try {
+    fromDate = DAY.test(from) ? adelaideDayRange(from).start : new Date(from);
+    toDate = DAY.test(to) ? adelaideDayRange(to).end : new Date(to);
+  } catch {
+    // Cualquier fecha que el formateo de Intl no acepte es una consulta inválida (400), no un 500.
+    return null;
+  }
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) return null;
   return { from: fromDate, to: toDate, ...rest };
 }
 

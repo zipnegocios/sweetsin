@@ -77,6 +77,21 @@ describe("GET /api/admin/reports/fulfillment", () => {
     expect(state.filters).toEqual([]);
   });
 
+  it("400 con días que no existen (sin desbordar al mes siguiente); 200 con días válidos y bisiestos", async () => {
+    expect((await GET(get("from=2026-02-30&to=2026-03-31"))).status).toBe(400);
+    expect((await GET(get("from=2026-01-01&to=2026-02-30"))).status).toBe(400);
+    expect((await GET(get("from=2026-13-01&to=2026-12-31"))).status).toBe(400);
+    expect((await GET(get("from=2027-02-29&to=2027-03-01"))).status).toBe(400);
+    expect(state.filters).toEqual([]);
+    expect((await GET(get("from=2026-02-28&to=2026-02-28"))).status).toBe(200);
+    expect((await GET(get("from=2028-02-29&to=2028-02-29"))).status).toBe(200);
+    expect(state.filters[1]).toEqual({
+      from: at("2028-02-28T13:30:00.000Z"),
+      to: at("2028-02-29T13:29:59.999Z"),
+      stopId: undefined,
+    });
+  });
+
   it("200 JSON: días completos de Adelaida, filtro por parada y día de Adelaida como clave", async () => {
     const res = await GET(get(`from=2026-10-28&to=2026-10-28&stopId=${STOP}&groupBy=day`));
     expect(res.status).toBe(200);
