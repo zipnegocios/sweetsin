@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listStaffAction } from "@/app/actions/admin-staff";
 import { StaffTable } from "./staff-table";
 import { NewStaffForm } from "./new-staff-form";
+import { PageHeader } from "@/components/admin/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function AdminStaffPage({ params }: { params: Promise<{ loc
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{t("staffTitle")}</h1>
+      <PageHeader title={t("staffTitle")} />
       <NewStaffForm />
       <StaffTable staff={staff} />
     </div>

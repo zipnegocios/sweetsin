@@ -3,6 +3,7 @@ import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleProductRepository } from "@workspace/db/repositories";
 import { StockRow } from "@/components/admin/stock-row";
+import { PageHeader } from "@/components/admin/page-header";
 
 export default async function TrailerStopDetailPage({
   params,
@@ -27,19 +28,19 @@ export default async function TrailerStopDetailPage({
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-2">{stop.location}</h1>
+      <PageHeader title={stop.location} />
       <p className="text-[13px] text-navy/50 mb-6">
         {stop.startTime.toLocaleString()} — {stop.endTime.toLocaleString()} · {stop.status}
       </p>
 
       <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("stockTitle")}</h2>
-      <table className="w-full text-sm bg-white rounded-xl overflow-hidden">
-        <thead className="bg-navy/5 text-left">
+      <div className="admin-card admin-enter overflow-x-auto"><table className="admin-table">
+        <thead>
           <tr>
-            <th className="px-4 py-3">{t("stockColumnProduct")}</th>
-            <th className="px-4 py-3">{t("stockColumnCurrent")}</th>
-            <th className="px-4 py-3">{t("stockColumnMax")}</th>
-            <th className="px-4 py-3"></th>
+            <th>{t("stockColumnProduct")}</th>
+            <th>{t("stockColumnCurrent")}</th>
+            <th>{t("stockColumnMax")}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -54,7 +55,7 @@ export default async function TrailerStopDetailPage({
             />
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

@@ -4,7 +4,13 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listOrdersAction } from "@/app/actions/admin-orders";
 import type { FulfillmentStatus, PaymentStatus, OrderChannel } from "@workspace/domain/orders";
 
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+
 type SearchParams = Record<string, string | undefined>;
+
+const FULFILLMENT_STATUSES = ["pending", "received", "in_prep", "ready_for_pickup", "out_for_delivery", "delivered", "cancelled"] as const;
+const PAYMENT_STATUSES = ["pending", "paid", "failed", "refunded"] as const;
 
 export default async function AdminOrdersPage({
   params,
@@ -31,58 +37,63 @@ export default async function AdminOrdersPage({
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{t("ordersTitle")}</h1>
+      <PageHeader title={t("ordersTitle")} />
 
-      <form method="get" className="flex flex-wrap gap-3 mb-6">
-        <input name="search" defaultValue={sp.search ?? ""} placeholder={t("searchPlaceholder")} className="border border-navy/15 rounded-lg px-3 py-2 text-sm" />
-        <select name="fulfillmentStatus" defaultValue={sp.fulfillmentStatus ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm">
+      <form method="get" className="admin-card admin-enter flex flex-wrap gap-3 p-4 mb-6" style={{ "--i": 1 } as React.CSSProperties}>
+        <input name="search" defaultValue={sp.search ?? ""} placeholder={t("searchPlaceholder")} className="admin-input min-w-56 flex-1" />
+        <select name="fulfillmentStatus" defaultValue={sp.fulfillmentStatus ?? ""} className="admin-input">
           <option value="">{t("filterFulfillmentStatus")}</option>
-          {["pending", "received", "in_prep", "ready_for_pickup", "out_for_delivery", "delivered", "cancelled"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+          {FULFILLMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
-        <select name="paymentStatus" defaultValue={sp.paymentStatus ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm">
+        <select name="paymentStatus" defaultValue={sp.paymentStatus ?? ""} className="admin-input">
           <option value="">{t("filterPaymentStatus")}</option>
-          {["pending", "paid", "failed", "refunded"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+          {PAYMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
-        <select name="channel" defaultValue={sp.channel ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm">
+        <select name="channel" defaultValue={sp.channel ?? ""} className="admin-input">
           <option value="">{t("filterChannel")}</option>
-          <option value="web">web</option>
-          <option value="whatsapp">whatsapp</option>
+          <option value="web">{t("channel_web")}</option>
+          <option value="whatsapp">{t("channel_whatsapp")}</option>
         </select>
-        <input type="date" name="dateFrom" defaultValue={sp.dateFrom ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm" />
-        <input type="date" name="dateTo" defaultValue={sp.dateTo ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm" />
-        <button type="submit" className="bg-navy text-white rounded-lg px-4 py-2 text-sm">{t("applyFilters")}</button>
+        <input type="date" name="dateFrom" defaultValue={sp.dateFrom ?? ""} aria-label={t("filterDateFrom")} className="admin-input" />
+        <input type="date" name="dateTo" defaultValue={sp.dateTo ?? ""} aria-label={t("filterDateTo")} className="admin-input" />
+        <button type="submit" className="admin-btn">{t("applyFilters")}</button>
       </form>
 
-      <table className="w-full text-sm bg-white rounded-xl overflow-hidden">
-        <thead className="bg-navy/5 text-left">
-          <tr>
-            <th className="px-4 py-3">{t("columnCustomer")}</th>
-            <th className="px-4 py-3">{t("columnStatus")}</th>
-            <th className="px-4 py-3">{t("columnPayment")}</th>
-            <th className="px-4 py-3">{t("columnChannel")}</th>
-            <th className="px-4 py-3">{t("columnTotal")}</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id} className="border-t border-navy/5">
-              <td className="px-4 py-3">{order.customerName}<br /><span className="text-navy/40 text-xs">{order.customerEmail}</span></td>
-              <td className="px-4 py-3">{order.fulfillmentStatus}</td>
-              <td className="px-4 py-3">{order.paymentStatus}</td>
-              <td className="px-4 py-3">{order.channel}</td>
-              <td className="px-4 py-3">${(order.totalCents / 100).toFixed(2)}</td>
-              <td className="px-4 py-3">
-                <Link href={`/admin/orders/${order.id}`} className="text-sin-red hover:underline">{t("viewDetail")}</Link>
-              </td>
+      <div className="admin-card admin-enter overflow-x-auto" style={{ "--i": 2 } as React.CSSProperties}>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>{t("columnCustomer")}</th>
+              <th>{t("columnStatus")}</th>
+              <th>{t("columnPayment")}</th>
+              <th>{t("columnChannel")}</th>
+              <th className="text-right">{t("columnTotal")}</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order.id}>
+                <td>
+                  <span className="block font-medium text-navy">{order.customerName}</span>
+                  <span className="block text-navy/45 text-xs mt-0.5">{order.customerEmail}</span>
+                </td>
+                <td><StatusBadge status={order.fulfillmentStatus} /></td>
+                <td><StatusBadge status={order.paymentStatus} /></td>
+                <td className="text-navy/70">{t(`channel_${order.channel}`)}</td>
+                <td className="text-right font-mono tabular-nums text-navy">${(order.totalCents / 100).toFixed(2)}</td>
+                <td className="text-right">
+                  <Link href={`/admin/orders/${order.id}`} className="admin-link">{t("viewDetail")} →</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export function OrderStatusForm({
         <select
           value={fulfillment}
           onChange={(e) => setFulfillment(e.target.value as FulfillmentStatus)}
-          className="border border-navy/15 rounded-lg px-3 py-2 text-sm"
+          className="admin-input"
         >
           {FULFILLMENT_STATUSES.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -56,14 +56,14 @@ export function OrderStatusForm({
         <select
           value={payment}
           onChange={(e) => setPayment(e.target.value as PaymentStatus)}
-          className="border border-navy/15 rounded-lg px-3 py-2 text-sm"
+          className="admin-input"
         >
           {PAYMENT_STATUSES.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
       </div>
-      <button onClick={handleSave} className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm">{t("saveStatus")}</button>
+      <button onClick={handleSave} className="admin-btn">{t("saveStatus")}</button>
       {saved && <span className="text-[12px] text-green-700">{t("statusSaved")}</span>}
       {error && <span className="text-[12px] text-red-700">{t("statusChangeError")}</span>}
     </div>

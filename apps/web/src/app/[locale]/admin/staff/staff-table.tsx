@@ -38,29 +38,29 @@ export function StaffTable({ staff }: { staff: User[] }) {
   }
 
   return (
-    <table className="w-full text-sm bg-white rounded-xl overflow-hidden">
-      <thead className="bg-navy/5 text-left">
+    <div className="admin-card admin-enter overflow-x-auto"><table className="admin-table">
+      <thead>
         <tr>
-          <th className="px-4 py-3">{t("staffColumnName")}</th>
-          <th className="px-4 py-3">{t("staffColumnEmail")}</th>
-          <th className="px-4 py-3">{t("staffColumnRole")}</th>
-          <th className="px-4 py-3">{t("staffColumnStatus")}</th>
-          <th className="px-4 py-3">{t("staffColumnActions")}</th>
+          <th>{t("staffColumnName")}</th>
+          <th>{t("staffColumnEmail")}</th>
+          <th>{t("staffColumnRole")}</th>
+          <th>{t("staffColumnStatus")}</th>
+          <th>{t("staffColumnActions")}</th>
         </tr>
       </thead>
       <tbody>
         {staff.map((user) => (
-          <tr key={user.id} className="border-t border-navy/5">
-            <td className="px-4 py-3">{user.name}</td>
-            <td className="px-4 py-3">{user.email}</td>
-            <td className="px-4 py-3">{user.role}</td>
-            <td className="px-4 py-3">{user.isActive ? "✓" : "✗"}</td>
+          <tr key={user.id} >
+            <td>{user.name}</td>
+            <td>{user.email}</td>
+            <td>{user.role}</td>
+            <td>{user.isActive ? "✓" : "✗"}</td>
             <td className="px-4 py-3 space-x-3">
               <button
                 type="button"
                 disabled={pendingId === user.id}
                 onClick={() => handleResetPin(user.id)}
-                className="text-sin-red hover:underline disabled:opacity-50"
+                className="admin-link disabled:opacity-50"
               >
                 {t("staffResetPinButton")}
               </button>
@@ -81,6 +81,6 @@ export function StaffTable({ staff }: { staff: User[] }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listEventBookingsAction } from "@/app/actions/admin-event-bookings";
 import type { EventBookingStatus } from "@workspace/domain/event-bookings";
+import { PageHeader } from "@/components/admin/page-header";
 
 type SearchParams = Record<string, string | undefined>;
 
@@ -22,52 +23,52 @@ export default async function AdminEventBookingsPage({
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{t("bookingsTitle")}</h1>
+      <PageHeader title={t("bookingsTitle")} />
 
       <form method="get" className="flex flex-wrap gap-3 mb-6">
-        <select name="status" defaultValue={sp.status ?? ""} className="border border-navy/15 rounded-lg px-3 py-2 text-sm">
+        <select name="status" defaultValue={sp.status ?? ""} className="admin-input">
           <option value="">{t("filterAll")}</option>
           {["quote_requested", "quoted", "confirmed", "completed", "cancelled"].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <button type="submit" className="bg-navy text-white rounded-lg px-4 py-2 text-sm">{t("applyFilters")}</button>
+        <button type="submit" className="admin-btn">{t("applyFilters")}</button>
       </form>
 
-      <table className="w-full text-sm bg-white rounded-xl overflow-hidden">
-        <thead className="bg-navy/5 text-left">
+      <div className="admin-card admin-enter overflow-x-auto"><table className="admin-table">
+        <thead>
           <tr>
-            <th className="px-4 py-3">{t("bookingsColumnClient")}</th>
-            <th className="px-4 py-3">{t("bookingsColumnEventType")}</th>
-            <th className="px-4 py-3">{t("bookingsColumnDate")}</th>
-            <th className="px-4 py-3">{t("bookingsColumnLocation")}</th>
-            <th className="px-4 py-3">{t("bookingsColumnStatus")}</th>
-            <th className="px-4 py-3"></th>
+            <th>{t("bookingsColumnClient")}</th>
+            <th>{t("bookingsColumnEventType")}</th>
+            <th>{t("bookingsColumnDate")}</th>
+            <th>{t("bookingsColumnLocation")}</th>
+            <th>{t("bookingsColumnStatus")}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {bookings.map((booking) => (
-            <tr key={booking.id} className={`border-t border-navy/5 ${booking.location === "TBD" ? "bg-sin-red/5" : ""}`}>
-              <td className="px-4 py-3">{booking.clientName}</td>
-              <td className="px-4 py-3">{booking.eventType}</td>
-              <td className="px-4 py-3">{booking.eventDate.toLocaleDateString()}</td>
-              <td className="px-4 py-3">
+            <tr key={booking.id} className={`${booking.location === "TBD" ? "bg-sin-red/5" : ""}`}>
+              <td>{booking.clientName}</td>
+              <td>{booking.eventType}</td>
+              <td>{booking.eventDate.toLocaleDateString()}</td>
+              <td>
                 {booking.location === "TBD" ? (
                   <span className="text-sin-red font-bold">{t("bookingLocationTbdWarning")}</span>
                 ) : (
                   booking.location
                 )}
               </td>
-              <td className="px-4 py-3">{booking.status}</td>
-              <td className="px-4 py-3">
-                <Link href={`/admin/event-bookings/${booking.id}`} className="text-sin-red hover:underline">
+              <td>{booking.status}</td>
+              <td>
+                <Link href={`/admin/event-bookings/${booking.id}`} className="admin-link">
                   {t("viewDetail")}
                 </Link>
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

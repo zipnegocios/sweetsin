@@ -45,14 +45,14 @@ export function EventBookingActions({ bookingId, location }: { bookingId: string
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-3">
-        <button disabled={isPending} onClick={() => run(() => quoteEventBookingAction(bookingId))} className="bg-navy text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
+        <button disabled={isPending} onClick={() => run(() => quoteEventBookingAction(bookingId))} className="admin-btn disabled:opacity-50">
           {t("bookingQuoteButton")}
         </button>
         <button
           disabled={isPending || locationIsTbd}
           onClick={handleConfirm}
           title={locationIsTbd ? t("bookingConfirmBlockedTbd") : undefined}
-          className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+          className="admin-btn disabled:opacity-50"
         >
           {t("bookingConfirmButton")}
         </button>

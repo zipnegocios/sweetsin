@@ -54,14 +54,14 @@ export function EventBookingDetailsForm({
         onChange={(e) => setFormLocation(e.target.value)}
         placeholder={t("stopFormLocation")}
         required
-        className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+        className="w-full admin-input"
       />
       <div className="flex gap-3">
-        <input type="datetime-local" value={formStart} onChange={(e) => setFormStart(e.target.value)} className="flex-1 border border-navy/15 rounded-lg px-3 py-2 text-sm" />
-        <input type="datetime-local" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} className="flex-1 border border-navy/15 rounded-lg px-3 py-2 text-sm" />
+        <input type="datetime-local" value={formStart} onChange={(e) => setFormStart(e.target.value)} className="flex-1 admin-input" />
+        <input type="datetime-local" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} className="flex-1 admin-input" />
       </div>
-      <input type="number" min={1} value={guests} onChange={(e) => setGuests(Number(e.target.value))} className="w-32 border border-navy/15 rounded-lg px-3 py-2 text-sm" />
-      <button type="submit" disabled={isSubmitting} className="bg-navy text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
+      <input type="number" min={1} value={guests} onChange={(e) => setGuests(Number(e.target.value))} className="w-32 admin-input" />
+      <button type="submit" disabled={isSubmitting} className="admin-btn disabled:opacity-50">
         {t("saveStatus")}
       </button>
     </form>

@@ -49,6 +49,12 @@ Agregar a la APK de staff la pantalla del despachador (ver la cola, empezar prep
 
 Mostrar al delivery el detalle del pedido (productos, totales, notas), permitirle llamar o escribir por WhatsApp y ver el mapa con ETA, distancia y tráfico dentro de la app. Plan: `docs/superpowers/plans/2026-10-26-apk-delivery-detalle-mapa-contacto.md`.
 
+### Sesión APK delivery: cierre y mapa gris (2026-10-27)
+
+Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delivery cargue en Android** (hoy sale gris) y cerrar las pruebas en teléfono real. Todo lo demás de la APK de staff (cola offline, evidencia, ruta/ETA, despachador, detalle, contacto) está construido y revisado.
+
+**Sesión admin (2026-10-28):** correcciones y rediseño del panel admin: favicon restaurado (`icon.png`), `/admin` redirige a `/admin/orders` (daba 404 tras el login) y nuevo shell visual con sidebar colapsable, iconos SVG propios, badges de estado y microinteracciones CSS. Typecheck, paridad i18n y `next build` pasan; revisión visual pendiente del owner.
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -394,6 +400,25 @@ corrida tarea por tarea durante la ejecución).
 ### Sesión APK delivery: detalle, mapa y contacto (2026-10-26)
 
 - **Código completo, sin commitear (en el índice de git):** detalle del pedido en la tarjeta del delivery (productos, totales, notas), botones Llamar/WhatsApp, mapa visible por defecto con tráfico por tramo, ETA/distancia/hora y "Iniciar navegación". Servidor: `/assigned` con el detalle y `orders.delivery_notes`; checkout web con notas para entrega a domicilio. Plan: `docs/superpowers/plans/2026-10-26-apk-delivery-detalle-mapa-contacto.md`.
+
+### Sesión APK delivery: cierre y mapa gris (2026-10-27)
+
+**Funciona (verificado):**
+- Ruta, ETA y distancia llegan a la app (captura: "Llegada estimada: 3 min · 2,1 km"). La Routes API responde 200 desde otra IP; la clave del servidor, la del APK y `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` son la **misma** clave (39 caracteres) y no tiene restricción de IP ni de app.
+- Evidencia de entrega: la subida a R2 funcionó con la clave corregida (32 caracteres); si falla, el aviso muestra "Detalle: <etapa> (<código HTTP>)".
+- Detalle del pedido, Llamar y WhatsApp, pantalla del despachador, cola offline: construidos, con tests y revisión final.
+- Workflow de release arreglado (parseo del certificado firmante). Plantillas `.env.example` en `apps/web`, `packages/db` y `apps/mobile`.
+- Pedido de prueba en Caracas: `pnpm --filter @workspace/db run test-order-caracas create <email> ["dirección"]` y `... clean`.
+
+**No funciona:** el **mapa queda gris**. El aviso de 12 s ("El mapa no cargó. Revisá la clave de Google Maps o tu conexión.") confirma que `onMapLoaded` nunca se dispara. El SDK de Maps sí inicializa (el renderizador `maps_core` carga) y no hay error de autenticación visible en logcat, pero Flogger descarta los mensajes.
+
+**Hipótesis sin verificar, en este orden:**
+1. *Maps SDK for Android* no habilitado o no autorizado para esa clave en Google Cloud (revisar Métricas de la API: peticiones 4xx o cero peticiones; lista de APIs permitidas de la clave; estado "Habilitada" en la Biblioteca; esperar ~5 min tras cambiar).
+2. `overflow: hidden` + `borderRadius` en el contenedor del `MapView`.
+3. Nueva arquitectura (Fabric) con el mapa dentro de una celda dinámica de la lista.
+4. Baldosas que no descargan por red.
+
+**Commits pendientes:** el owner debe correr `bash .superpowers/sdd/2026-10-26-apk-delivery-detalle-mapa-contacto/commit-por-tarea.sh` (9 commits, el último incluye el aviso de diagnóstico del mapa y el pedido de prueba de Caracas) y luego `git push origin main`. El harness deniega a Claude `git commit`/`git push` aunque la regla del owner lo permita; no se esquiva.
 
 ## Archivos y cambios
 
@@ -783,6 +808,18 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **App (`apps/mobile`):** `src/contact/whatsapp.ts`, `src/format/money.ts`, `src/maps/{arrival-time,clamp-segments,navigation-url,traffic-runs}.ts` (con tests), `maps/RouteMap.tsx`, `maps/{parse-route-info,types}.ts`, `offline/{assigned-cache,parse-assigned-rows}.ts`, `screens/DeliveryQueueScreen.tsx`, `design-system/molecules/Button.tsx`.
 - **Servidor y datos:** `apps/web/src/app/api/mobile/orders/assigned/route.ts`, `actions/checkout.ts`, `components/cart/checkout-modal.tsx`, `infra/google-routes-planner.ts`; `packages/db` (`schema/orders.ts` con `delivery_notes`, repositorios de órdenes y productos); `packages/domain` (órdenes y `routing/entities.ts`); `packages/i18n`.
 - **Docs:** `CLAUDE.md`, este `handoff.md` y el checklist de dispositivo.
+
+### Sesión APK delivery: cierre y mapa gris (2026-10-27)
+
+- `apps/mobile/src/maps/RouteMap.tsx`: `MapView` creado una sola vez cuando el contenedor tiene tamaño; `fit()` solo tras `onMapReady`; `scrollEnabled={false}`; tras 12 s sin `onMapLoaded` muestra `staffApp.mapNotLoaded` (`maps/limits.ts`, `MAP_LOAD_NOTICE_MS`).
+- `packages/db/src/test-order-caracas.ts` y el script `test-order-caracas` en `packages/db/package.json`.
+- `apps/mobile/src/evidence/*`: la subida devuelve `{ ok: false, stage, status? }`; `DeliveryQueueScreen` agrega "Detalle: ..." al aviso.
+- `.github/workflows/build-apk.yml`: parseo del digest del firmante corregido.
+- `.env.example` de `apps/web`, `packages/db`, `apps/mobile`; `apps/web/.gitignore` con `!.env.example`.
+- `CLAUDE.md`: regla de commits actualizada, secciones de R2, precios de Routes, offline, evidencia, mapa/ETA/WhatsApp, despachador.
+- Planes: `docs/superpowers/plans/2026-10-26-apk-despachador.md` y `2026-10-26-apk-delivery-detalle-mapa-contacto.md`. Bitácora de SDD en `.superpowers/sdd/<plan>/progress.md` (git-ignored).
+
+**Sesión admin (2026-10-28) — archivos:** `apps/web/src/app/icon.png` (reemplaza `favicon.ico` de Next); `admin/page.tsx` (redirect); `components/admin/{admin-sidebar,admin-icons,status-badge,page-header}.tsx` (nuevos); `admin/layout.tsx` (sidebar + main); `globals.css` (tokens `gold`, clases `.admin-card/.admin-input/.admin-btn/.admin-link/.admin-table`, `.admin-enter`); `packages/i18n` (claves `signOut`, `collapseMenu`, `expandMenu`, `openMenu`, `closeMenu`, `status_*`, `channel_*`); páginas y formularios admin migrados a las clases compartidas y a `PageHeader`.
 
 ## Intentos fallidos
 
@@ -1396,6 +1433,17 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **Nombres de producto solo en inglés (R3):** `/assigned` envía `nameEn`; no se localizan al español.
 - **No probado contra la API real de Google ni en dispositivo:** el tráfico por tramo (`TRAFFIC_ON_POLYLINE`) y el mapa solo están cubiertos por tests unitarios.
 
+### Sesión APK delivery: cierre y mapa gris (2026-10-27)
+
+- **Mapa gris, intento 1:** se montó el `MapView` solo con contenedor medido y se llamó a `fit()` tras `onMapReady`. No cambió nada: sigue gris.
+- **Mapa gris, intento 2:** se agregó el aviso de 12 s. Sirvió para diagnosticar (confirma que `onMapLoaded` nunca llega), no para arreglar.
+- **Lectura de logcat:** se intentó volcar el registro completo del proceso de la app, pero el teléfono ya estaba desconectado (`no devices/emulators found`). Hay que reactivar la depuración USB (modo "Transferencia de archivos") y confirmar que `adb devices` muestre `device`. Herramientas en `C:\tmp\adb-tools`.
+- **Hipótesis descartada:** un revisor afirmó que `GOOGLE_ROUTES_API_KEY` era otra clave. Se comprobó con evidencia que las tres son idénticas.
+- **Subida a R2:** fallaba porque la clave de acceso tenía 31 caracteres (debía ser 32). Además, un `R2_DELIVERY_EVIDENCE_PREFIX` de 2 caracteres sin barra generaba claves de objeto mal formadas.
+- **Limpieza que no pude hacer:** `C:\tmp\apk-inspect` (221 MB) lo debe borrar el owner; opcionales `C:\tmp\adb-tools` y `C:\tmp\platform-tools.zip`.
+
+**Sesión admin (2026-10-28) — intentos fallidos:** ninguno que revertir; dos errores propios corregidos en el momento (un `</div>` duplicado y llaves dobles en `title={{…}}` por un script de sustitución masiva).
+
 ## Próximos pasos
 
 - **Costo de Google Routes (tráfico por tramo = SKU Enterprise):** configurar en Google Cloud una cuota diaria de la Routes API y una alerta de presupuesto. Enterprise: 1.000 llamadas gratis/mes y USD 15,00 por 1.000 (consultado el 2026-10-26); la app refresca la ruta cada 120 s con el mapa visible y no recalcula al volver a primer plano si la ruta tiene menos de 60 s.
@@ -1650,3 +1698,15 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 3. Recompilar el build de desarrollo si es anterior a `react-native-maps` (los módulos nativos exigen un build nuevo).
 4. Confirmar que `GOOGLE_ROUTES_API_KEY` está cargada en EasyPanel y que el secreto de Maps (`GOOGLE_MAPS_ANDROID_API_KEY`) existe en GitHub antes de la release.
 5. Decidir si se localizan los nombres de producto (R3) y vigilar el costo de Routes API (SKU Enterprise por el tráfico por tramo; refresco cada 120 s con el mapa visible; cuota diaria y alerta de presupuesto en Google Cloud).
+
+### Sesión APK delivery: cierre y mapa gris (2026-10-27)
+
+**Recomendado, en este orden:**
+1. **Google Cloud (owner, 5 min):** *APIs y servicios → Maps SDK for Android → Métricas*. Con 4xx hay un problema de autorización; con cero peticiones, la app no llega a pedir mapa. Verificar que la clave liste *Maps SDK for Android* entre las APIs permitidas y que figure habilitada en la Biblioteca.
+2. **Diagnóstico en la app (Claude, vía SDD):** que el aviso de `mapNotLoaded` muestre también si `onMapReady` se disparó ("listo: sí/no"). Separa "no hay objeto de mapa" de "hay mapa sin baldosas".
+3. **Logcat:** reconectar el teléfono, abrir la app, y filtrar `adb logcat -d -b all -v time | grep -iE "maps|authentication|Google"`. Una clave rechazada suele aparecer como "Authentication failed" o "API key not valid".
+4. **Si Google está bien:** probar sin `overflow: hidden`/`borderRadius` en el contenedor, y evaluar la nueva arquitectura (`newArchEnabled`) como causa. Un build de desarrollo nuevo basta para esta prueba.
+5. Commits pendientes (ver Estado actual), prueba end-to-end de la foto de evidencia, y `test-order-caracas clean` al terminar.
+6. **Más adelante:** cuota diaria y alerta de presupuesto para Routes API (SKU Enterprise; 1.000 gratis/mes, US$15 por 1.000); pasar a 3 claves restringidas en la cuenta de facturación del cliente; volver a la restricción de Adelaide (sesgo del autocompletado y validación de zona de entrega en el servidor); quitar `R2_DELIVERY_EVIDENCE_PREFIX` mal formado de EasyPanel si sigue.
+
+**Sesión admin (2026-10-28) — próximos pasos:** (1) el owner revisa en `pnpm --filter @workspace/web run dev`: sidebar (colapsar/recargar, móvil, tooltips), `/admin/orders`, `/es/admin`; (2) estados de reservas de eventos, paradas y logs de email siguen como texto crudo (sin claves i18n ni badge); (3) `admin-calendar-view` (react-big-calendar) no se restiló; (4) Fase 8 pendiente (E2E, Lighthouse, deploy único, eliminar `apps/web-legacy`).

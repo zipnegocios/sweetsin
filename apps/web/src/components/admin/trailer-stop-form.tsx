@@ -113,7 +113,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
         onChange={(e) => setLocation(e.target.value)}
         placeholder={t("stopFormLocation")}
         required
-        className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+        className="w-full admin-input"
       />
 
       <div>
@@ -124,11 +124,11 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
       <div className="flex gap-3">
         <div className="flex-1">
           <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("stopFormStartTime")}</label>
-          <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm" />
+          <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full admin-input" />
         </div>
         <div className="flex-1">
           <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("stopFormEndTime")}</label>
-          <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm" />
+          <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full admin-input" />
         </div>
       </div>
 
@@ -168,7 +168,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
 
       {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
 
-      <button type="submit" disabled={isSubmitting} className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
+      <button type="submit" disabled={isSubmitting} className="admin-btn disabled:opacity-50">
         {t("stopFormSubmit")}
       </button>
     </form>

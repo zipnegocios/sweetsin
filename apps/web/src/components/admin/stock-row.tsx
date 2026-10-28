@@ -45,11 +45,11 @@ export function StockRow({
   }
 
   return (
-    <tr className="border-t border-navy/5">
-      <td className="px-4 py-3">{productName}</td>
-      <td className="px-4 py-3">{currentStock}</td>
-      <td className="px-4 py-3">{maxStock}</td>
-      <td className="px-4 py-3">
+    <tr >
+      <td>{productName}</td>
+      <td>{currentStock}</td>
+      <td>{maxStock}</td>
+      <td>
         <div className="flex items-center gap-2">
           <input
             type="number"

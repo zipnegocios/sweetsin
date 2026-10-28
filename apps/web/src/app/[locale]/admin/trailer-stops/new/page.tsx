@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listAvailableProducts } from "@workspace/domain/products";
 import { DrizzleProductRepository } from "@workspace/db/repositories";
 import { TrailerStopForm } from "@/components/admin/trailer-stop-form";
+import { PageHeader } from "@/components/admin/page-header";
 
 export default async function NewTrailerStopPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
@@ -13,7 +14,7 @@ export default async function NewTrailerStopPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{t("stopsCreateButton")}</h1>
+      <PageHeader title={t("stopsCreateButton")} />
       <TrailerStopForm products={products.map((p) => ({ id: p.id, nameEn: p.nameEn }))} />
     </div>
   );

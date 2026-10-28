@@ -5,6 +5,7 @@ import { DrizzleEventBookingRepository } from "@workspace/db/repositories";
 import { EventBookingActions } from "@/components/admin/event-booking-actions";
 import { EventBookingItemForm } from "@/components/admin/event-booking-item-form";
 import { EventBookingDetailsForm } from "@/components/admin/event-booking-details-form";
+import { PageHeader } from "@/components/admin/page-header";
 
 export default async function EventBookingDetailPage({
   params,
@@ -20,7 +21,7 @@ export default async function EventBookingDetailPage({
 
   return (
     <div>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{booking.clientName}</h1>
+      <PageHeader title={booking.clientName} />
 
       <div className="bg-white rounded-xl p-5 mb-6">
         <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("bookingsColumnClient")}</h2>

@@ -4,6 +4,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 import { OrderStatusForm } from "@/components/admin/order-status-form";
+import { PageHeader } from "@/components/admin/page-header";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -20,7 +21,7 @@ export default async function AdminOrderDetailPage({
   return (
     <div>
       <Link href="/admin/orders" className="text-[13px] text-navy/50 hover:text-sin-red mb-4 inline-block">{t("backToOrders")}</Link>
-      <h1 className="font-serif font-bold text-navy text-2xl mb-6">{order.customerName}</h1>
+      <PageHeader title={order.customerName} />
 
       <div className="bg-white rounded-xl p-5 mb-6">
         <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("detailCustomer")}</h2>

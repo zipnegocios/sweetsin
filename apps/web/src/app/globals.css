@@ -11,6 +11,8 @@
   --color-cream-dark: #EDE7DC;
   --color-sweet-white: #FDFAF7;
   --color-sweet-dark: #080D1A;
+  --color-gold: #C9943A;
+  --color-gold-light: #F5D06B;
 
   --color-background: var(--color-sweet-white);
   --color-foreground: var(--color-navy);
@@ -36,4 +38,66 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   background: rgba(15, 27, 61, 0.35);
+}
+
+/* Panel admin: componentes compartidos y microinteracciones */
+@layer components {
+  .admin-card {
+    @apply bg-white rounded-2xl border border-navy/[0.07] shadow-[0_1px_2px_rgba(15,27,61,0.04)] transition-shadow duration-300 hover:shadow-[0_8px_24px_-12px_rgba(15,27,61,0.18)];
+  }
+
+  .admin-input {
+    @apply bg-white border border-navy/15 rounded-xl px-3.5 py-2.5 text-sm text-navy placeholder:text-navy/35 transition duration-200 hover:border-navy/30 focus:outline-none focus:border-sin-red focus:ring-4 focus:ring-sin-red/15;
+  }
+
+  .admin-btn {
+    @apply inline-flex items-center justify-center gap-2 bg-navy text-sweet-white rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm transition duration-200 hover:bg-navy-mid hover:-translate-y-px hover:shadow-md active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sin-red/30 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-link {
+    @apply text-sin-red font-medium rounded-md px-1.5 py-0.5 -mx-1.5 transition-colors duration-200 hover:bg-sin-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sin-red/40;
+  }
+
+  .admin-table {
+    @apply w-full text-sm border-separate border-spacing-0;
+  }
+  .admin-table thead th {
+    @apply bg-cream-dark/60 text-left text-[11px] uppercase tracking-[0.08em] font-semibold text-navy/55 px-5 py-3.5 first:rounded-tl-2xl last:rounded-tr-2xl;
+  }
+  .admin-table tbody td {
+    @apply px-5 py-4 border-t border-navy/[0.06] transition-colors duration-200;
+  }
+  .admin-table tbody tr:hover td {
+    @apply bg-cream/70;
+  }
+}
+
+@keyframes admin-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Entrada escalonada: <el className="admin-enter" style={{ "--i": n }}> */
+.admin-enter {
+  animation: admin-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-enter {
+    animation: none;
+  }
+  .admin-btn,
+  .admin-input,
+  .admin-card,
+  .admin-link,
+  .admin-table tbody td {
+    transition: none;
+  }
 }

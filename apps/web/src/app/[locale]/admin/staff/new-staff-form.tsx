@@ -53,7 +53,7 @@ export function NewStaffForm() {
           onChange={(e) => setName(e.target.value)}
           placeholder={t("staffFormName")}
           required
-          className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+          className="w-full admin-input"
         />
         <input
           type="email"
@@ -61,14 +61,14 @@ export function NewStaffForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t("staffFormEmail")}
           required
-          className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+          className="w-full admin-input"
         />
         <div>
           <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("staffFormRole")}</label>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as "despachador" | "delivery")}
-            className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+            className="w-full admin-input"
           >
             <option value="despachador">{t("staffFormRoleDespachador")}</option>
             <option value="delivery">{t("staffFormRoleDelivery")}</option>
@@ -80,12 +80,12 @@ export function NewStaffForm() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder={t("staffFormPassword")}
           required
-          className="w-full border border-navy/15 rounded-lg px-3 py-2 text-sm"
+          className="w-full admin-input"
         />
 
         {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
 
-        <button type="submit" disabled={isSubmitting} className="bg-sin-red text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
+        <button type="submit" disabled={isSubmitting} className="admin-btn disabled:opacity-50">
           {t("staffFormSubmit")}
         </button>
       </form>
