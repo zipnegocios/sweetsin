@@ -141,6 +141,14 @@ export interface Dictionary {
     passwordPlaceholder: string;
     loginButton: string;
     loginError: string;
+    loginSubtitle: string;
+    tagline: string;
+    showPassword: string;
+    hidePassword: string;
+    loggingIn: string;
+    noAccount: string;
+    createAccount: string;
+    backToSite: string;
     logoutButton: string;
   };
   admin: {

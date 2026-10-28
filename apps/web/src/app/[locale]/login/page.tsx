@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Locale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 
 export default async function LoginPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -8,10 +9,10 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
   setRequestLocale(locale);
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-cream px-6">
+    <AuthShell>
       <Suspense>
         <LoginForm />
       </Suspense>
-    </main>
+    </AuthShell>
   );
 }

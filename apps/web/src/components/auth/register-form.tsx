@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { registerCustomerAction } from "@/app/actions/register";
 import { signInAction } from "@/app/actions/auth";
+import { AuthField, AuthSubmit } from "./auth-field";
 
 export function RegisterForm() {
   const t = useTranslations("account");
@@ -35,18 +36,19 @@ export function RegisterForm() {
     }
   }
 
+  const toggleLabels = { show: tAuth("showPassword"), hide: tAuth("hidePassword") };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 max-w-sm mx-auto">
-      <h1 className="font-serif font-bold text-navy text-2xl mb-4">{t("registerTitle")}</h1>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} className="w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy outline-none focus:border-sin-red" />
-      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} type="email" className="w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy outline-none focus:border-sin-red" />
-      <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("passwordPlaceholder")} type="password" className="w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy outline-none focus:border-sin-red" />
-      {error && <p className="text-sin-red text-[12px]">{error}</p>}
-      <button type="submit" disabled={isSubmitting} className="w-full bg-sin-red text-white py-3.5 rounded-2xl font-bold text-[15px] disabled:opacity-50">
-        {t("registerButton")}
-      </button>
-      <p className="text-[13px] text-navy/50 text-center">
-        {t("haveAccount")} <Link href="/login" className="text-sin-red hover:underline">{tAuth("loginTitle")}</Link>
+    <form key={error} onSubmit={handleSubmit} className={`space-y-4 ${error ? "auth-shake" : ""}`}>
+      <h1 className="font-serif font-bold text-navy text-4xl tracking-tight">{t("registerTitle")}</h1>
+      <p className="text-navy/55 text-[15px] !mt-2 !mb-6">{tAuth("tagline")}</p>
+      <AuthField label={t("namePlaceholder")} autoComplete="name" required value={name} onChange={setName} />
+      <AuthField label={t("emailPlaceholder")} type="email" autoComplete="email" required value={email} onChange={setEmail} />
+      <AuthField label={t("passwordPlaceholder")} type="password" autoComplete="new-password" required value={password} onChange={setPassword} toggleLabels={toggleLabels} />
+      {error && <p role="alert" className="rounded-xl bg-sin-red/10 px-4 py-2.5 text-[13px] font-medium text-sin-red-dark">{error}</p>}
+      <AuthSubmit pending={isSubmitting} label={t("registerButton")} pendingLabel={tAuth("loggingIn")} />
+      <p className="pt-2 text-center text-[13px] text-navy/55">
+        {t("haveAccount")} <Link href="/login" className="admin-link">{tAuth("loginTitle")}</Link>
       </p>
     </form>
   );

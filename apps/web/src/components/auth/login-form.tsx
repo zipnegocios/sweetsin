@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { AuthField, AuthSubmit } from "./auth-field";
 import { signInAction } from "@/app/actions/auth";
 import { mergeCartOnLoginAction } from "@/app/actions/merge-cart";
 
@@ -55,31 +56,20 @@ export function LoginForm() {
     }
   }
 
+  const toggleLabels = { show: t("showPassword"), hide: t("hidePassword") };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 max-w-sm mx-auto">
-      <h1 className="font-serif font-bold text-navy text-2xl mb-4">{t("loginTitle")}</h1>
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder={t("emailPlaceholder")}
-        type="email"
-        className="w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy outline-none focus:border-sin-red"
-      />
-      <input
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder={t("passwordPlaceholder")}
-        type="password"
-        className="w-full bg-cream border border-navy/12 rounded-2xl px-5 py-3.5 text-sm text-navy outline-none focus:border-sin-red"
-      />
-      {error && <p className="text-sin-red text-[12px]">{error}</p>}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-sin-red text-white py-3.5 rounded-2xl font-bold text-[15px] disabled:opacity-50"
-      >
-        {t("loginButton")}
-      </button>
+    // key = error: al fallar el login se remonta el formulario y se reproduce la sacudida.
+    <form key={error} onSubmit={handleSubmit} className={`space-y-4 ${error ? "auth-shake" : ""}`}>
+      <h1 className="font-serif font-bold text-navy text-4xl tracking-tight">{t("loginTitle")}</h1>
+      <p className="text-navy/55 text-[15px] !mt-2 !mb-6">{t("loginSubtitle")}</p>
+      <AuthField label={t("emailPlaceholder")} type="email" autoComplete="email" required value={email} onChange={setEmail} />
+      <AuthField label={t("passwordPlaceholder")} type="password" autoComplete="current-password" required value={password} onChange={setPassword} toggleLabels={toggleLabels} />
+      {error && <p role="alert" className="rounded-xl bg-sin-red/10 px-4 py-2.5 text-[13px] font-medium text-sin-red-dark">{error}</p>}
+      <AuthSubmit pending={isSubmitting} label={t("loginButton")} pendingLabel={t("loggingIn")} />
+      <p className="pt-2 text-center text-[13px] text-navy/55">
+        {t("noAccount")} <Link href="/register" className="admin-link">{t("createAccount")}</Link>
+      </p>
     </form>
   );
 }
