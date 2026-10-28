@@ -1,0 +1,33 @@
+# Servidor Metro (bundler) para el APK de DESARROLLO de la app de staff.
+# Build context = raiz del repo (workspace pnpm):
+#   docker build -f apps/mobile/Dockerfile.metro .
+#
+# Solo sirve JavaScript al build de desarrollo (au.com.sweetsin.staff.dev); el APK
+# de release lleva el JS embebido y no lo usa. No lleva secretos: lo unico que
+# Metro lee son variables EXPO_PUBLIC_* (publicas, viajan en el bundle).
+# Variables de runtime (EasyPanel): EXPO_PACKAGER_PROXY_URL (URL publica https del
+# servicio) y EXPO_PUBLIC_API_BASE_URL (API de apps/web que consume la app).
+
+FROM node:24-alpine
+RUN corepack enable
+WORKDIR /repo
+
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
+COPY apps/mobile/package.json apps/mobile/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/web-legacy/package.json apps/web-legacy/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/i18n/package.json packages/i18n/package.json
+COPY packages/notifications/package.json packages/notifications/package.json
+RUN pnpm install --frozen-lockfile --filter mobile...
+
+COPY packages/i18n packages/i18n
+COPY apps/mobile apps/mobile
+
+WORKDIR /repo/apps/mobile
+# Sin CI=1: en modo CI Metro desactiva la recarga y no vería los cambios del codigo.
+ENV EXPO_NO_TELEMETRY=1 \
+    APP_VARIANT=development
+EXPOSE 8081
+CMD ["pnpm", "exec", "expo", "start", "--dev-client", "--port", "8081"]

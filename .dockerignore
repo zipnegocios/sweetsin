@@ -9,3 +9,5 @@ dist
 !.env.example
 attached_assets
 CLAUDE.md
+apps/mobile/android
+apps/mobile/.expo
