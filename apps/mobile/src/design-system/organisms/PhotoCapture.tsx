@@ -1,6 +1,7 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRef, useState } from "react";
 import { Modal, useWindowDimensions, View } from "react-native";
+import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
 import { Button } from "../molecules/Button";
@@ -52,6 +53,18 @@ export function PhotoCapture({ visible, labels, onCancel, onCapture }: PhotoCapt
     }
   }
 
+  // El visor es oscuro: los botones secundarios (pensados para fondo claro) quedaban invisibles, así que van como icono claro.
+  const iconButton = (name: "close" | "flip", label: string, onPress: () => void) => (
+    <Touchable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ width: t.iconButtonSize, height: t.iconButtonSize, borderRadius: t.iconButtonSize / 2, borderWidth: 2, borderColor: t.fg, alignItems: "center", justifyContent: "center" }}
+    >
+      <Icon name={name} color={t.fg} size={t.iconSize} />
+    </Touchable>
+  );
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onCancel} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: t.bg, padding: t.padding, gap: t.gap, justifyContent: "center" }}>
@@ -71,7 +84,7 @@ export function PhotoCapture({ visible, labels, onCancel, onCapture }: PhotoCapt
               {labels.guide}
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Button label={labels.cancel} variant="secondary" onPress={onCancel} />
+              {iconButton("close", labels.cancel, onCancel)}
               <Touchable
                 onPress={shoot}
                 disabled={!ready || shooting}
@@ -86,14 +99,10 @@ export function PhotoCapture({ visible, labels, onCancel, onCapture }: PhotoCapt
                   backgroundColor: shooting || !ready ? t.bg : t.fg,
                 }}
               />
-              <Button
-                label={labels.flip}
-                variant="secondary"
-                onPress={() => {
-                  setReady(false);
-                  setFacing((f) => (f === "front" ? "back" : "front"));
-                }}
-              />
+              {iconButton("flip", labels.flip, () => {
+                setReady(false);
+                setFacing((f) => (f === "front" ? "back" : "front"));
+              })}
             </View>
           </>
         ) : (
@@ -102,7 +111,7 @@ export function PhotoCapture({ visible, labels, onCancel, onCapture }: PhotoCapt
               {labels.denied}
             </Text>
             {permission?.canAskAgain !== false ? <Button label={labels.grant} onPress={() => void requestPermission()} /> : null}
-            <Button label={labels.cancel} variant="secondary" onPress={onCancel} />
+            <View style={{ alignItems: "center" }}>{iconButton("close", labels.cancel, onCancel)}</View>
           </>
         )}
       </View>

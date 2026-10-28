@@ -14,7 +14,7 @@ const COMPONENT_LAYERS: Layer[] = ["core", "atoms", "molecules", "organisms", "t
  * Cualquier otro (p. ej. `@expo/vector-icons`, prohibido por el owner, o módulos de almacenamiento
  * y efectos como `expo-secure-store`, `expo-sqlite`, `expo-notifications`) rompe el test.
  */
-const ALLOWED_PACKAGES = ["react", "react-native", "react-native-safe-area-context", "expo-image", "expo-status-bar", "expo-camera"];
+const ALLOWED_PACKAGES = ["react", "react-native", "react-native-safe-area-context", "expo-image", "expo-status-bar", "expo-camera", "react-native-svg"];
 /** Única salida de la carpeta permitida: los activos de marca (imágenes, no código). */
 const ALLOWED_OUTSIDE = /[\\/]assets[\\/]brand[\\/][^\\/]+\.(png|gif)$/;
 

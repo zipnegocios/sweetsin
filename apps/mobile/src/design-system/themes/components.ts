@@ -168,6 +168,8 @@ export function buildComponentTokens(t: ThemeBase) {
       guideFraction: 0.78, // diámetro del círculo guía respecto al lado del visor
       shutterSize: 72,
       shutterRing: 6,
+      iconSize: 28,
+      iconButtonSize: 56, // misma zona táctil que las acciones primarias
       padding: space.lg,
       gap: space.lg,
     },

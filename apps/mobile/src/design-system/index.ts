@@ -6,6 +6,7 @@ export { brand, indoor, outdoor } from "./themes";
 export type { ButtonVariant, OrderStatus, SemanticColor, TextSpec, Theme, TypeVariant } from "./themes";
 
 export { Glyph } from "./atoms/Glyph";
+export { Icon } from "./atoms/Icon";
 export { Spacer } from "./atoms/Spacer";
 export { Surface } from "./atoms/Surface";
 export { Text } from "./atoms/Text";

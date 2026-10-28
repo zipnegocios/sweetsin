@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { Glyph } from "../atoms/Glyph";
+import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
 import { Avatar } from "../molecules/Avatar";
@@ -63,7 +63,7 @@ export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, phot
           accessibilityLabel={closeLabel}
           style={{ position: "absolute", top: t.closeInset, right: t.closeInset, alignItems: "center", justifyContent: "center", zIndex: 1 }}
         >
-          <Glyph char="✕" color={t.bandFg} variant="title" />
+          <Icon name="close" color={t.bandFg} size={theme.type.title.fontSize} />
         </Touchable>
       ) : null}
 
@@ -97,7 +97,7 @@ export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, phot
                 borderColor: t.badgeBorder,
               }}
             >
-              <Glyph char="📷" color={t.badgeFg} variant="bodyStrong" />
+              <Icon name="camera" color={t.badgeFg} size={Math.round(t.badgeSize / 2)} />
             </View>
           </Touchable>
         ) : (
