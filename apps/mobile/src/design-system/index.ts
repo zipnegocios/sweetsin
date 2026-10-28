@@ -14,6 +14,7 @@ export { Touchable } from "./atoms/Touchable";
 export { Banner } from "./molecules/Banner";
 export { BrandMark } from "./molecules/BrandMark";
 export { Button } from "./molecules/Button";
+export { Avatar } from "./molecules/Avatar";
 export { Card } from "./molecules/Card";
 export { OptionRow } from "./molecules/OptionRow";
 export { StatusPill } from "./molecules/StatusPill";
@@ -21,5 +22,7 @@ export { StatusPill } from "./molecules/StatusPill";
 export { EmptyState } from "./organisms/EmptyState";
 export { OfflineBanner } from "./organisms/OfflineBanner";
 export { ScreenHeader } from "./organisms/ScreenHeader";
+export type { HeaderAvatar } from "./organisms/ScreenHeader";
+export { StaffIdCard } from "./organisms/StaffIdCard";
 
 export { ScreenLayout } from "./templates/ScreenLayout";

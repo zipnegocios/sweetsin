@@ -1,9 +1,10 @@
 "use server";
 
-import { registerStaffUser, resetStaffPin, deleteStaffUser } from "@workspace/domain/users";
-import type { User, UserRole } from "@workspace/domain/users";
+import { registerStaffUser, resetStaffPin, deleteStaffUser, updateStaffProfile } from "@workspace/domain/users";
+import type { StaffProfileInput, User, UserRole } from "@workspace/domain/users";
 import { DrizzleUserRepository } from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
+import { isStaffPhotoStorageConfigured, R2StaffPhotoStorage } from "@/infra/r2-staff-photo-storage";
 
 export async function listStaffAction(): Promise<User[]> {
   await requireAdmin();
@@ -44,7 +45,20 @@ export async function toggleStaffActiveAction(userId: string, isActive: boolean)
 export async function deleteStaffAction(userId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireAdmin();
   try {
-    await deleteStaffUser(new DrizzleUserRepository(), userId);
+    await deleteStaffUser(new DrizzleUserRepository(), userId, isStaffPhotoStorageConfigured() ? new R2StaffPhotoStorage() : undefined);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+export async function updateStaffProfileAction(
+  userId: string,
+  input: StaffProfileInput,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireAdmin();
+  try {
+    await updateStaffProfile(new DrizzleUserRepository(), userId, input);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Unknown error" };

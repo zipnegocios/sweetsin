@@ -1,5 +1,5 @@
-import type { UserRepository } from "./ports";
-import type { User, UserRole } from "./entities";
+import type { StaffPhotoStorage, UserRepository } from "./ports";
+import type { StaffRole, User, UserRole } from "./entities";
 import type { Locale } from "../shared";
 import { hashPassword, verifyPassword } from "./auth";
 
@@ -115,11 +115,100 @@ export async function resetStaffPin(repo: UserRepository, userId: string): Promi
   return plainPin;
 }
 
-export async function deleteStaffUser(repo: UserRepository, userId: string): Promise<void> {
+export async function deleteStaffUser(
+  repo: UserRepository,
+  userId: string,
+  photos?: StaffPhotoStorage,
+): Promise<void> {
   const user = await repo.findById(userId);
   if (!user) throw new Error(`User not found: ${userId}`);
   if (user.role !== "despachador" && user.role !== "delivery") {
     throw new Error("Only staff users can be deleted");
   }
   await repo.deleteStaff(userId);
+  // Después de la DB: si el borrado del objeto falla solo queda un archivo huérfano, nunca un usuario con foto rota.
+  if (user.photoKey && photos) await photos.delete(user.photoKey).catch(() => {});
+}
+
+export interface StaffProfileInput {
+  name: string;
+  email: string;
+  role: StaffRole;
+  phone: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  internalNotes: string | null;
+  preferredLocale: Locale;
+  /** Solo se cambia la contraseña si viene con contenido. */
+  password?: string;
+}
+
+const optionalText = (value: string | null): string | null => value?.trim() || null;
+
+async function findStaff(repo: UserRepository, userId: string): Promise<User> {
+  const user = await repo.findById(userId);
+  if (!user) throw new Error(`User not found: ${userId}`);
+  if (user.role !== "despachador" && user.role !== "delivery") throw new Error("Only staff users can be edited");
+  return user;
+}
+
+export async function updateStaffProfile(
+  repo: UserRepository,
+  userId: string,
+  input: StaffProfileInput,
+): Promise<User> {
+  const user = await findStaff(repo, userId);
+
+  const name = input.name.trim();
+  if (!name) throw new Error("Name is required");
+  const email = input.email.trim();
+  if (!email) throw new Error("Email is required");
+  if (input.role !== "despachador" && input.role !== "delivery") throw new Error("Invalid staff role");
+
+  if (email !== user.email) {
+    const existing = await repo.findByEmail(email);
+    if (existing && existing.id !== userId) throw new Error(`User already exists with email: ${email}`);
+  }
+
+  const password = input.password?.trim();
+  return repo.update(userId, {
+    name,
+    email,
+    role: input.role,
+    phone: optionalText(input.phone),
+    emergencyContactName: optionalText(input.emergencyContactName),
+    emergencyContactPhone: optionalText(input.emergencyContactPhone),
+    internalNotes: optionalText(input.internalNotes),
+    preferredLocale: input.preferredLocale,
+    ...(password ? { passwordHash: await hashPassword(password) } : {}),
+  });
+}
+
+// La web redimensiona a ~600 px antes de subir, así que 2 MB es un tope generoso.
+export const MAX_STAFF_PHOTO_BYTES = 2 * 1024 * 1024;
+
+const isJpeg = (b: Uint8Array) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+
+interface PhotoDeps {
+  users: UserRepository;
+  photos: StaffPhotoStorage;
+}
+
+export async function replaceStaffPhoto({ users, photos }: PhotoDeps, userId: string, jpeg: Uint8Array): Promise<User> {
+  const user = await findStaff(users, userId);
+  if (!isJpeg(jpeg)) throw new Error("Photo must be a JPEG image");
+  if (jpeg.length > MAX_STAFF_PHOTO_BYTES) throw new Error("Photo is too large");
+
+  const key = `${userId}/${Date.now()}.jpg`;
+  await photos.put(key, jpeg, "image/jpeg");
+  const updated = await users.update(userId, { photoKey: key });
+  if (user.photoKey) await photos.delete(user.photoKey).catch(() => {});
+  return updated;
+}
+
+export async function removeStaffPhoto({ users, photos }: PhotoDeps, userId: string): Promise<User> {
+  const user = await findStaff(users, userId);
+  const updated = await users.update(userId, { photoKey: null });
+  if (user.photoKey) await photos.delete(user.photoKey).catch(() => {});
+  return updated;
 }

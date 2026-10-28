@@ -55,6 +55,8 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 
 **Sesión admin (2026-10-28):** correcciones y rediseño del panel admin: favicon restaurado (`icon.png`), `/admin` redirige a `/admin/orders` (daba 404 tras el login) y nuevo shell visual con sidebar colapsable, iconos SVG propios, badges de estado y microinteracciones CSS. Typecheck, paridad i18n y `next build` pasan; revisión visual pendiente del owner.
 
+**Sesión admin, parte 2 (2026-10-28):** login/registro rediseñados; selector de idioma en el sidebar; estados traducidos en todo el admin; eliminar staff (transacción que libera órdenes/tokens/ubicación); ficha de staff editable (`/admin/staff/[id]`: nombre, email, rol, idioma, teléfono, contacto de emergencia, notas, contraseña, activo, PIN) con foto en R2 (`sweet-assets`, privado, URL firmada); credencial con foto en la app mobile (`CredentialScreen`, avatar tocable en la cabecera). Typecheck, 151 pruebas de dominio, 253 de mobile y `next build` pasan. Esquema al día: `drizzle-kit push` reportó "No changes detected" (las 5 columnas nuevas de `users` ya estaban en la DB) y `pnpm run test` completo pasa (dominio 151, db 27, mobile 253, web 17 archivos).
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -820,6 +822,8 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - Planes: `docs/superpowers/plans/2026-10-26-apk-despachador.md` y `2026-10-26-apk-delivery-detalle-mapa-contacto.md`. Bitácora de SDD en `.superpowers/sdd/<plan>/progress.md` (git-ignored).
 
 **Sesión admin (2026-10-28) — archivos:** `apps/web/src/app/icon.png` (reemplaza `favicon.ico` de Next); `admin/page.tsx` (redirect); `components/admin/{admin-sidebar,admin-icons,status-badge,page-header}.tsx` (nuevos); `admin/layout.tsx` (sidebar + main); `globals.css` (tokens `gold`, clases `.admin-card/.admin-input/.admin-btn/.admin-link/.admin-table`, `.admin-enter`); `packages/i18n` (claves `signOut`, `collapseMenu`, `expandMenu`, `openMenu`, `closeMenu`, `status_*`, `channel_*`); páginas y formularios admin migrados a las clases compartidas y a `PageHeader`.
+
+**Parte 2 — archivos:** dominio `users/{entities,ports,use-cases}.ts` (`deleteStaffUser`, `updateStaffProfile`, `replaceStaffPhoto`, `removeStaffPhoto`, puerto `StaffPhotoStorage`); `db/schema/users.ts`; `infra/r2-client.ts` (cliente compartido), `infra/r2-staff-photo-storage.ts`; `api/admin/staff/[id]/photo/route.ts`; `api/mobile/auth/me/route.ts`; admin `staff/[id]/*`, `staff-avatar`, `staff-photo-uploader`; mobile `auth/{profile,use-profile,use-header-avatar}.ts`, `design-system/{molecules/Avatar,organisms/StaffIdCard}`, `screens/CredentialScreen.tsx`, `navigation/index.tsx`; `CLAUDE.md` (variables R2).
 
 ## Intentos fallidos
 
@@ -1710,3 +1714,7 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 6. **Más adelante:** cuota diaria y alerta de presupuesto para Routes API (SKU Enterprise; 1.000 gratis/mes, US$15 por 1.000); pasar a 3 claves restringidas en la cuenta de facturación del cliente; volver a la restricción de Adelaide (sesgo del autocompletado y validación de zona de entrega en el servidor); quitar `R2_DELIVERY_EVIDENCE_PREFIX` mal formado de EasyPanel si sigue.
 
 **Sesión admin (2026-10-28) — próximos pasos:** (1) el owner revisa en `pnpm --filter @workspace/web run dev`: sidebar (colapsar/recargar, móvil, tooltips), `/admin/orders`, `/es/admin`; (2) estados de reservas de eventos, paradas y logs de email siguen como texto crudo (sin claves i18n ni badge); (3) `admin-calendar-view` (react-big-calendar) no se restiló; (4) Fase 8 pendiente (E2E, Lighthouse, deploy único, eliminar `apps/web-legacy`).
+
+**Parte 2 — intentos fallidos:** un comando de shell muy largo con varios heredocs no se parseó y no escribió nada (se rehízo con Write); una prueba esperaba la URL de R2 en formato path-style cuando el SDK usa el bucket como subdominio (se corrigió la expectativa).
+
+**Parte 2 — próximos pasos:** (1) [hecho] push de esquema y suite completa en verde; (2) en prod/local añadir `R2_ASSETS_BUCKET` si el bucket no se llama `sweet-assets`; (3) probar en dispositivo la credencial (necesita recompilar el APK de desarrollo solo si se agregan módulos nativos: aquí no); (4) paradas del trailer: definir con el owner (editar/eliminar/duplicar); (5) aviso de lint `<img>` en `staff-avatar.tsx` es intencional.

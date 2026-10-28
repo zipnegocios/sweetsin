@@ -1,11 +1,25 @@
 import { View } from "react-native";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
+import { Avatar } from "../molecules/Avatar";
 import { BrandMark } from "../molecules/BrandMark";
 import { useTheme } from "../use-theme";
 
 /** Cabecera Tinta: mascota estática decorativa, título y una acción opcional (p. ej. "Salir"). */
-export function ScreenHeader({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
+export type HeaderAvatar = { name: string; photoUrl: string | null; onPress: () => void; accessibilityLabel: string };
+
+export function ScreenHeader({
+  title,
+  actionLabel,
+  onAction,
+  avatar,
+}: {
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  /** Foto del staff: abre su credencial. */
+  avatar?: HeaderAvatar;
+}) {
   const t = useTheme().components.header;
   return (
     <View
@@ -23,6 +37,11 @@ export function ScreenHeader({ title, actionLabel, onAction }: { title: string; 
       <Text variant="title" color={t.fg} accessibilityRole="header" style={{ flex: 1 }}>
         {title}
       </Text>
+      {avatar ? (
+        <Touchable onPress={avatar.onPress} accessibilityRole="button" accessibilityLabel={avatar.accessibilityLabel}>
+          <Avatar name={avatar.name} photoUrl={avatar.photoUrl} size="header" />
+        </Touchable>
+      ) : null}
       {actionLabel && onAction ? (
         <Touchable
           onPress={onAction}

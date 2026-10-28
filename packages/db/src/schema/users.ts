@@ -13,5 +13,10 @@ export const usersTable = pgTable("users", {
   preferredLocale: text("preferred_locale").notNull().default("en"),
   failedPinAttempts: integer("failed_pin_attempts").notNull().default(0),
   pinLockedUntil: timestamp("pin_locked_until", { withTimezone: true }),
+  phone: text("phone"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  internalNotes: text("internal_notes"),
+  photoKey: text("photo_key"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

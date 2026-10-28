@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
 import { useAuth } from "../auth/context";
+import { useHeaderAvatar } from "../auth/use-header-avatar";
 import {
   Banner,
   BrandMark,
@@ -96,6 +97,7 @@ export function DeliveryQueueScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const mapHeight = Math.round(windowHeight * theme.components.map.heightRatio);
   const { logout } = useAuth();
+  const headerAvatar = useHeaderAvatar();
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [offline, setOffline] = useState(false);
@@ -418,7 +420,7 @@ ${detail}`);
   return (
     <ScreenLayout
       scroll={false}
-      header={<ScreenHeader title={strings.dispatch.deliveryTitle} actionLabel={s.logout} onAction={() => void signOut()} />}
+      header={<ScreenHeader title={strings.dispatch.deliveryTitle} actionLabel={s.logout} onAction={() => void signOut()} avatar={headerAvatar} />}
       banner={
         <>
           <Surface tone="background" style={{ paddingHorizontal: theme.components.layout.paddingH, paddingTop: theme.components.layout.paddingV, gap: theme.components.layout.gap }}>

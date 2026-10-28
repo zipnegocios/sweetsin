@@ -3,6 +3,7 @@ import { Alert, FlatList, RefreshControl } from "react-native";
 import { apiFetch } from "../api/client";
 import { isNetworkError } from "../api/network";
 import { useAuth } from "../auth/context";
+import { useHeaderAvatar } from "../auth/use-header-avatar";
 import {
   Banner,
   BrandMark,
@@ -56,6 +57,7 @@ const typeLabel = (o: QueueOrder) =>
 export function DespachadorQueueScreen() {
   const theme = useTheme();
   const { logout } = useAuth();
+  const headerAvatar = useHeaderAvatar();
   const [orders, setOrders] = useState<QueueOrder[]>([]);
   const [staff, setStaff] = useState<DeliveryStaff[] | null>(null); // null: nunca cargó
   const [loaded, setLoaded] = useState(false); // hubo al menos un intento de carga
@@ -252,7 +254,7 @@ export function DespachadorQueueScreen() {
   return (
     <ScreenLayout
       scroll={false}
-      header={<ScreenHeader title={s.dispatchTitle} actionLabel={s.logout} onAction={() => void endSession()} />}
+      header={<ScreenHeader title={s.dispatchTitle} actionLabel={s.logout} onAction={() => void endSession()} avatar={headerAvatar} />}
       banner={
         <>
           <OfflineBanner visible={offline} message={s.dispatchOfflineBanner} />

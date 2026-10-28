@@ -4,12 +4,13 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
+import { CredentialScreen } from "../screens/CredentialScreen";
 import { clearSession, getCachedRole, getToken, saveRole } from "../auth/session";
 import { AuthContext } from "../auth/context";
 import { resolveStartupSession, type StaffRole } from "../auth/startup";
 import { apiFetch } from "../api/client";
 import { clearAssigned } from "../offline/assigned-cache";
-import { indoor, ThemeProvider } from "../design-system";
+import { indoor, outdoor, ThemeProvider } from "../design-system";
 
 const Stack = createNativeStackNavigator();
 
@@ -77,6 +78,15 @@ export function RootNavigator() {
             </Stack.Screen>
           )}
           {role === "delivery" && <Stack.Screen name="Entregas" component={DeliveryQueueScreen} options={{ headerShown: false }} />}
+          {(role === "despachador" || role === "delivery") && (
+            <Stack.Screen name="Credencial" options={{ headerShown: false, presentation: "modal" }}>
+              {() => (
+                <ThemeProvider theme={role === "delivery" ? outdoor : indoor}>
+                  <CredentialScreen role={role} />
+                </ThemeProvider>
+              )}
+            </Stack.Screen>
+          )}
         </Stack.Navigator>
       </NavigationContainer>
     </AuthContext.Provider>

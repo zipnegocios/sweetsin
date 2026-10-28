@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
-import type { User } from "@workspace/domain/users";
+import { Link, useRouter } from "@/i18n/navigation";
+import { StaffAvatar } from "@/components/admin/staff-avatar";
 import { resetStaffPinAction, toggleStaffActiveAction, deleteStaffAction } from "@/app/actions/admin-staff";
 
-export function StaffTable({ staff }: { staff: User[] }) {
+export interface StaffRow {
+  id: string;
+  name: string;
+  email: string | null;
+  role: "despachador" | "delivery";
+  isActive: boolean;
+  photoUrl: string | null;
+}
+
+export function StaffTable({ staff }: { staff: StaffRow[] }) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -69,7 +78,12 @@ export function StaffTable({ staff }: { staff: User[] }) {
       <tbody>
         {staff.map((user) => (
           <tr key={user.id} >
-            <td>{user.name}</td>
+            <td>
+              <Link href={`/admin/staff/${user.id}`} className="group flex items-center gap-3">
+                <StaffAvatar name={user.name} photoUrl={user.photoUrl} size="sm" />
+                <span className="font-medium text-navy transition-colors group-hover:text-sin-red">{user.name}</span>
+              </Link>
+            </td>
             <td>{user.email}</td>
             <td>{user.role === "despachador" ? t("staffFormRoleDespachador") : t("staffFormRoleDelivery")}</td>
             <td>
@@ -79,6 +93,7 @@ export function StaffTable({ staff }: { staff: User[] }) {
               </span>
             </td>
             <td className="space-x-3 whitespace-nowrap">
+              <Link href={`/admin/staff/${user.id}`} className="admin-link">{t("staffEditLink")}</Link>
               <button
                 type="button"
                 disabled={pendingId === user.id}

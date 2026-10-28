@@ -1,6 +1,7 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { DeliveryEvidenceStorage } from "@workspace/domain/orders";
+import { createR2Client } from "./r2-client";
 
 // Retencion de las fotos: 7 dias por defecto, ampliable a 30, pendiente de
 // confirmacion legal. La regla de ciclo de vida del bucket (expiracion
@@ -32,14 +33,8 @@ export function getR2Config() {
 
 export class R2DeliveryEvidenceStorage implements DeliveryEvidenceStorage {
   async createUploadUrl(key: string, contentType: "image/jpeg"): Promise<string> {
-    const { accountId, accessKeyId, secretAccessKey, bucket } = getR2Config();
-    const client = new S3Client({
-      region: "auto",
-      // R2 rechaza el checksum CRC32 que el SDK nuevo calcula por defecto sobre un body vacio.
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: { accessKeyId, secretAccessKey },
-    });
+    const { bucket, ...credentials } = getR2Config();
+    const client = createR2Client(credentials);
     return getSignedUrl(client, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), {
       expiresIn: UPLOAD_URL_TTL_SECONDS,
       // Firma el content-type: el cliente no puede subir otro tipo a la key .jpg.

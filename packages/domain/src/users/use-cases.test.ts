@@ -9,6 +9,10 @@ import {
   resetStaffPin,
   generatePin,
   deleteStaffUser,
+  updateStaffProfile,
+  replaceStaffPhoto,
+  removeStaffPhoto,
+  MAX_STAFF_PHOTO_BYTES,
 } from "./use-cases";
 import { hashPassword } from "./auth";
 import type { User, UserRole } from "./entities";
@@ -309,5 +313,132 @@ describe("deleteStaffUser", () => {
 
   it("falla si el usuario no existe", async () => {
     await expect(deleteStaffUser(makeFakeUserRepo([]), "nope")).rejects.toThrow("not found");
+  });
+});
+
+function fakePhotos() {
+  const objects = new Set<string>();
+  return {
+    objects,
+    storage: {
+      put: async (key: string) => void objects.add(key),
+      delete: async (key: string) => void objects.delete(key),
+      createViewUrl: async (key: string) => `https://signed/${key}`,
+    },
+  };
+}
+
+const profileInput = {
+  name: "Ana Pérez",
+  email: "ana.perez@sweetsin.com",
+  role: "delivery" as const,
+  phone: "0412 345 678",
+  emergencyContactName: "Luis",
+  emergencyContactPhone: "0400 111 222",
+  internalNotes: "Zona norte",
+  preferredLocale: "en" as const,
+};
+
+describe("updateStaffProfile", () => {
+  it("actualiza todos los campos de la ficha", async () => {
+    const repo = makeFakeUserRepo([baseStaff]);
+
+    const updated = await updateStaffProfile(repo, "staff-1", profileInput);
+
+    expect(updated).toMatchObject(profileInput);
+  });
+
+  it("recorta espacios y guarda null en los textos opcionales vacíos", async () => {
+    const repo = makeFakeUserRepo([baseStaff]);
+
+    const updated = await updateStaffProfile(repo, "staff-1", { ...profileInput, name: "  Ana  ", phone: "   ", internalNotes: "" });
+
+    expect(updated.name).toBe("Ana");
+    expect(updated.phone).toBeNull();
+    expect(updated.internalNotes).toBeNull();
+  });
+
+  it("rechaza un email ya usado por otro usuario, pero permite conservar el propio", async () => {
+    const repo = makeFakeUserRepo([baseStaff, { ...baseStaff, id: "staff-2", email: "otro@sweetsin.com" }]);
+
+    await expect(updateStaffProfile(repo, "staff-1", { ...profileInput, email: "otro@sweetsin.com" })).rejects.toThrow("already exists");
+    await expect(updateStaffProfile(repo, "staff-1", { ...profileInput, email: baseStaff.email! })).resolves.toBeDefined();
+  });
+
+  it("hashea la contraseña solo si se envía una nueva", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, passwordHash: "old" }]);
+
+    const same = await updateStaffProfile(repo, "staff-1", profileInput);
+    expect(same.passwordHash).toBe("old");
+
+    const changed = await updateStaffProfile(repo, "staff-1", { ...profileInput, password: "nuevaclave123" });
+    expect(changed.passwordHash).not.toBe("old");
+    expect(changed.passwordHash).not.toBe("nuevaclave123");
+  });
+
+  it("rechaza nombre vacío, roles no staff y usuarios que no son staff", async () => {
+    const repo = makeFakeUserRepo([baseStaff, { ...baseStaff, id: "admin-1", role: "admin" }]);
+
+    await expect(updateStaffProfile(repo, "staff-1", { ...profileInput, name: "  " })).rejects.toThrow("Name");
+    await expect(updateStaffProfile(repo, "staff-1", { ...profileInput, role: "admin" as never })).rejects.toThrow("role");
+    await expect(updateStaffProfile(repo, "admin-1", profileInput)).rejects.toThrow("Only staff");
+    await expect(updateStaffProfile(repo, "nope", profileInput)).rejects.toThrow("not found");
+  });
+});
+
+const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+
+describe("replaceStaffPhoto / removeStaffPhoto", () => {
+  it("guarda la foto con una key propia del usuario y la registra en el usuario", async () => {
+    const repo = makeFakeUserRepo([baseStaff]);
+    const { storage, objects } = fakePhotos();
+
+    const user = await replaceStaffPhoto({ users: repo, photos: storage }, "staff-1", JPEG);
+
+    expect(user.photoKey).toMatch(/^staff-1\/\d+\.jpg$/);
+    expect(objects.has(user.photoKey!)).toBe(true);
+  });
+
+  it("borra la foto anterior al reemplazarla", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, photoKey: "staff-1/old.jpg" }]);
+    const { storage, objects } = fakePhotos();
+    objects.add("staff-1/old.jpg");
+
+    await replaceStaffPhoto({ users: repo, photos: storage }, "staff-1", JPEG);
+
+    expect(objects.has("staff-1/old.jpg")).toBe(false);
+    expect(objects.size).toBe(1);
+  });
+
+  it("rechaza archivos que no son JPEG o que superan el tamaño máximo", async () => {
+    const repo = makeFakeUserRepo([baseStaff]);
+    const { storage, objects } = fakePhotos();
+
+    await expect(replaceStaffPhoto({ users: repo, photos: storage }, "staff-1", Uint8Array.from([1, 2, 3]))).rejects.toThrow("JPEG");
+    const huge = new Uint8Array(MAX_STAFF_PHOTO_BYTES + 1);
+    huge.set([0xff, 0xd8, 0xff]);
+    await expect(replaceStaffPhoto({ users: repo, photos: storage }, "staff-1", huge)).rejects.toThrow("large");
+    expect(objects.size).toBe(0);
+  });
+
+  it("removeStaffPhoto limpia la key y borra el objeto", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, photoKey: "staff-1/a.jpg" }]);
+    const { storage, objects } = fakePhotos();
+    objects.add("staff-1/a.jpg");
+
+    const user = await removeStaffPhoto({ users: repo, photos: storage }, "staff-1");
+
+    expect(user.photoKey).toBeNull();
+    expect(objects.size).toBe(0);
+  });
+
+  it("deleteStaffUser borra también la foto", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, photoKey: "staff-1/a.jpg" }]);
+    const { storage, objects } = fakePhotos();
+    objects.add("staff-1/a.jpg");
+
+    await deleteStaffUser(repo, "staff-1", storage);
+
+    expect(objects.size).toBe(0);
   });
 });
