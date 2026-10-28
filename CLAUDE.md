@@ -87,10 +87,15 @@ Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es
 - **MCP tools:** no lanzar ni conectar el Chrome DevTools MCP salvo que el
   usuario lo pida explícitamente. Priorizar inspección por terminal,
   análisis estático, linting, logs y tests unitarios.
-- **Reglas de commits de git (no negociable; actualizada por el owner el 2026-10-25):**
+- **Reglas de commits de git (no negociable; actualizada por el owner el 2026-10-25 y ratificada el 2026-10-28):**
   - Claude **sí puede** ejecutar `git commit` y `git push` a `main`, con la
     identidad git del usuario (la configurada en el repo), sin cambiar `user.name`
-    ni `user.email`.
+    ni `user.email`. Autorización permanente: no hace falta pedir confirmación
+    para cada commit/push.
+  - Claude **sí puede** correr `pnpm --filter @workspace/db run push` (migración
+    de esquema) y `pnpm --filter @workspace/db run seed`. Sigue valiendo el aviso
+    de Gotchas: dev y producción comparten la misma DB, así que nunca `push --force`
+    y antes de aplicar se revisa que el cambio solo agregue (columnas/tablas nuevas).
   - El mensaje es exclusivamente en español, un solo resumen de una línea
     (subject; nunca cuerpo/descripción ni líneas en blanco debajo), y jamás con
     firmas (`Co-Authored-By`, `Claude-Session`) ni metadata de IA.
