@@ -44,4 +44,27 @@ describe("DrizzleStockRepository", () => {
     const decremented = await repo.decrementStock(created.id, 10);
     expect(decremented.currentStock).toBe(25);
   });
+
+  it("sumSold suma solo eventos sale, hasMovements, setQuantity y remove", async () => {
+    const repo = new DrizzleStockRepository();
+    const row = await repo.create({ stopId, productId, maxStock: 10, currentStock: 10 });
+    expect(await repo.hasMovements(row.id)).toBe(false);
+    expect(await repo.sumSold(row.id)).toBe(0);
+
+    await repo.recordEvent({ stopProductStockId: row.id, eventType: "sale", quantity: 3, reason: null, reportedByUserId: null });
+    await repo.recordEvent({ stopProductStockId: row.id, eventType: "sale", quantity: 2, reason: null, reportedByUserId: null });
+    await repo.recordEvent({ stopProductStockId: row.id, eventType: "waste", quantity: 4, reason: null, reportedByUserId: null });
+    expect(await repo.sumSold(row.id)).toBe(5);
+    expect(await repo.hasMovements(row.id)).toBe(true);
+
+    const updated = await repo.setQuantity(row.id, 20, 15);
+    expect(updated.maxStock).toBe(20);
+    expect(updated.currentStock).toBe(15);
+
+    const wrath = await new DrizzleProductRepository().findBySlug("wrath");
+    if (!wrath) throw new Error("Seed product 'wrath' not found");
+    const fresh = await repo.create({ stopId, productId: wrath.id, maxStock: 5, currentStock: 5 });
+    await repo.remove(fresh.id);
+    expect((await repo.listByStop(stopId)).some((x) => x.id === fresh.id)).toBe(false);
+  }, 15000);
 });

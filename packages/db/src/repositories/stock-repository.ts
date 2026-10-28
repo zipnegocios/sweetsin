@@ -43,4 +43,34 @@ export class DrizzleStockRepository implements StockRepository {
       .returning();
     return updated;
   }
+
+  async sumSold(stopProductStockId: string): Promise<number> {
+    const [row] = await db
+      .select({ total: sql<number>`coalesce(sum(${stockEventsTable.quantity}), 0)::int` })
+      .from(stockEventsTable)
+      .where(and(eq(stockEventsTable.stopProductStockId, stopProductStockId), eq(stockEventsTable.eventType, "sale")));
+    return row.total;
+  }
+
+  async hasMovements(stopProductStockId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: stockEventsTable.id })
+      .from(stockEventsTable)
+      .where(eq(stockEventsTable.stopProductStockId, stopProductStockId))
+      .limit(1);
+    return row !== undefined;
+  }
+
+  async setQuantity(stopProductStockId: string, maxStock: number, currentStock: number): Promise<StopProductStock> {
+    const [updated] = await db
+      .update(stopProductStockTable)
+      .set({ maxStock, currentStock })
+      .where(eq(stopProductStockTable.id, stopProductStockId))
+      .returning();
+    return updated;
+  }
+
+  async remove(stopProductStockId: string): Promise<void> {
+    await db.delete(stopProductStockTable).where(eq(stopProductStockTable.id, stopProductStockId));
+  }
 }
