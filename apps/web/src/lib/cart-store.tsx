@@ -3,6 +3,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Product } from "@workspace/domain/products";
 import { getLineTotalCents } from "@workspace/domain/pricing";
+import { getPickupStopsAction } from "@/app/actions/pickup-stops";
+import {
+  limitFor,
+  trimCartToAvailability,
+  type CartTrimChange,
+  type ProductAvailability,
+} from "@/lib/cart-availability";
+import type { PickupStop, PickupStopsData } from "@/lib/pickup-stops";
 
 export interface CartLine {
   productId: string;
@@ -16,6 +24,19 @@ interface CartContextValue {
   remove: (productId: string) => void;
   setQty: (productId: string, quantity: number) => void;
   clear: () => void;
+  /** Paradas de retiro elegibles y la elegida (`null` = delivery o sin parada, como antes). */
+  pickupStops: PickupStop[];
+  selectedStop: PickupStop | null;
+  selectStop: (stopId: string | null) => void;
+  autoSoldOutEnabled: boolean;
+  /** Máximo pedible de un producto en la parada elegida (Infinity sin límite). */
+  limitOf: (productId: string) => number;
+  trimChanges: CartTrimChange[];
+  dismissTrimChanges: () => void;
+  /** Aplica el disponible que devolvió el servidor al rechazar el pedido por stock. */
+  applyStockConflict: (available: ProductAvailability[]) => void;
+  /** Vuelve a leer las paradas (p. ej. la elegida dejó de aceptar pedidos). */
+  refreshPickupStops: () => Promise<void>;
   totalQty: number;
   subtotalCents: number;
   savingsCents: number;
@@ -29,35 +50,94 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "sweet-sin-cart";
+const STOP_STORAGE_KEY = "sweet-sin-stop";
 
-export function CartProvider({ children, products }: { children: ReactNode; products: Product[] }) {
+export function CartProvider({
+  children,
+  products,
+  pickup,
+}: {
+  children: ReactNode;
+  products: Product[];
+  pickup: PickupStopsData;
+}) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [isDrawerOpen, setDrawerOpen] = useState(false);
   const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+  const [pickupStops, setPickupStops] = useState(pickup.stops);
+  const [stopId, setStopId] = useState<string | null>(null);
+  const [trimChanges, setTrimChanges] = useState<CartTrimChange[]>([]);
+
+  const autoSoldOutEnabled = pickup.autoSoldOutEnabled;
+  const selectedStop = pickupStops.find((s) => s.stopId === stopId) ?? null;
+  const limitOf = (productId: string) => limitFor(productId, selectedStop?.availability ?? null, autoSoldOutEnabled);
+
+  function retrim(lines: CartLine[], availability: ProductAvailability[] | null, enforceStock = autoSoldOutEnabled) {
+    const result = trimCartToAvailability(lines, availability, enforceStock);
+    setItems(result.lines);
+    setTrimChanges(result.changes);
+  }
 
   useEffect(() => {
+    let lines: CartLine[] = [];
+    let storedStop: PickupStop | undefined;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) lines = JSON.parse(raw);
+      const rawStop = window.localStorage.getItem(STOP_STORAGE_KEY);
+      storedStop = pickup.stops.find((s) => s.stopId === rawStop);
     } catch {
       // localStorage puede fallar (modo privado, storage bloqueado) — el carrito simplemente arranca vacío.
     }
+    // Una parada guardada que ya no es elegible se descarta; el carrito se ajusta a la que sigue vigente.
+    setStopId(storedStop?.stopId ?? null);
+    retrim(lines, storedStop?.availability ?? null);
     setHydrated(true);
+    // Solo al montar: hidrata desde localStorage una vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      if (stopId) window.localStorage.setItem(STOP_STORAGE_KEY, stopId);
+      else window.localStorage.removeItem(STOP_STORAGE_KEY);
     } catch {
       // ver comentario del efecto de arriba
     }
-  }, [items, hydrated]);
+  }, [items, stopId, hydrated]);
+
+  const selectStop = (nextStopId: string | null) => {
+    const next = pickupStops.find((s) => s.stopId === nextStopId) ?? null;
+    setStopId(next?.stopId ?? null);
+    retrim(items, next?.availability ?? null);
+  };
+
+  const applyStockConflict = (available: ProductAvailability[]) => {
+    if (!selectedStop) return;
+    const merged = [
+      ...selectedStop.availability.filter((a) => !available.some((x) => x.productId === a.productId)),
+      ...available,
+    ];
+    setPickupStops((prev) => prev.map((s) => (s.stopId === selectedStop.stopId ? { ...s, availability: merged } : s)));
+    // El servidor siempre limita por cantidad, aunque "Agotado" esté apagado en la UI.
+    retrim(items, available, true);
+  };
+
+  const refreshPickupStops = async () => {
+    const fresh = await getPickupStopsAction();
+    setPickupStops(fresh.stops);
+    const next = fresh.stops.find((s) => s.stopId === stopId) ?? null;
+    setStopId(next?.stopId ?? null);
+    retrim(items, next?.availability ?? null);
+  };
 
   const add = (productId: string) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === productId);
+      if ((existing?.quantity ?? 0) + 1 > limitOf(productId)) return prev;
       if (existing) return prev.map((i) => (i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i));
       return [...prev, { productId, quantity: 1 }];
     });
@@ -72,7 +152,8 @@ export function CartProvider({ children, products }: { children: ReactNode; prod
     });
   };
 
-  const setQty = (productId: string, quantity: number) => {
+  const setQty = (productId: string, requested: number) => {
+    const quantity = Math.min(requested, limitOf(productId));
     setItems((prev) => {
       if (quantity <= 0) return prev.filter((i) => i.productId !== productId);
       const existing = prev.find((i) => i.productId === productId);
@@ -107,6 +188,15 @@ export function CartProvider({ children, products }: { children: ReactNode; prod
         remove,
         setQty,
         clear,
+        pickupStops,
+        selectedStop,
+        selectStop,
+        autoSoldOutEnabled,
+        limitOf,
+        trimChanges,
+        dismissTrimChanges: () => setTrimChanges([]),
+        applyStockConflict,
+        refreshPickupStops,
         totalQty,
         subtotalCents,
         savingsCents,

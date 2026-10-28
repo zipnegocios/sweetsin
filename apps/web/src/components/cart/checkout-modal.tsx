@@ -6,7 +6,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { useLocale, useTranslations } from "next-intl";
 import { useCart } from "@/lib/cart-store";
-import { placeOrderAction } from "@/app/actions/checkout";
+import { placeOrderAction, type PlaceOrderResult } from "@/app/actions/checkout";
+import { StopSelector } from "./stop-selector";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -29,7 +30,19 @@ function getAddressComponent(
 export function CheckoutModal() {
   const t = useTranslations("cart");
   const locale = useLocale() as "en" | "es";
-  const { items, products, subtotalCents, savingsCents, clear, isCheckoutOpen, closeCheckout } = useCart();
+  const {
+    items,
+    products,
+    subtotalCents,
+    savingsCents,
+    clear,
+    isCheckoutOpen,
+    closeCheckout,
+    selectedStop,
+    applyStockConflict,
+    refreshPickupStops,
+  } = useCart();
+  const [orderError, setOrderError] = useState("");
 
   const [step, setStep] = useState<Step>("fulfillment");
   const [fulfillment, setFulfillment] = useState<Fulfillment | null>(null);
@@ -81,6 +94,7 @@ export function CheckoutModal() {
     setContact({ name: "", phone: "", email: "" });
     setAddressError("");
     setContactError("");
+    setOrderError("");
     setIsPlacing(false);
     setClientSecret(null);
   }
@@ -122,9 +136,24 @@ export function CheckoutModal() {
   const orderItems = items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
   const deliveryAddress =
     fulfillment === "self_delivery" ? `${address.line1}, ${address.suburb}` : undefined;
+  // Solo el retiro se liga a una parada; delivery y retiro sin parada siguen con stopId null.
+  const pickupStop = fulfillment === "pickup" ? selectedStop : null;
+
+  // El servidor revalida parada y stock: si algo cambió, se ajusta el carrito y se explica por qué.
+  async function handleRejection(result: Extract<PlaceOrderResult, { ok: false }>) {
+    if (result.error === "stockChanged") {
+      applyStockConflict(result.available);
+      setOrderError(t("errorStockChanged"));
+    } else {
+      await refreshPickupStops();
+      setOrderError(t("errorStopUnavailable"));
+      setStep("fulfillment");
+    }
+  }
 
   async function payWithWhatsApp() {
     setIsPlacing(true);
+    setOrderError("");
     // Se abre la pestaña en blanco de forma síncrona, dentro del gesto de
     // click original — Chrome descarta la activación de usuario apenas hay
     // un await de por medio, y bloquea en silencio cualquier window.open
@@ -136,6 +165,7 @@ export function CheckoutModal() {
         fulfillmentType: fulfillment ?? "pickup",
         deliveryAddress,
         deliveryNotes: fulfillment === "self_delivery" ? deliveryNotes : undefined,
+        stopId: pickupStop?.stopId ?? null,
         name: contact.name,
         phone: contact.phone,
         email: contact.email,
@@ -143,6 +173,11 @@ export function CheckoutModal() {
         items: orderItems,
         locale,
       });
+      if (!result.ok) {
+        whatsappTab?.close();
+        await handleRejection(result);
+        return;
+      }
 
       const lines = items.map((i) => {
         const product = products.find((p) => p.id === i.productId);
@@ -154,7 +189,11 @@ export function CheckoutModal() {
         ...lines,
         "",
         `Total: $${(result.totalCents / 100).toFixed(2)}`,
-        deliveryAddress ? `Address: ${deliveryAddress}` : "Pickup at the trailer",
+        deliveryAddress
+          ? `Address: ${deliveryAddress}`
+          : pickupStop
+            ? `Pickup at the trailer: ${pickupStop.location}`
+            : "Pickup at the trailer",
         `Name: ${contact.name}`,
         `Phone: ${contact.phone}`,
       ].join("\n");
@@ -174,11 +213,13 @@ export function CheckoutModal() {
 
   async function startCardPayment() {
     setIsPlacing(true);
+    setOrderError("");
     try {
       const result = await placeOrderAction({
         fulfillmentType: fulfillment ?? "pickup",
         deliveryAddress,
         deliveryNotes: fulfillment === "self_delivery" ? deliveryNotes : undefined,
+        stopId: pickupStop?.stopId ?? null,
         name: contact.name,
         phone: contact.phone,
         email: contact.email,
@@ -186,6 +227,10 @@ export function CheckoutModal() {
         items: orderItems,
         locale,
       });
+      if (!result.ok) {
+        await handleRejection(result);
+        return;
+      }
 
       const response = await fetch("/api/checkout/payment-intent", {
         method: "POST",
@@ -220,16 +265,25 @@ export function CheckoutModal() {
             </button>
           )}
 
+          {orderError && (
+            <p role="alert" className="text-sin-red text-[13px] mb-4">
+              {orderError}
+            </p>
+          )}
+
           {step === "fulfillment" && (
             <div>
               <h3 className="font-serif font-bold text-navy text-xl mb-6">{t("stepFulfillmentTitle")}</h3>
               <div className="space-y-3">
+                <StopSelector />
                 <button
                   onClick={() => chooseFulfillment("pickup")}
                   className="w-full text-left border border-navy/10 rounded-2xl p-4 hover:border-sin-red transition-colors"
                 >
                   <p className="font-medium text-navy">{t("fulfillmentPickup")}</p>
-                  <p className="text-[13px] text-navy/50">{t("fulfillmentPickupFee")}</p>
+                  <p className="text-[13px] text-navy/50">
+                    {selectedStop ? `${selectedStop.location} · ${t("fulfillmentPickupFee")}` : t("fulfillmentPickupFee")}
+                  </p>
                 </button>
                 <button
                   onClick={() => chooseFulfillment("self_delivery")}
@@ -331,7 +385,7 @@ export function CheckoutModal() {
 
               <button
                 onClick={payWithWhatsApp}
-                disabled={isPlacing}
+                disabled={isPlacing || items.length === 0}
                 className="w-full bg-navy text-white py-4 rounded-2xl font-bold text-[15px] tracking-wide hover:bg-navy-mid transition-colors mb-3 disabled:opacity-50"
               >
                 {isPlacing ? t("processing") : t("payWithWhatsapp")}
@@ -348,7 +402,7 @@ export function CheckoutModal() {
                 ) : (
                   <button
                     onClick={startCardPayment}
-                    disabled={isPlacing}
+                    disabled={isPlacing || items.length === 0}
                     className="w-full bg-sin-red text-white py-3.5 rounded-xl font-bold text-[14px] tracking-wide hover:bg-sin-red-light transition-colors disabled:opacity-60"
                   >
                     {isPlacing ? t("processing") : `${t("payButton")} $${(subtotalCents / 100).toFixed(2)}`}

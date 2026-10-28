@@ -5,25 +5,7 @@ import gsap from "gsap";
 import { getStopChanges, type TrailerStop } from "@workspace/domain/trailer-stops";
 import { useLocale, useTranslations } from "next-intl";
 import { LocationMap } from "@/components/ui/location-map";
-
-function formatStopSchedule(
-  stop: { startTime: Date; endTime: Date },
-  locale: "en" | "es",
-): { day: string; timeRange: string } {
-  const day = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "short", timeZone: "Australia/Adelaide" }).format(
-    stop.startTime,
-  );
-  const timeFormatter = new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Australia/Adelaide",
-  });
-
-  return {
-    day: day.charAt(0).toUpperCase() + day.slice(1),
-    timeRange: `${timeFormatter.format(stop.startTime)} – ${timeFormatter.format(stop.endTime)}`,
-  };
-}
+import { formatStopSchedule } from "@/lib/stop-schedule";
 
 export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
   const t = useTranslations("findUs");

@@ -5,6 +5,8 @@ import { DrizzleProductRepository } from "@workspace/db/repositories";
 import { CartProvider } from "@/lib/cart-store";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { CheckoutModal } from "@/components/cart/checkout-modal";
+import { CartTrimNotice } from "@/components/cart/stop-selector";
+import { getPickupStopsAction } from "@/app/actions/pickup-stops";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Hero } from "@/components/sections/hero";
@@ -14,7 +16,7 @@ import { Events } from "@/components/sections/events";
 import { FindUs } from "@/components/sections/find-us";
 import { Footer } from "@/components/sections/footer";
 
-// El catálogo (Menu) y las paradas (FindUs) consultan Postgres en vivo —
+// El catálogo (Menu), las paradas (FindUs) y el stock por parada del carrito consultan Postgres en vivo —
 // sin esto, generateStaticParams() del layout hace que next build intente
 // pre-renderizar la página estáticamente, ejecutando esas queries contra
 // la DB real *en build time* y congelando los datos hasta el próximo
@@ -25,10 +27,13 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const products = await listAvailableProducts(new DrizzleProductRepository());
+  const [products, pickup] = await Promise.all([
+    listAvailableProducts(new DrizzleProductRepository()),
+    getPickupStopsAction(),
+  ]);
 
   return (
-    <CartProvider products={products}>
+    <CartProvider products={products} pickup={pickup}>
       <main className="w-full min-h-screen bg-sweet-dark text-cream selection:bg-sin-red selection:text-white pb-14 md:pb-0">
         <Navbar />
         <Hero />
@@ -41,6 +46,7 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
       </main>
       <CartDrawer />
       <CheckoutModal />
+      <CartTrimNotice />
     </CartProvider>
   );
 }

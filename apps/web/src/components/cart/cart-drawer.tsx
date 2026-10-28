@@ -3,11 +3,13 @@
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { useCart } from "@/lib/cart-store";
+import { StopSelector } from "./stop-selector";
 
 export function CartDrawer() {
   const t = useTranslations("cart");
   const locale = useLocale();
-  const { items, products, isDrawerOpen, closeDrawer, setQty, subtotalCents, savingsCents, openCheckout } = useCart();
+  const { items, products, isDrawerOpen, closeDrawer, setQty, subtotalCents, savingsCents, openCheckout, limitOf } =
+    useCart();
 
   if (!isDrawerOpen) return null;
 
@@ -25,6 +27,9 @@ export function CartDrawer() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="mb-5">
+            <StopSelector />
+          </div>
           {items.length === 0 ? (
             <p className="text-navy/40 text-sm font-mono text-center mt-12">{t("empty")}</p>
           ) : (
@@ -50,7 +55,8 @@ export function CartDrawer() {
                       <span className="font-mono text-sm text-navy w-4 text-center">{item.quantity}</span>
                       <button
                         onClick={() => setQty(item.productId, item.quantity + 1)}
-                        className="w-7 h-7 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors"
+                        disabled={item.quantity >= limitOf(item.productId)}
+                        className="w-7 h-7 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors disabled:bg-navy/20 disabled:cursor-not-allowed"
                       >
                         +
                       </button>

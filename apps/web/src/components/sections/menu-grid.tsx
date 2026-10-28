@@ -7,6 +7,7 @@ import type { Product, ProductCategory } from "@workspace/domain/products";
 import { useLocale, useTranslations } from "next-intl";
 import { isMotionOk } from "@/lib/animations";
 import { useCart } from "@/lib/cart-store";
+import { StopSelector } from "@/components/cart/stop-selector";
 
 type Filter = "all" | ProductCategory;
 
@@ -69,6 +70,10 @@ export function MenuGrid({ products }: { products: Product[] }) {
             </h2>
           </div>
 
+          <div className="w-full md:max-w-sm">
+            <StopSelector tone="cream" />
+          </div>
+
           <div className="flex bg-navy/[0.06] p-1 rounded-full w-max">
             {(Object.keys(filterLabels) as Filter[]).map((f) => (
               <button
@@ -102,8 +107,21 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
   const name = locale === "en" ? product.nameEn : product.nameEs;
   const description = locale === "en" ? product.descriptionEn : product.descriptionEs;
   const price = (product.priceCents / 100).toFixed(2);
-  const { items, add, remove } = useCart();
+  const t = useTranslations("cart");
+  const { items, add, remove, selectedStop, autoSoldOutEnabled, limitOf } = useCart();
   const quantity = items.find((i) => i.productId === product.id)?.quantity ?? 0;
+  const canAddMore = quantity < limitOf(product.id);
+  const stockRow = selectedStop?.availability.find((a) => a.productId === product.id);
+  // Texto (no solo color): sin fila en la parada, agotado, o cuántos quedan (solo con "Agotado" encendido).
+  const availabilityText = !selectedStop
+    ? null
+    : !stockRow
+      ? t("notAtStop")
+      : !autoSoldOutEnabled
+        ? null
+        : stockRow.available <= 0
+          ? t("soldOut")
+          : t("availableCount", { count: stockRow.available });
 
   return (
     <div className="menu-card bg-white border border-navy/[0.07] rounded-2xl overflow-hidden group transition-all duration-300 hover:border-sin-red/30 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(230,57,70,0.10)] flex flex-col">
@@ -133,6 +151,11 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
         <div>
           <h3 className="font-serif font-bold text-[14px] md:text-[18px] text-navy leading-tight">{name}</h3>
           <p className="text-[11px] md:text-[13px] text-navy/45 leading-relaxed mt-1 hidden md:block">{description}</p>
+          {availabilityText && (
+            <p className="font-mono text-[10px] md:text-[11px] uppercase tracking-wider text-navy/70 mt-1">
+              {availabilityText}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-auto pt-2">
@@ -141,8 +164,9 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
           {quantity === 0 ? (
             <button
               onClick={() => add(product.id)}
-              className="w-8 h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors"
-              aria-label={`Add ${name}`}
+              disabled={!canAddMore}
+              className="w-8 h-8 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors disabled:bg-navy/20 disabled:cursor-not-allowed"
+              aria-label={availabilityText && !canAddMore ? `${name}: ${availabilityText}` : `Add ${name}`}
             >
               +
             </button>
@@ -158,7 +182,8 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
               <span className="font-mono text-[13px] text-navy w-4 text-center">{quantity}</span>
               <button
                 onClick={() => add(product.id)}
-                className="w-7 h-7 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors"
+                disabled={!canAddMore}
+                className="w-7 h-7 rounded-full bg-sin-red text-white flex items-center justify-center hover:bg-sin-red-light transition-colors disabled:bg-navy/20 disabled:cursor-not-allowed"
                 aria-label={`Add one more ${name}`}
               >
                 +

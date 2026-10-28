@@ -3,10 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const state = vi.hoisted(() => ({
   created: [] as Array<Record<string, unknown>>,
   deps: [] as Array<Record<string, unknown>>,
+  createError: null as Error | null,
+  stopStock: [] as Array<{ productId: string; currentStock: number }>,
 }));
 
 vi.mock("@workspace/domain/orders", () => ({
   createOrder: vi.fn(async (deps: Record<string, unknown>, input: Record<string, unknown>) => {
+    if (state.createError) throw state.createError;
     state.deps.push(deps);
     state.created.push(input);
     return { id: "o1", customerEmail: "a@b.co", totalCents: 1000 };
@@ -15,7 +18,11 @@ vi.mock("@workspace/domain/orders", () => ({
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {},
   DrizzleProductRepository: class {},
-  DrizzleStockRepository: class {},
+  DrizzleStockRepository: class {
+    async listByStop() {
+      return state.stopStock;
+    }
+  },
   DrizzleTrailerStopRepository: class {},
   DrizzleSettingsRepository: class {
     async get() {
@@ -47,13 +54,76 @@ const base: PlaceOrderInput = {
   locale: "es",
 };
 
+const STOP = "22222222-2222-4222-8222-222222222222";
+const P1 = "11111111-1111-4111-8111-111111111111";
+const P2 = "33333333-3333-4333-8333-333333333333";
+
 beforeEach(() => {
   state.created.length = 0;
   state.deps.length = 0;
+  state.createError = null;
+  state.stopStock = [];
+});
+
+describe("placeOrderAction - stopId", () => {
+  const pickup: PlaceOrderInput = { ...base, fulfillmentType: "pickup", deliveryAddress: undefined };
+
+  it("rechaza stopId con self_delivery sin crear la orden", async () => {
+    await expect(placeOrderAction({ ...base, stopId: STOP })).rejects.toThrow();
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("acepta pickup con un UUID y lo pasa a createOrder", async () => {
+    const result = await placeOrderAction({ ...pickup, stopId: STOP });
+    expect(result).toEqual({ ok: true, orderId: "o1", totalCents: 1000 });
+    expect(state.created[0].stopId).toBe(STOP);
+  });
+
+  it("rechaza un stopId que no es UUID", async () => {
+    await expect(placeOrderAction({ ...pickup, stopId: "no-uuid" })).rejects.toThrow();
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("pickup sin parada sigue mandando stopId null", async () => {
+    await placeOrderAction(pickup);
+    expect(state.created[0].stopId).toBeNull();
+  });
+
+  it("si el stock cambió devuelve el máximo disponible por producto (0 sin fila)", async () => {
+    state.createError = new Error("Quantity exceeds availability");
+    state.stopStock = [{ productId: P1, currentStock: 2 }];
+    const result = await placeOrderAction({
+      ...pickup,
+      stopId: STOP,
+      items: [
+        { productId: P1, quantity: 5 },
+        { productId: P2, quantity: 1 },
+      ],
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "stockChanged",
+      available: [
+        { productId: P1, available: 2 },
+        { productId: P2, available: 0 },
+      ],
+    });
+  });
+
+  it("traduce la parada no disponible a un código", async () => {
+    state.createError = new Error("Stop not available");
+    const result = await placeOrderAction({ ...pickup, stopId: STOP });
+    expect(result).toEqual({ ok: false, error: "stopUnavailable" });
+  });
+
+  it("relanza errores que no son de parada ni de stock", async () => {
+    state.createError = new Error("boom");
+    await expect(placeOrderAction({ ...pickup, stopId: STOP })).rejects.toThrow("boom");
+  });
 });
 
 describe("placeOrderAction - dependencias", () => {
-  it("cablea paradas y stock en createOrder y sigue mandando stopId null", async () => {
+  it("cablea paradas y stock en createOrder y manda stopId null sin parada", async () => {
     await placeOrderAction(base);
     expect(state.deps[0]).toEqual(
       expect.objectContaining({ stops: expect.any(Object), stock: expect.any(Object) }),

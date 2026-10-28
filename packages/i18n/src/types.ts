@@ -139,6 +139,19 @@ export interface Dictionary {
     confirmationBody: string;
     doneButton: string;
     total: string;
+    stopSelectorLabel: string;
+    stopSelectorNone: string;
+    stopSelectorHint: string;
+    stopSelectorEmpty: string;
+    trimNoticeTitle: string;
+    trimNoticeReduced: string;
+    trimNoticeRemoved: string;
+    trimNoticeDismiss: string;
+    errorStopUnavailable: string;
+    errorStockChanged: string;
+    availableCount: string;
+    soldOut: string;
+    notAtStop: string;
   };
   auth: {
     loginTitle: string;
