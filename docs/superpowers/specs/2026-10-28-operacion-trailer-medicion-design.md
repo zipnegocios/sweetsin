@@ -20,7 +20,7 @@ Este proyecto resuelve eso en tres bloques y deja listo el terreno para el motor
 1. Paradas CRUD completo: hecho.
 2. Plantillas de stock y stock de paradas existentes: hecho.
 3. **Este proyecto:** abrir/cerrar el trailer, reposición y merma en vivo, pedidos ligados a paradas, "Agotado", medición de tiempos para el equipo interno y página de Settings con interruptores.
-4. Motor de capacidad y reglas por producto: pasos de preparación con recursos (plancha de 50 piezas a 50 s, etc.), tandas de preparación y de traslado, capacidad del vehículo, topes de delivery por producto, antelación mínima, interruptor "se vende en línea" por producto. Se calibra con los tiempos medidos en este proyecto.
+4. Motor de capacidad y reglas por producto: capacidad instalada de preparación o ensamble (cuántas unidades se pueden alistar a la vez en el área de trabajo, por ejemplo 20, 30, 50 o 100, y cuánto tarda cada lote; no se asume ningún equipo concreto porque el proceso real aún no está descrito), pasos opcionales por producto, lotes de preparación y de traslado, capacidad del vehículo, topes de delivery por producto, antelación mínima, interruptor "se vende en línea" por producto. Se calibra con los tiempos medidos en este proyecto.
 5. Jornadas de delivery con stock propio y configuración de stock compartido o separado.
 6. (Transversal) Endpoints admin para la futura APK de administrador, construidos en cada etapa.
 
