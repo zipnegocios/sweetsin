@@ -44,5 +44,8 @@ export interface Order {
   deliveryEvidenceCapturedAt?: Date | null;
   deliveryEvidenceLat?: number | null;
   deliveryEvidenceLng?: number | null;
+  // Motivo por el que un pedido pagado quedó fuera de la cola ("insufficient_stock:<productId>",
+  // "stop_cancelled"). null o ausente = no requiere atención.
+  attentionReason?: string | null;
   items: OrderItem[];
 }

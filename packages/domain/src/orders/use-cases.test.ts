@@ -9,9 +9,15 @@ import {
   markOrderDelivered,
   changeOrderFulfillmentStatus,
   recordDeliveryEvidence,
+  markPickupDelivered,
+  retryOrderStock,
+  resolveOrderAttention,
+  isOrderConflictMessage,
 } from "./use-cases";
 import type { Order } from "./entities";
-import type { OrderRepository, OrderFilters } from "./ports";
+import type { OrderRepository, OrderFilters, TransitionContext } from "./ports";
+import type { TrailerStop } from "../trailer-stops/entities";
+import type { TrailerStopRepository } from "../trailer-stops/ports";
 import type { Product } from "../products/entities";
 import type { ProductRepository } from "../products/ports";
 import type { StockRepository } from "../stock/ports";
@@ -227,6 +233,9 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
       paidCalls.push(id);
       order.paymentStatus = "paid";
     },
+    async setAttention(_id, reason) {
+      order.attentionReason = reason;
+    },
     async listAll() {
       return [];
     },
@@ -248,12 +257,34 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
   };
 }
 
-function fakeStockRepo(stock: StopProductStock[]): StockRepository & { events: Omit<StockEvent, "id">[] } {
+function fakeStockRepo(
+  stock: StopProductStock[],
+): StockRepository & { events: Omit<StockEvent, "id">[]; reversals: string[] } {
   const events: Omit<StockEvent, "id">[] = [];
+  const reversals: string[] = [];
   return {
     events,
+    reversals,
     async findByStopAndProduct(stopId, productId) {
       return stock.find((s) => s.stopId === stopId && s.productId === productId) ?? null;
+    },
+    async decrementForOrder(stopId, orderId, lines) {
+      const rows = lines.map((l) => stock.find((s) => s.stopId === stopId && s.productId === l.productId));
+      const shortIdx = lines.findIndex((l, i) => !rows[i] || rows[i]!.currentStock < l.quantity);
+      if (shortIdx !== -1) return { ok: false as const, productId: lines[shortIdx].productId };
+      lines.forEach((l, i) => {
+        rows[i]!.currentStock -= l.quantity;
+        events.push({ stopProductStockId: rows[i]!.id, eventType: "sale", quantity: l.quantity, reason: null, reportedByUserId: null, orderId });
+      });
+      return { ok: true as const };
+    },
+    async reverseOrderSale(orderId) {
+      reversals.push(orderId);
+      const reversed = new Set(events.filter((e) => e.eventType === "sale_reversal" && e.orderId === orderId).map((e) => e.stopProductStockId));
+      for (const sale of events.filter((e) => e.eventType === "sale" && e.orderId === orderId && !reversed.has(e.stopProductStockId))) {
+        stock.find((s) => s.id === sale.stopProductStockId)!.currentStock += sale.quantity;
+        events.push({ ...sale, eventType: "sale_reversal" });
+      }
     },
     async decrementStock(id, quantity) {
       const item = stock.find((s) => s.id === id);
@@ -299,7 +330,7 @@ describe("confirmOrderPayment", () => {
     expect(stock.events).toHaveLength(0);
   });
 
-  it("decrements stock for every item when the order has a stopId", async () => {
+  it("descuenta todas las líneas de una vez cuando el pedido tiene parada", async () => {
     const order: Order = {
       id: "order-2",
       customerId: null,
@@ -326,8 +357,9 @@ describe("confirmOrderPayment", () => {
     await confirmOrderPayment({ orders, stock }, "order-2");
 
     expect(stock.events).toEqual([
-      { stopProductStockId: "stock-1", eventType: "sale", quantity: 2, reason: null, reportedByUserId: null },
+      { stopProductStockId: "stock-1", eventType: "sale", quantity: 2, reason: null, reportedByUserId: null, orderId: "order-2" },
     ]);
+    expect(order.fulfillmentStatus).toBe("received");
   });
 
   it("is idempotent: does nothing if the order is already paid", async () => {
@@ -524,9 +556,18 @@ describe("listOrders", () => {
   });
 });
 
-function makeFakeOrderRepo(orders: Order[]): OrderRepository {
+function makeFakeOrderRepo(orders: Order[]): OrderRepository & { ctxs: (TransitionContext | undefined)[] } {
   const store = new Map(orders.map((o) => [o.id, o]));
+  const ctxs: (TransitionContext | undefined)[] = [];
   return {
+    ctxs,
+    setAttention: async (id, reason) => {
+      const o = store.get(id);
+      if (o) store.set(id, { ...o, attentionReason: reason });
+    },
+    cancelPendingOrdersForStop: async () => 0,
+    countPaidUndeliveredForStop: async () => 0,
+    countUndeliveredForStop: async () => 0,
     create: async (data) => {
       const order = { ...data, id: `order-${store.size + 1}` };
       store.set(order.id, order);
@@ -534,13 +575,15 @@ function makeFakeOrderRepo(orders: Order[]): OrderRepository {
     },
     findById: async (id) => store.get(id) ?? null,
     attachPaymentIntent: async () => {},
-    markAsPaid: async (id) => {
+    markAsPaid: async (id, ctx) => {
+      ctxs.push(ctx);
       const o = store.get(id);
       if (o) store.set(id, { ...o, paymentStatus: "paid" });
     },
     listAll: async () => [...store.values()],
     listByCustomerId: async () => [],
-    updateFulfillmentStatus: async (id, status) => {
+    updateFulfillmentStatus: async (id, status, ctx) => {
+      ctxs.push(ctx);
       const o = store.get(id);
       if (o) store.set(id, { ...o, fulfillmentStatus: status });
     },
@@ -549,7 +592,8 @@ function makeFakeOrderRepo(orders: Order[]): OrderRepository {
       [...store.values()].filter((o) => o.paymentStatus === "paid" && ["received", "in_prep"].includes(o.fulfillmentStatus)),
     findAssignedToDelivery: async (userId) =>
       [...store.values()].filter((o) => o.assignedDeliveryUserId === userId && o.fulfillmentStatus === "out_for_delivery"),
-    assignDelivery: async (id, deliveryUserId) => {
+    assignDelivery: async (id, deliveryUserId, ctx) => {
+      ctxs.push(ctx);
       const o = store.get(id);
       if (o) store.set(id, { ...o, assignedDeliveryUserId: deliveryUserId, fulfillmentStatus: "out_for_delivery" });
     },
@@ -878,5 +922,381 @@ describe("recordDeliveryEvidence", () => {
     await expect(
       recordDeliveryEvidence({ orders: makeFakeOrderRepo([]) }, "nope", "delivery-1", evidence),
     ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Proyecto 3: retiro entregado, descuento todo o nada, atención, cancelación y ctx
+// ---------------------------------------------------------------------------
+
+const ctx: TransitionContext = { actorUserId: "admin-1", source: "web", record: true };
+
+const pickupOrder = (overrides: Partial<Order> = {}): Order => ({
+  ...baseOrder,
+  id: "order-1",
+  fulfillmentType: "pickup",
+  deliveryAddress: null,
+  stopId: "stop-1",
+  paymentStatus: "pending",
+  fulfillmentStatus: "pending",
+  items: [
+    { productId: "p1", quantity: 2, unitPriceCents: 1000, lineDiscountCents: 0 },
+    { productId: "p2", quantity: 3, unitPriceCents: 1000, lineDiscountCents: 0 },
+  ],
+  ...overrides,
+});
+
+const stockRows = (p1: number, p2: number): StopProductStock[] => [
+  { id: "s1", stopId: "stop-1", productId: "p1", maxStock: 10, currentStock: p1 },
+  { id: "s2", stopId: "stop-1", productId: "p2", maxStock: 10, currentStock: p2 },
+];
+
+function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
+  return {
+    id: "stop-1",
+    location: "Rundle Mall",
+    lat: -34.92,
+    lng: 138.6,
+    startTime: new Date(Date.now() - 3_600_000),
+    endTime: new Date(Date.now() + 3_600_000),
+    status: "active",
+    originalLocation: null,
+    originalLat: null,
+    originalLng: null,
+    originalStartTime: null,
+    originalEndTime: null,
+    ...overrides,
+  };
+}
+
+function fakeStopRepo(stops: TrailerStop[]): TrailerStopRepository {
+  return {
+    findById: async (id) => stops.find((s) => s.id === id) ?? null,
+    listVisible: async () => stops,
+    listAll: async () => stops,
+    create: async () => {
+      throw new Error("unused");
+    },
+    updateStatus: async () => {},
+    update: async () => {},
+    countOrders: async () => 0,
+    deleteWithStock: async () => {},
+  };
+}
+
+describe("markPickupDelivered", () => {
+  it("entrega un retiro ready_for_pickup sin repartidor y pasa el ctx", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", fulfillmentStatus: "ready_for_pickup" })]);
+    const updated = await markPickupDelivered({ orders: repo }, "order-1", ctx);
+    expect(updated.fulfillmentStatus).toBe("delivered");
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("delivered");
+    expect(repo.ctxs).toEqual([ctx]);
+  });
+
+  it("rechaza un pedido self_delivery", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    await expect(markPickupDelivered({ orders: repo }, "order-1")).rejects.toThrow("Only pickup orders can be handed over");
+  });
+
+  it("rechaza si no está ready_for_pickup", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ fulfillmentStatus: "in_prep" })]);
+    await expect(markPickupDelivered({ orders: repo }, "order-1")).rejects.toThrow(
+      "Cannot mark delivered from status: in_prep",
+    );
+  });
+});
+
+describe("changeOrderFulfillmentStatus: delivered por tipo, cancelación y ctx", () => {
+  const users = () => fakeUserRepo([fakeUser()]);
+
+  it("retiro: ready_for_pickup -> delivered sin repartidor", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", fulfillmentStatus: "ready_for_pickup" })]);
+    await changeOrderFulfillmentStatus({ orders: repo, users: users() }, "order-1", "delivered", { ctx });
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("delivered");
+    expect(repo.ctxs).toEqual([ctx]);
+  });
+
+  it("delivery: out_for_delivery -> delivered con el repartidor asignado y ctx", async () => {
+    const repo = makeFakeOrderRepo([
+      { ...baseOrder, fulfillmentStatus: "out_for_delivery", assignedDeliveryUserId: "delivery-1" },
+    ]);
+    await changeOrderFulfillmentStatus({ orders: repo, users: users() }, "order-1", "delivered", { ctx });
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("delivered");
+    expect(repo.ctxs).toEqual([ctx]);
+  });
+
+  it("delivery: ready_for_pickup -> delivered se rechaza (exige repartidor)", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "ready_for_pickup" }]);
+    await expect(
+      changeOrderFulfillmentStatus({ orders: repo, users: users() }, "order-1", "delivered"),
+    ).rejects.toThrow("Order has no assigned delivery user");
+  });
+
+  it("pasa el ctx en in_prep, ready_for_pickup y out_for_delivery", async () => {
+    const repo = makeFakeOrderRepo([{ ...baseOrder, fulfillmentStatus: "received" }]);
+    const deps = { orders: repo, users: users() };
+    await changeOrderFulfillmentStatus(deps, "order-1", "in_prep", { ctx });
+    await changeOrderFulfillmentStatus(deps, "order-1", "ready_for_pickup", { ctx });
+    await changeOrderFulfillmentStatus(deps, "order-1", "out_for_delivery", { ctx, deliveryUserId: "delivery-1" });
+    expect(repo.ctxs).toEqual([ctx, ctx, ctx]);
+  });
+
+  it("cancelar un pagado con stock revierte una vez; cancelar de nuevo no revierte", async () => {
+    const rows = stockRows(10, 10);
+    const stock = fakeStockRepo(rows);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    expect(rows.map((r) => r.currentStock)).toEqual([8, 7]);
+
+    await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled", { ctx });
+    await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled", { ctx });
+
+    expect(stock.reversals).toEqual(["order-1"]);
+    expect(stock.events.filter((e) => e.eventType === "sale_reversal")).toHaveLength(2);
+    expect(rows.map((r) => r.currentStock)).toEqual([10, 10]);
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
+    expect(repo.ctxs.at(-1)).toEqual(ctx);
+  });
+
+  it("cancelar un pedido en atención no revierte (no se descontó nada)", async () => {
+    const stock = fakeStockRepo(stockRows(10, 10));
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
+    await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled");
+    expect(stock.reversals).toEqual([]);
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
+  });
+
+  it("cancelar un pedido sin pagar no revierte", async () => {
+    const stock = fakeStockRepo(stockRows(10, 10));
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled");
+    expect(stock.reversals).toEqual([]);
+  });
+
+  it("un pedido en atención no avanza por el cambio de estado genérico", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "stop_cancelled" })]);
+    await expect(
+      changeOrderFulfillmentStatus({ orders: repo, users: users() }, "order-1", "received"),
+    ).rejects.toThrow("Order requires attention");
+  });
+});
+
+describe("confirmOrderPayment: descuento todo o nada", () => {
+  it("con stock suficiente descuenta todas las líneas, pasa a received y pasa el ctx", async () => {
+    const rows = stockRows(5, 5);
+    const stock = fakeStockRepo(rows);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    const webhookCtx: TransitionContext = { actorUserId: null, source: "webhook", record: true };
+    await confirmOrderPayment({ orders: repo, stock }, "order-1", webhookCtx);
+    expect(rows.map((r) => r.currentStock)).toEqual([3, 2]);
+    const order = await repo.findById("order-1");
+    expect(order?.paymentStatus).toBe("paid");
+    expect(order?.fulfillmentStatus).toBe("received");
+    expect(order?.attentionReason ?? null).toBeNull();
+    expect(repo.ctxs).toEqual([webhookCtx, webhookCtx]);
+  });
+
+  it("con una línea corta no descuenta nada, queda pending con atención y no notifica", async () => {
+    const rows = stockRows(5, 2);
+    const stock = fakeStockRepo(rows);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    const notify = vi.fn();
+    await confirmOrderPayment(
+      {
+        orders: repo,
+        stock,
+        users: fakeUserRepo([fakeUser({ id: "d1", role: "despachador" })]),
+        notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
+      },
+      "order-1",
+    );
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 2]);
+    expect(stock.events).toHaveLength(0);
+    const order = await repo.findById("order-1");
+    expect(order?.paymentStatus).toBe("paid");
+    expect(order?.fulfillmentStatus).toBe("pending");
+    expect(order?.attentionReason).toBe("insufficient_stock:p2");
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("parada cancelada: no descuenta y queda en atención stop_cancelled", async () => {
+    const rows = stockRows(5, 5);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment(
+      { orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop({ status: "cancelled" })]) },
+      "order-1",
+    );
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 5]);
+    const order = await repo.findById("order-1");
+    expect(order?.paymentStatus).toBe("paid");
+    expect(order?.fulfillmentStatus).toBe("pending");
+    expect(order?.attentionReason).toBe("stop_cancelled");
+  });
+
+  it("parada cerrada (completed): el pago sigue descontando normalmente", async () => {
+    const rows = stockRows(5, 5);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment(
+      { orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop({ status: "completed" })]) },
+      "order-1",
+    );
+    expect(rows.map((r) => r.currentStock)).toEqual([3, 2]);
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("received");
+  });
+
+  it("pago repetido no descuenta dos veces", async () => {
+    const rows = stockRows(5, 5);
+    const stock = fakeStockRepo(rows);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    expect(rows.map((r) => r.currentStock)).toEqual([3, 2]);
+    expect(stock.events.filter((e) => e.eventType === "sale")).toHaveLength(2);
+  });
+});
+
+describe("retryOrderStock / resolveOrderAttention", () => {
+  it("tras reponer, el reintento descuenta y deja received sin atención", async () => {
+    const rows = stockRows(5, 2);
+    const stock = fakeStockRepo(rows);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    expect((await repo.findById("order-1"))?.attentionReason).toBe("insufficient_stock:p2");
+
+    rows[1].currentStock = 6; // reposición
+    const updated = await retryOrderStock({ orders: repo, stock }, "order-1", ctx);
+
+    expect(updated.fulfillmentStatus).toBe("received");
+    const order = await repo.findById("order-1");
+    expect(order?.fulfillmentStatus).toBe("received");
+    expect(order?.attentionReason).toBeNull();
+    expect(rows.map((r) => r.currentStock)).toEqual([3, 3]);
+    expect(repo.ctxs.at(-1)).toEqual(ctx);
+  });
+
+  it("si sigue sin alcanzar lanza y no toca nada", async () => {
+    const rows = stockRows(5, 2);
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
+    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(rows) }, "order-1")).rejects.toThrow(
+      "Stock still insufficient",
+    );
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 2]);
+    expect((await repo.findById("order-1"))?.attentionReason).toBe("insufficient_stock:p2");
+  });
+
+  it("reintentar sin atención se rechaza", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid" })]);
+    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)) }, "order-1")).rejects.toThrow(
+      "Order does not require attention",
+    );
+  });
+
+  it("resolveOrderAttention limpia la atención y pasa a received sin tocar stock", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "stop_cancelled" })]);
+    const updated = await resolveOrderAttention({ orders: repo }, "order-1", ctx);
+    expect(updated.fulfillmentStatus).toBe("received");
+    const order = await repo.findById("order-1");
+    expect(order?.attentionReason).toBeNull();
+    expect(order?.fulfillmentStatus).toBe("received");
+    expect(repo.ctxs).toEqual([ctx]);
+  });
+
+  it("resolveOrderAttention sin atención se rechaza", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid" })]);
+    await expect(resolveOrderAttention({ orders: repo }, "order-1")).rejects.toThrow("Order does not require attention");
+  });
+});
+
+describe("createOrder con parada", () => {
+  type Input = Parameters<typeof createOrder>[1];
+  const input = (overrides: Partial<Input> = {}): Input => ({
+    customerId: null,
+    customerName: "Jane",
+    customerEmail: "jane@example.com",
+    customerPhone: "+61400000000",
+    fulfillmentType: "pickup",
+    deliveryAddress: null,
+    deliveryNotes: null,
+    stopId: "stop-1",
+    deliveryFeeCents: 0,
+    channel: "web",
+    items: [
+      { productId: "p1", quantity: 2 },
+      { productId: "p2", quantity: 3 },
+    ],
+    ...overrides,
+  });
+  const products = () => fakeProductRepo([fakeProduct({ id: "p1" }), fakeProduct({ id: "p2", slug: "pride" })]);
+  const deps = (stop: TrailerStop | null, rows: StopProductStock[] = stockRows(5, 5)) => ({
+    products: products(),
+    orders: fakeOrderRepo(),
+    stops: fakeStopRepo(stop ? [stop] : []),
+    stock: fakeStockRepo(rows),
+  });
+
+  it("acepta un retiro válido en una parada activa o programada", async () => {
+    await expect(createOrder(deps(fakeStop()), input())).resolves.toMatchObject({ stopId: "stop-1" });
+    await expect(createOrder(deps(fakeStop({ status: "scheduled" })), input())).resolves.toMatchObject({
+      stopId: "stop-1",
+    });
+  });
+
+  it("rechaza delivery con parada", async () => {
+    await expect(
+      createOrder(deps(fakeStop()), input({ fulfillmentType: "self_delivery", deliveryAddress: "1 Test St" })),
+    ).rejects.toThrow("Only pickup orders can target a stop");
+  });
+
+  it("rechaza parada inexistente", async () => {
+    await expect(createOrder(deps(null), input())).rejects.toThrow("Stop not found");
+  });
+
+  it.each(["completed", "cancelled"] as const)("rechaza parada %s", async (status) => {
+    await expect(createOrder(deps(fakeStop({ status })), input())).rejects.toThrow("Stop not available");
+  });
+
+  it("rechaza parada vencida", async () => {
+    await expect(createOrder(deps(fakeStop({ endTime: new Date(Date.now() - 60_000) })), input())).rejects.toThrow(
+      "Stop not available",
+    );
+  });
+
+  it("rechaza producto sin fila de stock en la parada", async () => {
+    await expect(createOrder(deps(fakeStop(), stockRows(5, 5).slice(0, 1)), input())).rejects.toThrow(
+      "Product not available at this stop",
+    );
+  });
+
+  it("rechaza cantidad mayor a la disponible", async () => {
+    await expect(createOrder(deps(fakeStop(), stockRows(5, 2)), input())).rejects.toThrow(
+      "Quantity exceeds availability",
+    );
+  });
+
+  it("sin parada no valida parada ni stock", async () => {
+    await expect(createOrder({ products: products(), orders: fakeOrderRepo() }, input({ stopId: null }))).resolves.toMatchObject({
+      stopId: null,
+    });
+  });
+});
+
+describe("isOrderConflictMessage", () => {
+  it("reconoce los mensajes de negocio y no otros", () => {
+    for (const m of [
+      "Only pickup orders can target a stop",
+      "Stop not found",
+      "Stop not available",
+      "Product not available at this stop",
+      "Quantity exceeds availability",
+      "Only pickup orders can be handed over",
+      "Stock still insufficient",
+      "Order does not require attention",
+      "Order requires attention",
+      "Invalid transition: delivered → in_prep",
+      "Cannot mark delivered from status: in_prep",
+      "Cannot move to in_prep from status: pending",
+    ]) expect(isOrderConflictMessage(m)).toBe(true);
+    expect(isOrderConflictMessage("Order not found: x")).toBe(false);
+    expect(isOrderConflictMessage("boom")).toBe(false);
   });
 });
