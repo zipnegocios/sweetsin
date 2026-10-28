@@ -30,6 +30,8 @@ export default async function AdminLayout({
     { href: "/admin/calendar", label: t("navCalendar"), icon: "calendar" },
     { href: "/admin/email-logs", label: t("navEmailLogs"), icon: "emails" },
     { href: "/admin/staff", label: t("navStaff"), icon: "staff" },
+    { href: "/admin/reports/fulfillment", label: t("navReports"), icon: "reports" },
+    { href: "/admin/settings", label: t("navSettings"), icon: "settings" },
   ];
 
   return (

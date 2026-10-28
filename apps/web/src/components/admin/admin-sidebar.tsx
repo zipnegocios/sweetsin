@@ -12,6 +12,8 @@ import {
   CalendarIcon,
   MailIcon,
   StaffIcon,
+  SettingsIcon,
+  ReportIcon,
   ChevronIcon,
   MenuIcon,
   CloseIcon,
@@ -26,6 +28,8 @@ const ICONS = {
   calendar: CalendarIcon,
   emails: MailIcon,
   staff: StaffIcon,
+  settings: SettingsIcon,
+  reports: ReportIcon,
 };
 
 export type AdminNavItem = { href: string; label: string; icon: keyof typeof ICONS };

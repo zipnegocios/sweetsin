@@ -69,6 +69,21 @@ export const StaffIcon = (p: P) => (
   </Icon>
 );
 
+export const SettingsIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+    <circle cx="16" cy="7" r="2" />
+    <circle cx="8" cy="17" r="2" />
+  </Icon>
+);
+
+export const ReportIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M4 20V4M4 20h16" />
+    <path d="M8 16v-5M12 16V8M16 16v-3" />
+  </Icon>
+);
+
 export const ChevronIcon = (p: P) => (
   <Icon {...p}>
     <path d="m15 6-6 6 6 6" />
