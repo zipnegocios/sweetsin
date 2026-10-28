@@ -3,17 +3,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const state = vi.hoisted(() => ({
   created: [] as Array<Record<string, unknown>>,
   deps: [] as Array<Record<string, unknown>>,
+  options: [] as Array<Record<string, unknown> | undefined>,
+  autoSoldOutEnabled: true,
   createError: null as Error | null,
   stopStock: [] as Array<{ productId: string; currentStock: number }>,
 }));
 
 vi.mock("@workspace/domain/orders", () => ({
-  createOrder: vi.fn(async (deps: Record<string, unknown>, input: Record<string, unknown>) => {
+  createOrder: vi.fn(
+    async (deps: Record<string, unknown>, input: Record<string, unknown>, options?: Record<string, unknown>) => {
     if (state.createError) throw state.createError;
     state.deps.push(deps);
     state.created.push(input);
+    state.options.push(options);
     return { id: "o1", customerEmail: "a@b.co", totalCents: 1000 };
-  }),
+    },
+  ),
 }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {},
@@ -26,7 +31,7 @@ vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {},
   DrizzleSettingsRepository: class {
     async get() {
-      return { deliveryFeeCents: 500 };
+      return { deliveryFeeCents: 500, autoSoldOutEnabled: state.autoSoldOutEnabled };
     }
   },
   DrizzleEmailLogRepository: class {
@@ -61,6 +66,8 @@ const P2 = "33333333-3333-4333-8333-333333333333";
 beforeEach(() => {
   state.created.length = 0;
   state.deps.length = 0;
+  state.options.length = 0;
+  state.autoSoldOutEnabled = true;
   state.createError = null;
   state.stopStock = [];
 });
@@ -84,14 +91,24 @@ describe("placeOrderAction - stopId", () => {
     expect(state.created).toHaveLength(0);
   });
 
+  it("pasa autoSoldOutEnabled de Settings como enforceAvailability", async () => {
+    await placeOrderAction({ ...pickup, stopId: STOP });
+    state.autoSoldOutEnabled = false;
+    await placeOrderAction({ ...pickup, stopId: STOP });
+    expect(state.options).toEqual([{ enforceAvailability: true }, { enforceAvailability: false }]);
+  });
+
   it("pickup sin parada sigue mandando stopId null", async () => {
     await placeOrderAction(pickup);
     expect(state.created[0].stopId).toBeNull();
   });
 
-  it("si el stock cambió devuelve el máximo disponible por producto (0 sin fila)", async () => {
+  it("si el stock cambió devuelve el disponible de los productos pedidos con fila (sin fila = ausente)", async () => {
     state.createError = new Error("Quantity exceeds availability");
-    state.stopStock = [{ productId: P1, currentStock: 2 }];
+    state.stopStock = [
+      { productId: P1, currentStock: 2 },
+      { productId: "44444444-4444-4444-8444-444444444444", currentStock: 9 },
+    ];
     const result = await placeOrderAction({
       ...pickup,
       stopId: STOP,
@@ -103,10 +120,7 @@ describe("placeOrderAction - stopId", () => {
     expect(result).toEqual({
       ok: false,
       error: "stockChanged",
-      available: [
-        { productId: P1, available: 2 },
-        { productId: P2, available: 0 },
-      ],
+      available: [{ productId: P1, available: 2 }],
     });
   });
 

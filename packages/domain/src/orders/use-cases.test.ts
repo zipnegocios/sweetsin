@@ -1278,10 +1278,34 @@ describe("createOrder con parada", () => {
     await expect(createOrder(deps(fakeStop({ status })), input())).rejects.toThrow("Stop not available");
   });
 
-  it("rechaza parada vencida", async () => {
-    await expect(createOrder(deps(fakeStop({ endTime: new Date(Date.now() - 60_000) })), input())).rejects.toThrow(
-      "Stop not available",
-    );
+  it("rechaza parada programada vencida", async () => {
+    await expect(
+      createOrder(deps(fakeStop({ status: "scheduled", endTime: new Date(Date.now() - 60_000) })), input()),
+    ).rejects.toThrow("Stop not available");
+  });
+
+  it("acepta parada activa pasada su hora de fin (sigue abierta hasta cerrarla)", async () => {
+    await expect(
+      createOrder(deps(fakeStop({ status: "active", endTime: new Date(Date.now() - 60_000) })), input()),
+    ).resolves.toMatchObject({ stopId: "stop-1" });
+  });
+
+  it("con enforceAvailability apagado acepta cantidad mayor al stock", async () => {
+    await expect(
+      createOrder(deps(fakeStop(), stockRows(5, 2)), input(), { enforceAvailability: false }),
+    ).resolves.toMatchObject({ stopId: "stop-1" });
+  });
+
+  it("con enforceAvailability encendido rechaza cantidad mayor al stock", async () => {
+    await expect(
+      createOrder(deps(fakeStop(), stockRows(5, 2)), input(), { enforceAvailability: true }),
+    ).rejects.toThrow("Quantity exceeds availability");
+  });
+
+  it("con enforceAvailability apagado sigue exigiendo fila de stock en la parada", async () => {
+    await expect(
+      createOrder(deps(fakeStop(), stockRows(5, 5).slice(0, 1)), input(), { enforceAvailability: false }),
+    ).rejects.toThrow("Product not available at this stop");
   });
 
   it("rechaza producto sin fila de stock en la parada", async () => {

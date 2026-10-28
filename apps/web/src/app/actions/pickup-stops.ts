@@ -10,12 +10,13 @@ import { eligiblePickupStops, type PickupStopsData } from "@/lib/pickup-stops";
 // Lectura pública (sin sesión): paradas de retiro elegibles y su stock actual.
 export async function getPickupStopsAction(): Promise<PickupStopsData> {
   const stockRepo = new DrizzleStockRepository();
-  const [settings, visible] = await Promise.all([
+  // listAll (no listVisible): una parada activa sigue abierta aunque haya pasado su hora de fin.
+  const [settings, all] = await Promise.all([
     new DrizzleSettingsRepository().get(),
-    new DrizzleTrailerStopRepository().listVisible(),
+    new DrizzleTrailerStopRepository().listAll(),
   ]);
   const stops = await Promise.all(
-    eligiblePickupStops(visible, new Date()).map(async (stop) => ({
+    eligiblePickupStops(all, new Date()).map(async (stop) => ({
       stopId: stop.id,
       location: stop.location,
       startTime: stop.startTime,

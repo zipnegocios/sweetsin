@@ -11,11 +11,15 @@ import { listActiveStaff } from "../users/use-cases";
 export async function createOrder(
   deps: { products: ProductRepository; orders: OrderRepository; stops?: TrailerStopRepository; stock?: StockRepository },
   input: NewOrderInput,
+  /** `enforceAvailability: false` (Settings.autoSoldOutEnabled apagado) no limita la cantidad al stock. */
+  options: { enforceAvailability?: boolean } = {},
 ): Promise<Order> {
   if (input.items.length === 0) {
     throw new Error("Order must have at least one item");
   }
-  if (input.stopId !== null) await assertStopCanFulfill(deps, input.stopId, input);
+  if (input.stopId !== null) {
+    await assertStopCanFulfill(deps, input.stopId, input, options.enforceAvailability ?? true);
+  }
 
   const items: OrderItem[] = [];
   let subtotalCents = 0;
@@ -64,24 +68,27 @@ export async function createOrder(
   });
 }
 
-// Valida un pedido de retiro contra la parada elegida: tipo, estado, vigencia y stock por línea.
+// Valida un pedido de retiro contra la parada elegida: tipo, estado, vigencia, fila de stock y (si se exige) cantidad.
 // Es una revalidación al crear; el descuento real (todo o nada) ocurre al confirmar el pago.
 async function assertStopCanFulfill(
   deps: { stops?: TrailerStopRepository; stock?: StockRepository },
   stopId: string,
   input: NewOrderInput,
+  enforceAvailability: boolean,
 ): Promise<void> {
   if (input.fulfillmentType !== "pickup") throw new Error("Only pickup orders can target a stop");
   if (!deps.stops || !deps.stock) throw new Error("Stop validation requires stops and stock repositories");
   const stop = await deps.stops.findById(stopId);
   if (!stop) throw new Error("Stop not found");
-  if ((stop.status !== "active" && stop.status !== "scheduled") || stop.endTime.getTime() <= Date.now()) {
-    throw new Error("Stop not available");
-  }
+  // Una parada activa acepta pedidos hasta que se cierra, aunque haya pasado su hora de fin;
+  // una programada (pre-pedido) solo mientras no terminó.
+  const open =
+    stop.status === "active" || (stop.status === "scheduled" && stop.endTime.getTime() > Date.now());
+  if (!open) throw new Error("Stop not available");
   for (const line of input.items) {
     const row = await deps.stock.findByStopAndProduct(stopId, line.productId);
     if (!row) throw new Error("Product not available at this stop");
-    if (line.quantity > row.currentStock) throw new Error("Quantity exceeds availability");
+    if (enforceAvailability && line.quantity > row.currentStock) throw new Error("Quantity exceeds availability");
   }
 }
 

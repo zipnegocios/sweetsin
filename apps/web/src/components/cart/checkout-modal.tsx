@@ -8,13 +8,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCart } from "@/lib/cart-store";
 import { placeOrderAction, type PlaceOrderResult } from "@/app/actions/checkout";
 import { StopSelector } from "./stop-selector";
+import type { Fulfillment } from "@/lib/cart-availability";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null;
 
-type Fulfillment = "pickup" | "self_delivery";
 type Step = "fulfillment" | "address" | "contact" | "payment" | "confirmation";
 
 const inputClass =
@@ -41,11 +41,13 @@ export function CheckoutModal() {
     selectedStop,
     applyStockConflict,
     refreshPickupStops,
+    // El tipo de entrega vive en el carrito: en delivery la parada no limita ni recorta.
+    fulfillment,
+    setFulfillment,
   } = useCart();
   const [orderError, setOrderError] = useState("");
 
   const [step, setStep] = useState<Step>("fulfillment");
-  const [fulfillment, setFulfillment] = useState<Fulfillment | null>(null);
   const [address, setAddress] = useState({ line1: "", suburb: "" });
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [contact, setContact] = useState({ name: "", phone: "", email: "" });

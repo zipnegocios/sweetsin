@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { limitFor, trimCartToAvailability } from "./cart-availability";
+import { limitFor, stopAvailabilityFor, trimCartToAvailability } from "./cart-availability";
 
 const stopA = [
   { productId: "p1", available: 3 },
@@ -28,6 +28,28 @@ describe("limitFor", () => {
 
   it("con autoSoldOut apagado no limita productos con fila, aunque estén en 0", () => {
     expect(limitFor("p2", stopA, false)).toBe(Infinity);
+  });
+});
+
+describe("stopAvailabilityFor", () => {
+  it("en delivery la parada no limita ni recorta el carrito", () => {
+    const availability = stopAvailabilityFor("self_delivery", stopA);
+    expect(availability).toBeNull();
+    const lines = [{ productId: "p2", quantity: 9 }];
+    expect(trimCartToAvailability(lines, availability, true)).toEqual({ lines, changes: [] });
+  });
+
+  it("en retiro (o sin tipo elegido aún) aplica la parada", () => {
+    expect(stopAvailabilityFor("pickup", stopA)).toBe(stopA);
+    expect(stopAvailabilityFor(null, stopA)).toBe(stopA);
+  });
+
+  it("volver de delivery a retiro vuelve a recortar a la parada", () => {
+    const lines = [{ productId: "p1", quantity: 9 }];
+    expect(trimCartToAvailability(lines, stopAvailabilityFor("self_delivery", stopA), true).lines).toEqual(lines);
+    expect(trimCartToAvailability(lines, stopAvailabilityFor("pickup", stopA), true).lines).toEqual([
+      { productId: "p1", quantity: 3 },
+    ]);
   });
 });
 
@@ -87,6 +109,26 @@ describe("trimCartToAvailability", () => {
   it("sin parada elegida no toca el carrito", () => {
     const lines = [{ productId: "p9", quantity: 7 }];
     expect(trimCartToAvailability(lines, null, true)).toEqual({ lines, changes: [] });
+  });
+
+  it("quita líneas con cantidad inválida y las informa", () => {
+    const result = trimCartToAvailability(
+      [
+        { productId: "p1", quantity: 0 },
+        { productId: "p3", quantity: -2 },
+        { productId: "p9", quantity: Number.NaN },
+        { productId: "p4", quantity: 1.5 },
+      ],
+      null,
+      true,
+    );
+    expect(result.lines).toEqual([]);
+    expect(result.changes.map((c) => [c.productId, c.to])).toEqual([
+      ["p1", 0],
+      ["p3", 0],
+      ["p9", 0],
+      ["p4", 0],
+    ]);
   });
 
   it("con autoSoldOut apagado solo elimina productos sin fila", () => {

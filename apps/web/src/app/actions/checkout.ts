@@ -49,7 +49,7 @@ export type PlaceOrderResult =
   | { ok: true; orderId: string; totalCents: number }
   /** La parada ya no acepta pedidos (no existe, terminó, se canceló o cerró). */
   | { ok: false; error: "stopUnavailable" }
-  /** El stock cambió: máximo disponible ahora por producto pedido (0 = no se vende en esa parada). */
+  /** El stock cambió: disponible ahora por producto pedido con fila en la parada (ausente = no se vende ahí). */
   | { ok: false; error: "stockChanged"; available: { productId: string; available: number }[] };
 
 const STOP_UNAVAILABLE_ERRORS = ["Only pickup orders can target a stop", "Stop not found", "Stop not available"];
@@ -85,20 +85,22 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
         channel: parsed.channel,
         items: parsed.items,
       },
+      // "Agotado" apagado: la parada y su fila de stock se validan igual, la cantidad no se limita.
+      { enforceAvailability: settings.autoSoldOutEnabled },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (stopId && STOP_UNAVAILABLE_ERRORS.includes(message)) return { ok: false, error: "stopUnavailable" };
     if (stopId && STOCK_CHANGED_ERRORS.includes(message)) {
-      // El dominio no dice qué línea falló: se devuelve el disponible actual de cada producto pedido.
+      // El dominio no dice qué línea falló: se devuelve el disponible actual de cada producto pedido
+      // que tiene fila en la parada (los que no aparecen ya no se venden ahí).
       const rows = await stock.listByStop(stopId);
       return {
         ok: false,
         error: "stockChanged",
-        available: parsed.items.map((item) => ({
-          productId: item.productId,
-          available: rows.find((r) => r.productId === item.productId)?.currentStock ?? 0,
-        })),
+        available: rows
+          .filter((r) => parsed.items.some((item) => item.productId === r.productId))
+          .map((r) => ({ productId: r.productId, available: r.currentStock })),
       };
     }
     throw err;

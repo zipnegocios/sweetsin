@@ -6,8 +6,10 @@ import { getLineTotalCents } from "@workspace/domain/pricing";
 import { getPickupStopsAction } from "@/app/actions/pickup-stops";
 import {
   limitFor,
+  stopAvailabilityFor,
   trimCartToAvailability,
   type CartTrimChange,
+  type Fulfillment,
   type ProductAvailability,
 } from "@/lib/cart-availability";
 import type { PickupStop, PickupStopsData } from "@/lib/pickup-stops";
@@ -29,7 +31,10 @@ interface CartContextValue {
   selectedStop: PickupStop | null;
   selectStop: (stopId: string | null) => void;
   autoSoldOutEnabled: boolean;
-  /** Máximo pedible de un producto en la parada elegida (Infinity sin límite). */
+  /** Tipo de entrega elegido en el checkout (`null` = aún no elegido; la parada elegida implica retiro). */
+  fulfillment: Fulfillment | null;
+  setFulfillment: (fulfillment: Fulfillment | null) => void;
+  /** Máximo pedible de un producto en la parada elegida (Infinity sin límite o en delivery). */
   limitOf: (productId: string) => number;
   trimChanges: CartTrimChange[];
   dismissTrimChanges: () => void;
@@ -68,16 +73,29 @@ export function CartProvider({
   const [pickupStops, setPickupStops] = useState(pickup.stops);
   const [stopId, setStopId] = useState<string | null>(null);
   const [trimChanges, setTrimChanges] = useState<CartTrimChange[]>([]);
+  const [fulfillment, setFulfillmentState] = useState<Fulfillment | null>(null);
 
   const autoSoldOutEnabled = pickup.autoSoldOutEnabled;
   const selectedStop = pickupStops.find((s) => s.stopId === stopId) ?? null;
-  const limitOf = (productId: string) => limitFor(productId, selectedStop?.availability ?? null, autoSoldOutEnabled);
+  const limitOf = (productId: string) =>
+    limitFor(productId, stopAvailabilityFor(fulfillment, selectedStop?.availability ?? null), autoSoldOutEnabled);
 
-  function retrim(lines: CartLine[], availability: ProductAvailability[] | null, enforceStock = autoSoldOutEnabled) {
-    const result = trimCartToAvailability(lines, availability, enforceStock);
-    setItems(result.lines);
-    setTrimChanges(result.changes);
+  // Recorta sobre el estado más reciente (updater), no sobre `items` del render: así no
+  // resucita un carrito recién vaciado con clear() en el mismo evento. setTrimChanges es
+  // idempotente, por lo que es seguro aunque React invoque el updater dos veces.
+  function retrim(availability: ProductAvailability[] | null, base?: CartLine[]) {
+    setItems((prev) => {
+      const result = trimCartToAvailability(base ?? prev, availability, autoSoldOutEnabled);
+      setTrimChanges(result.changes);
+      return result.lines;
+    });
   }
+
+  // La parada solo limita el carrito en retiro: elegir delivery lo libera; volver a retiro lo vuelve a ajustar.
+  const setFulfillment = (next: Fulfillment | null) => {
+    setFulfillmentState(next);
+    retrim(stopAvailabilityFor(next, selectedStop?.availability ?? null));
+  };
 
   useEffect(() => {
     let lines: CartLine[] = [];
@@ -92,7 +110,7 @@ export function CartProvider({
     }
     // Una parada guardada que ya no es elegible se descarta; el carrito se ajusta a la que sigue vigente.
     setStopId(storedStop?.stopId ?? null);
-    retrim(lines, storedStop?.availability ?? null);
+    retrim(storedStop?.availability ?? null, lines);
     setHydrated(true);
     // Solo al montar: hidrata desde localStorage una vez.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,18 +130,18 @@ export function CartProvider({
   const selectStop = (nextStopId: string | null) => {
     const next = pickupStops.find((s) => s.stopId === nextStopId) ?? null;
     setStopId(next?.stopId ?? null);
-    retrim(items, next?.availability ?? null);
+    retrim(stopAvailabilityFor(fulfillment, next?.availability ?? null));
   };
 
   const applyStockConflict = (available: ProductAvailability[]) => {
     if (!selectedStop) return;
+    // `available` trae solo los productos pedidos que tienen fila; un pedido sin fila ya no se vende ahí.
     const merged = [
-      ...selectedStop.availability.filter((a) => !available.some((x) => x.productId === a.productId)),
+      ...selectedStop.availability.filter((a) => !items.some((i) => i.productId === a.productId)),
       ...available,
     ];
     setPickupStops((prev) => prev.map((s) => (s.stopId === selectedStop.stopId ? { ...s, availability: merged } : s)));
-    // El servidor siempre limita por cantidad, aunque "Agotado" esté apagado en la UI.
-    retrim(items, available, true);
+    retrim(stopAvailabilityFor(fulfillment, merged));
   };
 
   const refreshPickupStops = async () => {
@@ -131,7 +149,7 @@ export function CartProvider({
     setPickupStops(fresh.stops);
     const next = fresh.stops.find((s) => s.stopId === stopId) ?? null;
     setStopId(next?.stopId ?? null);
-    retrim(items, next?.availability ?? null);
+    retrim(stopAvailabilityFor(fulfillment, next?.availability ?? null));
   };
 
   const add = (productId: string) => {
@@ -192,6 +210,8 @@ export function CartProvider({
         selectedStop,
         selectStop,
         autoSoldOutEnabled,
+        fulfillment,
+        setFulfillment,
         limitOf,
         trimChanges,
         dismissTrimChanges: () => setTrimChanges([]),

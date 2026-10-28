@@ -38,11 +38,13 @@ describe("eligiblePickupStops", () => {
     expect(eligiblePickupStops(stops, now)).toEqual([]);
   });
 
-  it("excluye paradas ya terminadas, igual que createOrder", () => {
-    const stops = [
-      stop("ended-scheduled", "scheduled", "2026-10-28T09:00:00Z"),
-      stop("ended-active", "active", "2026-10-28T10:00:00Z"),
-    ];
+  it("excluye programadas ya terminadas, igual que createOrder", () => {
+    const stops = [stop("ended-scheduled", "scheduled", "2026-10-28T10:00:00Z")];
     expect(eligiblePickupStops(stops, now)).toEqual([]);
+  });
+
+  it("la activa sigue elegible pasada su hora de fin, hasta que se cierra", () => {
+    const stops = [stop("ended-active", "active", "2026-10-28T09:00:00Z")];
+    expect(eligiblePickupStops(stops, now).map((s) => s.id)).toEqual(["ended-active"]);
   });
 });

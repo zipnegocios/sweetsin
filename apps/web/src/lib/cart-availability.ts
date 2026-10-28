@@ -17,6 +17,19 @@ export interface CartTrimChange {
   to: number;
 }
 
+export type Fulfillment = "pickup" | "self_delivery";
+
+/**
+ * Disponibilidad que limita el carrito según el tipo de entrega: la parada solo
+ * aplica al retiro. Sin tipo elegido todavía (`null`), elegir parada implica retiro.
+ */
+export function stopAvailabilityFor(
+  fulfillment: Fulfillment | null,
+  availability: ProductAvailability[] | null,
+): ProductAvailability[] | null {
+  return fulfillment === "self_delivery" ? null : availability;
+}
+
 /**
  * Cantidad máxima pedible de un producto. Sin parada (`null`) no hay límite.
  * Un producto sin fila de stock en la parada no se puede pedir ahí. Con
@@ -41,8 +54,10 @@ export function trimCartToAvailability<T extends CartLineLike>(
   const changes: CartTrimChange[] = [];
   const trimmed: T[] = [];
   for (const line of lines) {
-    const limit = limitFor(line.productId, availability, enforceStock);
-    if (line.quantity <= limit) {
+    // Una línea con cantidad inválida (0, negativa, no entera; p. ej. localStorage corrupto) se quita.
+    const valid = Number.isInteger(line.quantity) && line.quantity > 0;
+    const limit = valid ? limitFor(line.productId, availability, enforceStock) : 0;
+    if (valid && line.quantity <= limit) {
       trimmed.push(line);
       continue;
     }

@@ -16,11 +16,12 @@ export interface PickupStopsData {
 }
 
 /**
- * Paradas donde se puede retirar: la activa y las programadas (pre-pedido),
- * siempre que no hayan terminado — mismo criterio que valida `createOrder`.
+ * Paradas donde se puede retirar — mismo criterio que valida `createOrder`: la activa
+ * hasta que se cierra (aunque haya pasado su hora de fin) y las programadas (pre-pedido)
+ * que aún no terminaron.
  */
 export function eligiblePickupStops(stops: TrailerStop[], now: Date): TrailerStop[] {
   return stops.filter(
-    (s) => (s.status === "active" || s.status === "scheduled") && s.endTime.getTime() > now.getTime(),
+    (s) => s.status === "active" || (s.status === "scheduled" && s.endTime.getTime() > now.getTime()),
   );
 }
