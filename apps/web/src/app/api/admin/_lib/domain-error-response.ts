@@ -3,6 +3,7 @@ import { isStopConflictMessage } from "@workspace/domain/trailer-stops";
 import { isStockConflictMessage } from "@workspace/domain/stock";
 import { isStockTemplateConflictMessage } from "@workspace/domain/stock-templates";
 import { isOrderConflictMessage } from "@workspace/domain/orders";
+import { LIVE_STOCK_DISABLED, PER_STAFF_DISABLED } from "@/lib/settings-errors";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,7 +25,10 @@ export function domainErrorResponse(error: unknown): Response {
     isStopConflictMessage(message) ||
     isStockConflictMessage(message) ||
     isStockTemplateConflictMessage(message) ||
-    isOrderConflictMessage(message)
+    isOrderConflictMessage(message) ||
+    // Interruptores de Settings apagados.
+    message === LIVE_STOCK_DISABLED ||
+    message === PER_STAFF_DISABLED
   ) {
     return NextResponse.json({ error: message }, { status: 409 });
   }

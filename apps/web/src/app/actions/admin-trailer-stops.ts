@@ -8,6 +8,9 @@ import {
   updateTrailerStop,
   reactivateTrailerStop,
   deleteTrailerStop,
+  openTrailerStop,
+  closeTrailerStop,
+  getStopCloseSummary,
 } from "@workspace/domain/trailer-stops";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
 import {
@@ -19,7 +22,10 @@ import {
   removeStopProduct,
   saveStopStockAsTemplate,
   isStockConflictMessage,
+  restockStopProduct,
+  wasteStopProduct,
 } from "@workspace/domain/stock";
+import type { StopStockSummary } from "@workspace/domain/stock";
 import { isStopConflictMessage } from "@workspace/domain/trailer-stops";
 import { isStockTemplateConflictMessage } from "@workspace/domain/stock-templates";
 import {
@@ -28,9 +34,12 @@ import {
   DrizzleEventBookingRepository,
   DrizzleStockTemplateRepository,
   DrizzleOrderRepository,
+  DrizzleSettingsRepository,
 } from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
 import { runAdminAction } from "@/lib/run-admin-action";
+import { assertLiveStockEnabled } from "@/lib/live-stock";
+import { LIVE_STOCK_DISABLED } from "@/lib/settings-errors";
 
 export async function listTrailerStopsAction(): Promise<TrailerStop[]> {
   await requireAdmin();
@@ -163,4 +172,75 @@ export async function saveStopStockAsTemplateAction(stopId: string, name: string
   return runStock(() =>
     saveStopStockAsTemplate(new DrizzleStockRepository(), new DrizzleStockTemplateRepository(), stopId, name),
   );
+}
+
+// Abrir, cerrar y stock en vivo: los mensajes de reglas conocidas vuelven tal cual; el resto como "generic".
+const isLiveStopMessage = (m: string) =>
+  m === "Stop not found" || m === LIVE_STOCK_DISABLED || isStopConflictMessage(m) || isStockConflictMessage(m);
+
+export async function openTrailerStopAction(id: string) {
+  return runAdminAction(async () => {
+    const { allowMultipleActiveStops } = await new DrizzleSettingsRepository().get();
+    await openTrailerStop({ stops: new DrizzleTrailerStopRepository() }, id, {
+      allowMultipleActive: allowMultipleActiveStops,
+    });
+  }, isLiveStopMessage);
+}
+
+export async function closeTrailerStopAction(id: string, options: { confirmUndelivered?: boolean } = {}) {
+  return runAdminAction(
+    () =>
+      closeTrailerStop({ stops: new DrizzleTrailerStopRepository(), orders: new DrizzleOrderRepository() }, id, {
+        confirmUndelivered: options.confirmUndelivered === true,
+      }),
+    isLiveStopMessage,
+  );
+}
+
+export async function restockStopProductAction(stopId: string, productId: string, quantity: number) {
+  return runAdminAction(async ({ userId }) => {
+    await assertLiveStockEnabled();
+    await restockStopProduct(
+      { stops: new DrizzleTrailerStopRepository(), stock: new DrizzleStockRepository() },
+      stopId,
+      productId,
+      quantity,
+      userId,
+    );
+  }, isLiveStopMessage);
+}
+
+export async function wasteStopProductAction(
+  stopId: string,
+  productId: string,
+  quantity: number,
+  reason: string | null = null,
+) {
+  return runAdminAction(async ({ userId }) => {
+    await assertLiveStockEnabled();
+    await wasteStopProduct(
+      { stops: new DrizzleTrailerStopRepository(), stock: new DrizzleStockRepository() },
+      stopId,
+      productId,
+      quantity,
+      reason?.trim() || null,
+      userId,
+    );
+  }, isLiveStopMessage);
+}
+
+export type StopCloseSummary = { products: StopStockSummary[]; undeliveredOrders: number };
+
+export async function getStopCloseSummaryAction(
+  stopId: string,
+): Promise<{ ok: true; summary: StopCloseSummary } | { ok: false; error: string }> {
+  let summary: StopCloseSummary | undefined;
+  const result = await runAdminAction(async () => {
+    if (!(await new DrizzleTrailerStopRepository().findById(stopId))) throw new Error("Stop not found");
+    summary = await getStopCloseSummary(
+      { stock: new DrizzleStockRepository(), orders: new DrizzleOrderRepository() },
+      stopId,
+    );
+  }, isLiveStopMessage);
+  return result.ok ? { ok: true, summary: summary! } : result;
 }

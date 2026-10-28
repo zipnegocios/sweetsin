@@ -32,6 +32,20 @@ export function parseAdelaideLocal(value: string): Date {
   return new Date(guess);
 }
 
+/** Día calendario de Adelaida ("YYYY-MM-DD") que contiene el instante `date`. */
+export function adelaideDayKey(date: Date): string {
+  return wallClock(date).slice(0, 10);
+}
+
+/** Rango [inicio, fin] (fin inclusivo, al ms) del día "YYYY-MM-DD" en hora de Adelaida. */
+export function adelaideDayRange(day: string): { start: Date; end: Date } {
+  const next = new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  return {
+    start: parseAdelaideLocal(`${day}T00:00`),
+    end: new Date(parseAdelaideLocal(`${next}T00:00`).getTime() - 1),
+  };
+}
+
 export function formatAdelaide(date: Date, locale: string): string {
   return date.toLocaleString(locale, { timeZone: "Australia/Adelaide", dateStyle: "medium", timeStyle: "short" });
 }
