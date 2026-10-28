@@ -7,4 +7,9 @@ export interface StockRepository {
   recordEvent(event: Omit<StockEvent, "id">): Promise<StockEvent>;
   create(stock: Omit<StopProductStock, "id">): Promise<StopProductStock>;
   listByStop(stopId: string): Promise<StopProductStock[]>;
+  /** Unidades vendidas: suma de los eventos 'sale' de la fila. */
+  sumSold(stopProductStockId: string): Promise<number>;
+  hasMovements(stopProductStockId: string): Promise<boolean>;
+  setQuantity(stopProductStockId: string, maxStock: number, currentStock: number): Promise<StopProductStock>;
+  remove(stopProductStockId: string): Promise<void>;
 }

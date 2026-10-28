@@ -1,5 +1,7 @@
 import type { StockRepository } from "./ports";
-import type { StockEventType } from "./entities";
+import type { StockEventType, StopProductStock } from "./entities";
+import { createStockTemplate } from "../stock-templates";
+import type { StockTemplateRepository, StockTemplateWithItems } from "../stock-templates";
 
 async function decrementWithEvent(
   repo: StockRepository,
@@ -75,5 +77,72 @@ export async function restockProduct(
     quantity,
     reason: null,
     reportedByUserId,
+  });
+}
+
+export function isStockConflictMessage(message: string): boolean {
+  return [
+    "Cannot set stock below units already sold",
+    "Stock row has movements",
+    "Product already has stock at this stop",
+    "Stock row not found",
+    "Quantity must be a positive integer",
+  ].includes(message);
+}
+
+function assertPositiveInteger(quantity: number): void {
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive integer");
+}
+
+async function requireRow(repo: StockRepository, stopId: string, productId: string): Promise<StopProductStock> {
+  const row = await repo.findByStopAndProduct(stopId, productId);
+  if (!row) throw new Error("Stock row not found");
+  return row;
+}
+
+export async function setStopProductQuantity(
+  repo: StockRepository,
+  stopId: string,
+  productId: string,
+  quantity: number,
+): Promise<StopProductStock> {
+  assertPositiveInteger(quantity);
+  const row = await requireRow(repo, stopId, productId);
+  const sold = await repo.sumSold(row.id);
+  const current = row.currentStock + (quantity - row.maxStock);
+  if (quantity < sold || current < 0) throw new Error("Cannot set stock below units already sold");
+  return repo.setQuantity(row.id, quantity, current);
+}
+
+export async function addStopProduct(
+  repo: StockRepository,
+  stopId: string,
+  productId: string,
+  quantity: number,
+): Promise<StopProductStock> {
+  assertPositiveInteger(quantity);
+  if (await repo.findByStopAndProduct(stopId, productId)) {
+    throw new Error("Product already has stock at this stop");
+  }
+  const [created] = await initializeStopStock(repo, stopId, [{ productId, maxStock: quantity }]);
+  return created;
+}
+
+export async function removeStopProduct(repo: StockRepository, stopId: string, productId: string): Promise<void> {
+  const row = await requireRow(repo, stopId, productId);
+  if (await repo.hasMovements(row.id)) throw new Error("Stock row has movements");
+  await repo.remove(row.id);
+}
+
+export async function saveStopStockAsTemplate(
+  stock: StockRepository,
+  templates: StockTemplateRepository,
+  stopId: string,
+  name: string,
+): Promise<StockTemplateWithItems> {
+  const rows = await stock.listByStop(stopId);
+  return createStockTemplate(templates, {
+    name,
+    items: rows.map((r) => ({ productId: r.productId, quantity: r.maxStock })),
   });
 }

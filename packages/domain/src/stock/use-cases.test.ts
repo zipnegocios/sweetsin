@@ -1,9 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { decrementStockOnSale, initializeStopStock, restockProduct, reportStockWaste } from "./use-cases";
+import {
+  addStopProduct,
+  decrementStockOnSale,
+  initializeStopStock,
+  isStockConflictMessage,
+  removeStopProduct,
+  restockProduct,
+  reportStockWaste,
+  saveStopStockAsTemplate,
+  setStopProductQuantity,
+} from "./use-cases";
+import type { StockTemplateRepository } from "../stock-templates";
 import type { StopProductStock, StockEvent } from "./entities";
 import type { StockRepository } from "./ports";
 
-function fakeStockRepo(initial: StopProductStock[] = []): StockRepository & {
+function fakeStockRepo(
+  initial: StopProductStock[] = [],
+  movements: { stockId: string; type: StockEvent["eventType"]; quantity: number }[] = [],
+): StockRepository & {
   events: Omit<StockEvent, "id">[];
   created: Omit<StopProductStock, "id">[];
 } {
@@ -40,6 +54,23 @@ function fakeStockRepo(initial: StopProductStock[] = []): StockRepository & {
     },
     async listByStop(stopId) {
       return stock.filter((s) => s.stopId === stopId);
+    },
+    async sumSold(id) {
+      return movements.filter((m) => m.stockId === id && m.type === "sale").reduce((a, m) => a + m.quantity, 0);
+    },
+    async hasMovements(id) {
+      return movements.some((m) => m.stockId === id);
+    },
+    async setQuantity(id, maxStock, currentStock) {
+      const item = stock.find((s) => s.id === id);
+      if (!item) throw new Error("not found");
+      item.maxStock = maxStock;
+      item.currentStock = currentStock;
+      return item;
+    },
+    async remove(id) {
+      const i = stock.findIndex((s) => s.id === id);
+      if (i >= 0) stock.splice(i, 1);
     },
   };
 }
@@ -118,5 +149,114 @@ describe("reportStockWaste", () => {
     await expect(reportStockWaste(repo, "stop1", "p1", 2, null, null)).rejects.toThrow(
       "Insufficient stock for product p1 at stop stop1",
     );
+  });
+});
+
+const row = (over: Partial<StopProductStock> = {}): StopProductStock => ({
+  id: "s1", stopId: "stop1", productId: "p1", maxStock: 20, currentStock: 20, ...over,
+});
+
+describe("setStopProductQuantity", () => {
+  it("sube la cantidad y suma la diferencia al stock actual", async () => {
+    const repo = fakeStockRepo([row({ currentStock: 15 })], [{ stockId: "s1", type: "sale", quantity: 5 }]);
+    const result = await setStopProductQuantity(repo, "stop1", "p1", 30);
+    expect(result).toMatchObject({ maxStock: 30, currentStock: 25 });
+  });
+
+  it("baja la cantidad hasta lo vendido", async () => {
+    const repo = fakeStockRepo([row({ currentStock: 15 })], [{ stockId: "s1", type: "sale", quantity: 5 }]);
+    const result = await setStopProductQuantity(repo, "stop1", "p1", 5);
+    expect(result).toMatchObject({ maxStock: 5, currentStock: 0 });
+  });
+
+  it("rechaza bajar por debajo de lo vendido", async () => {
+    const repo = fakeStockRepo([row({ currentStock: 15 })], [{ stockId: "s1", type: "sale", quantity: 5 }]);
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 4)).rejects.toThrow(
+      "Cannot set stock below units already sold",
+    );
+  });
+
+  it("rechaza si el stock actual quedaría negativo (hubo mermas)", async () => {
+    const repo = fakeStockRepo([row({ currentStock: 5 })], [{ stockId: "s1", type: "waste", quantity: 15 }]);
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 10)).rejects.toThrow(
+      "Cannot set stock below units already sold",
+    );
+  });
+
+  it("rechaza cantidad 0 o decimal", async () => {
+    const repo = fakeStockRepo([row()]);
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 0)).rejects.toThrow("Quantity must be a positive integer");
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 1.5)).rejects.toThrow("Quantity must be a positive integer");
+  });
+
+  it("rechaza si la fila no existe", async () => {
+    await expect(setStopProductQuantity(fakeStockRepo(), "stop1", "p1", 3)).rejects.toThrow("Stock row not found");
+  });
+});
+
+describe("addStopProduct", () => {
+  it("agrega un producto nuevo", async () => {
+    const repo = fakeStockRepo();
+    await addStopProduct(repo, "stop1", "p2", 12);
+    expect(repo.created).toEqual([{ stopId: "stop1", productId: "p2", maxStock: 12, currentStock: 12 }]);
+  });
+
+  it("rechaza agregar un producto ya presente", async () => {
+    const repo = fakeStockRepo([row()]);
+    await expect(addStopProduct(repo, "stop1", "p1", 5)).rejects.toThrow("Product already has stock at this stop");
+  });
+
+  it("rechaza cantidad inválida", async () => {
+    await expect(addStopProduct(fakeStockRepo(), "stop1", "p2", 0)).rejects.toThrow("Quantity must be a positive integer");
+  });
+});
+
+describe("removeStopProduct", () => {
+  it("quita un producto sin movimientos", async () => {
+    const repo = fakeStockRepo([row()]);
+    await removeStopProduct(repo, "stop1", "p1");
+    expect(await repo.listByStop("stop1")).toEqual([]);
+  });
+
+  it("rechaza quitar uno con movimientos", async () => {
+    const repo = fakeStockRepo([row()], [{ stockId: "s1", type: "restock", quantity: 1 }]);
+    await expect(removeStopProduct(repo, "stop1", "p1")).rejects.toThrow("Stock row has movements");
+  });
+
+  it("rechaza si la fila no existe", async () => {
+    await expect(removeStopProduct(fakeStockRepo(), "stop1", "p1")).rejects.toThrow("Stock row not found");
+  });
+});
+
+describe("saveStopStockAsTemplate", () => {
+  it("guarda la parada como plantilla copiando maxStock", async () => {
+    const stock = fakeStockRepo([row({ currentStock: 3 }), row({ id: "s2", productId: "p2", maxStock: 8, currentStock: 8 })]);
+    const calls: { name: string; items: { productId: string; quantity: number }[] }[] = [];
+    const templates = {
+      async nameExists() { return false; },
+      async create(name, items) {
+        calls.push({ name, items });
+        return { id: "t1", name, archived: false, items };
+      },
+    } as unknown as StockTemplateRepository;
+
+    await saveStopStockAsTemplate(stock, templates, "stop1", "Viernes");
+
+    expect(calls).toEqual([
+      { name: "Viernes", items: [{ productId: "p1", quantity: 20 }, { productId: "p2", quantity: 8 }] },
+    ]);
+  });
+});
+
+describe("isStockConflictMessage", () => {
+  it("reconoce los cinco mensajes de conflicto", () => {
+    for (const m of [
+      "Cannot set stock below units already sold",
+      "Stock row has movements",
+      "Product already has stock at this stop",
+      "Stock row not found",
+      "Quantity must be a positive integer",
+    ]) expect(isStockConflictMessage(m)).toBe(true);
+    expect(isStockConflictMessage("boom")).toBe(false);
   });
 });
