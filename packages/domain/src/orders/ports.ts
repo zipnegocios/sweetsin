@@ -48,7 +48,11 @@ export interface OrderRepository {
   create(order: Omit<Order, "id">): Promise<Order>;
   findById(id: string): Promise<Order | null>;
   attachPaymentIntent(orderId: string, stripePaymentIntentId: string): Promise<void>;
-  markAsPaid(orderId: string, ctx?: TransitionContext): Promise<void>;
+  /**
+   * Marca el pago en una sola escritura. Si llega `attentionReason`, se guarda en esa misma
+   * operación (pedido pagado que queda fuera de la cola).
+   */
+  markAsPaid(orderId: string, ctx?: TransitionContext, attentionReason?: string | null): Promise<void>;
   listAll(filters: OrderFilters): Promise<Order[]>;
   listByCustomerId(customerId: string): Promise<Order[]>;
   updateFulfillmentStatus(orderId: string, status: FulfillmentStatus, ctx?: TransitionContext): Promise<void>;
@@ -57,7 +61,11 @@ export interface OrderRepository {
   findAssignedToDelivery(deliveryUserId: string): Promise<Order[]>;
   assignDelivery(orderId: string, deliveryUserId: string, ctx?: TransitionContext): Promise<void>;
   recordDeliveryEvidence(orderId: string, evidence: DeliveryEvidence): Promise<void>;
-  setAttention(orderId: string, reason: string | null): Promise<void>;
+  /**
+   * Atómico: limpia `attentionReason` y pasa el pedido de `pending` a `received`
+   * (registrando el evento de transición según `ctx`).
+   */
+  resolveAttention(orderId: string, ctx?: TransitionContext): Promise<void>;
   /** Cancela los pedidos sin pagar de la parada; devuelve cuántos. */
   cancelPendingOrdersForStop(stopId: string, ctx?: TransitionContext): Promise<number>;
   countPaidUndeliveredForStop(stopId: string): Promise<number>;

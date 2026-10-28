@@ -105,12 +105,12 @@ export async function confirmOrderPayment(
   if (order.paymentStatus === "paid") return; // Stripe puede reenviar el mismo evento de webhook más de una vez.
 
   if (order.stopId) {
+    // Sin el repositorio de paradas no se puede aplicar la regla de parada cancelada: error de cableado.
+    if (!deps.stops) throw new Error("Stops repository is required to confirm a stop order");
     // Pagado pero fuera de la cola, sin notificar: el admin decide (reintentar, cancelar o resolver).
-    const holdForAttention = async (reason: string) => {
-      await deps.orders.markAsPaid(orderId, ctx);
-      await deps.orders.setAttention(orderId, reason);
-    };
-    const stop = deps.stops ? await deps.stops.findById(order.stopId) : null;
+    // Pago y motivo van en una sola escritura: un fallo a mitad no deja un pagado invisible.
+    const holdForAttention = (reason: string) => deps.orders.markAsPaid(orderId, ctx, reason);
+    const stop = await deps.stops.findById(order.stopId);
     if (stop?.status === "cancelled") return holdForAttention("stop_cancelled");
     // Todo o nada, antes de pasar a received: si una línea no alcanza no se descuenta ninguna.
     const result = await deps.stock.decrementForOrder(order.stopId, orderId, stockLines(order));
@@ -155,8 +155,7 @@ export async function retryOrderStock(
   if (!order.stopId) throw new Error("Order has no stop");
   const result = await deps.stock.decrementForOrder(order.stopId, orderId, stockLines(order));
   if (!result.ok) throw new Error("Stock still insufficient");
-  await deps.orders.setAttention(orderId, null);
-  await deps.orders.updateFulfillmentStatus(orderId, "received", ctx);
+  await deps.orders.resolveAttention(orderId, ctx);
   return { ...order, attentionReason: null, fulfillmentStatus: "received" };
 }
 
@@ -167,8 +166,7 @@ export async function resolveOrderAttention(
   ctx?: TransitionContext,
 ): Promise<Order> {
   const order = await requireAttentionOrder(deps.orders, orderId);
-  await deps.orders.setAttention(orderId, null);
-  await deps.orders.updateFulfillmentStatus(orderId, "received", ctx);
+  await deps.orders.resolveAttention(orderId, ctx);
   return { ...order, attentionReason: null, fulfillmentStatus: "received" };
 }
 
@@ -343,7 +341,9 @@ export async function changeOrderFulfillmentStatus(
       // Solo hay venta que revertir si se descontó: pagado, con parada y sin atención pendiente.
       // Se revierte antes de cancelar; reverseOrderSale es idempotente, así un reintento es seguro.
       if (order.paymentStatus === "paid" && order.stopId && !order.attentionReason) {
-        await deps.stock?.reverseOrderSale(orderId);
+        // Sin el repositorio de stock la reversa se perdería en silencio: error de cableado.
+        if (!deps.stock) throw new Error("Stock repository is required to cancel a paid stop order");
+        await deps.stock.reverseOrderSale(orderId);
       }
       await deps.orders.updateFulfillmentStatus(orderId, "cancelled", ctx);
       return { ...order, fulfillmentStatus: "cancelled" };

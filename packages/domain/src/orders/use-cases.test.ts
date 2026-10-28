@@ -229,12 +229,14 @@ function fakeOrderRepoWithOrder(order: Order): OrderRepository & { paidCalls: st
       return id === order.id ? order : null;
     },
     async attachPaymentIntent() {},
-    async markAsPaid(id) {
+    async markAsPaid(id, _ctx, attentionReason) {
       paidCalls.push(id);
       order.paymentStatus = "paid";
+      if (attentionReason !== undefined) order.attentionReason = attentionReason;
     },
-    async setAttention(_id, reason) {
-      order.attentionReason = reason;
+    async resolveAttention() {
+      order.attentionReason = null;
+      order.fulfillmentStatus = "received";
     },
     async listAll() {
       return [];
@@ -354,7 +356,7 @@ describe("confirmOrderPayment", () => {
     const orders = fakeOrderRepoWithOrder(order);
     const stock = fakeStockRepo([{ id: "stock-1", stopId: "stop-1", productId: "p1", maxStock: 10, currentStock: 10 }]);
 
-    await confirmOrderPayment({ orders, stock }, "order-2");
+    await confirmOrderPayment({ orders, stock, stops: fakeStopRepo([fakeStop()]) }, "order-2");
 
     expect(stock.events).toEqual([
       { stopProductStockId: "stock-1", eventType: "sale", quantity: 2, reason: null, reportedByUserId: null, orderId: "order-2" },
@@ -425,7 +427,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
 
   it("mueve una orden pending a received", async () => {
     const order = pendingOrder();
-    await confirmOrderPayment({ orders: fakeOrderRepoWithOrder(order), stock: stockFor() }, "order-q");
+    await confirmOrderPayment({ orders: fakeOrderRepoWithOrder(order), stock: stockFor(), stops: fakeStopRepo([fakeStop()]) }, "order-q");
     expect(order.fulfillmentStatus).toBe("received");
   });
 
@@ -435,6 +437,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
       {
         orders: fakeOrderRepoWithOrder(pendingOrder()),
         stock: stockFor(),
+        stops: fakeStopRepo([fakeStop()]),
         users: staff(),
         notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
       },
@@ -452,6 +455,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
         {
           orders: fakeOrderRepoWithOrder(order),
           stock: stockFor(),
+          stops: fakeStopRepo([fakeStop()]),
           users: staff(),
           notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
         },
@@ -471,6 +475,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
       {
         orders: fakeOrderRepoWithOrder(order),
         stock,
+        stops: fakeStopRepo([fakeStop()]),
         users: staff(),
         notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
       },
@@ -488,6 +493,7 @@ describe("confirmOrderPayment: cola de despacho", () => {
       {
         orders: fakeOrderRepoWithOrder(order),
         stock: stockFor(),
+        stops: fakeStopRepo([fakeStop()]),
         users: staff(),
         notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
       },
@@ -556,14 +562,22 @@ describe("listOrders", () => {
   });
 });
 
-function makeFakeOrderRepo(orders: Order[]): OrderRepository & { ctxs: (TransitionContext | undefined)[] } {
+type RepoCall = { method: string; args: unknown[] };
+
+function makeFakeOrderRepo(
+  orders: Order[],
+): OrderRepository & { ctxs: (TransitionContext | undefined)[]; calls: RepoCall[] } {
   const store = new Map(orders.map((o) => [o.id, o]));
   const ctxs: (TransitionContext | undefined)[] = [];
+  const calls: RepoCall[] = [];
   return {
     ctxs,
-    setAttention: async (id, reason) => {
+    calls,
+    resolveAttention: async (id, ctx) => {
+      calls.push({ method: "resolveAttention", args: [id, ctx] });
+      ctxs.push(ctx);
       const o = store.get(id);
-      if (o) store.set(id, { ...o, attentionReason: reason });
+      if (o) store.set(id, { ...o, attentionReason: null, fulfillmentStatus: "received" });
     },
     cancelPendingOrdersForStop: async () => 0,
     countPaidUndeliveredForStop: async () => 0,
@@ -575,14 +589,22 @@ function makeFakeOrderRepo(orders: Order[]): OrderRepository & { ctxs: (Transiti
     },
     findById: async (id) => store.get(id) ?? null,
     attachPaymentIntent: async () => {},
-    markAsPaid: async (id, ctx) => {
+    markAsPaid: async (id, ctx, attentionReason) => {
+      calls.push({ method: "markAsPaid", args: [id, ctx, attentionReason] });
       ctxs.push(ctx);
       const o = store.get(id);
-      if (o) store.set(id, { ...o, paymentStatus: "paid" });
+      if (o) {
+        store.set(id, {
+          ...o,
+          paymentStatus: "paid",
+          ...(attentionReason !== undefined ? { attentionReason } : {}),
+        });
+      }
     },
     listAll: async () => [...store.values()],
     listByCustomerId: async () => [],
     updateFulfillmentStatus: async (id, status, ctx) => {
+      calls.push({ method: "updateFulfillmentStatus", args: [id, status, ctx] });
       ctxs.push(ctx);
       const o = store.get(id);
       if (o) store.set(id, { ...o, fulfillmentStatus: status });
@@ -1045,7 +1067,7 @@ describe("changeOrderFulfillmentStatus: delivered por tipo, cancelación y ctx",
     const rows = stockRows(10, 10);
     const stock = fakeStockRepo(rows);
     const repo = makeFakeOrderRepo([pickupOrder()]);
-    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    await confirmOrderPayment({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1");
     expect(rows.map((r) => r.currentStock)).toEqual([8, 7]);
 
     await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled", { ctx });
@@ -1087,7 +1109,7 @@ describe("confirmOrderPayment: descuento todo o nada", () => {
     const stock = fakeStockRepo(rows);
     const repo = makeFakeOrderRepo([pickupOrder()]);
     const webhookCtx: TransitionContext = { actorUserId: null, source: "webhook", record: true };
-    await confirmOrderPayment({ orders: repo, stock }, "order-1", webhookCtx);
+    await confirmOrderPayment({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1", webhookCtx);
     expect(rows.map((r) => r.currentStock)).toEqual([3, 2]);
     const order = await repo.findById("order-1");
     expect(order?.paymentStatus).toBe("paid");
@@ -1105,6 +1127,7 @@ describe("confirmOrderPayment: descuento todo o nada", () => {
       {
         orders: repo,
         stock,
+        stops: fakeStopRepo([fakeStop()]),
         users: fakeUserRepo([fakeUser({ id: "d1", role: "despachador" })]),
         notifications: { notifyNewOrderInQueue: notify, notifyDeliveryAssigned: vi.fn() },
       },
@@ -1148,8 +1171,8 @@ describe("confirmOrderPayment: descuento todo o nada", () => {
     const rows = stockRows(5, 5);
     const stock = fakeStockRepo(rows);
     const repo = makeFakeOrderRepo([pickupOrder()]);
-    await confirmOrderPayment({ orders: repo, stock }, "order-1");
-    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    await confirmOrderPayment({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1");
+    await confirmOrderPayment({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1");
     expect(rows.map((r) => r.currentStock)).toEqual([3, 2]);
     expect(stock.events.filter((e) => e.eventType === "sale")).toHaveLength(2);
   });
@@ -1160,7 +1183,7 @@ describe("retryOrderStock / resolveOrderAttention", () => {
     const rows = stockRows(5, 2);
     const stock = fakeStockRepo(rows);
     const repo = makeFakeOrderRepo([pickupOrder()]);
-    await confirmOrderPayment({ orders: repo, stock }, "order-1");
+    await confirmOrderPayment({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1");
     expect((await repo.findById("order-1"))?.attentionReason).toBe("insufficient_stock:p2");
 
     rows[1].currentStock = 6; // reposición
@@ -1298,5 +1321,80 @@ describe("isOrderConflictMessage", () => {
     ]) expect(isOrderConflictMessage(m)).toBe(true);
     expect(isOrderConflictMessage("Order not found: x")).toBe(false);
     expect(isOrderConflictMessage("boom")).toBe(false);
+  });
+
+  it("los errores de cableado no son conflictos (deben salir como 500)", () => {
+    expect(isOrderConflictMessage("Stops repository is required to confirm a stop order")).toBe(false);
+    expect(isOrderConflictMessage("Stock repository is required to cancel a paid stop order")).toBe(false);
+  });
+});
+
+describe("escrituras atómicas y dependencias obligatorias", () => {
+  const methods = (repo: { calls: RepoCall[] }) => repo.calls.map((c) => c.method);
+
+  it("retener por atención hace un único markAsPaid que lleva el motivo", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    const webhookCtx: TransitionContext = { actorUserId: null, source: "webhook", record: true };
+    await confirmOrderPayment(
+      { orders: repo, stock: fakeStockRepo(stockRows(5, 2)), stops: fakeStopRepo([fakeStop()]) },
+      "order-1",
+      webhookCtx,
+    );
+    expect(repo.calls).toEqual([{ method: "markAsPaid", args: ["order-1", webhookCtx, "insufficient_stock:p2"] }]);
+  });
+
+  it("parada cancelada: un único markAsPaid con stop_cancelled", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await confirmOrderPayment(
+      { orders: repo, stock: fakeStockRepo(stockRows(5, 5)), stops: fakeStopRepo([fakeStop({ status: "cancelled" })]) },
+      "order-1",
+    );
+    expect(repo.calls).toEqual([{ method: "markAsPaid", args: ["order-1", undefined, "stop_cancelled"] }]);
+  });
+
+  it("retryOrderStock llama resolveAttention una vez y nada más", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
+    await retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)) }, "order-1", ctx);
+    expect(repo.calls).toEqual([{ method: "resolveAttention", args: ["order-1", ctx] }]);
+  });
+
+  it("resolveOrderAttention llama resolveAttention una vez y nada más", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "stop_cancelled" })]);
+    await resolveOrderAttention({ orders: repo }, "order-1", ctx);
+    expect(methods(repo)).toEqual(["resolveAttention"]);
+  });
+
+  it("confirmar un pedido con parada sin repositorio de paradas lanza sin escribir ni descontar", async () => {
+    const rows = stockRows(5, 5);
+    const repo = makeFakeOrderRepo([pickupOrder()]);
+    await expect(confirmOrderPayment({ orders: repo, stock: fakeStockRepo(rows) }, "order-1")).rejects.toThrow(
+      "Stops repository is required to confirm a stop order",
+    );
+    expect(repo.calls).toEqual([]);
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 5]);
+  });
+
+  it("confirmar un pedido sin parada no exige repositorio de paradas", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ stopId: null })]);
+    await confirmOrderPayment({ orders: repo, stock: fakeStockRepo([]) }, "order-1");
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("received");
+  });
+
+  it("cancelar un pagado con parada sin repositorio de stock lanza y no cancela", async () => {
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", fulfillmentStatus: "received" })]);
+    await expect(
+      changeOrderFulfillmentStatus({ orders: repo, users: fakeUserRepo([]) }, "order-1", "cancelled"),
+    ).rejects.toThrow("Stock repository is required to cancel a paid stop order");
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("received");
+  });
+
+  it("cancelar sin repositorio de stock sigue funcionando si no hay reversa (sin parada o en atención)", async () => {
+    const noStop = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", stopId: null })]);
+    await changeOrderFulfillmentStatus({ orders: noStop, users: fakeUserRepo([]) }, "order-1", "cancelled");
+    expect((await noStop.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
+
+    const held = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "stop_cancelled" })]);
+    await changeOrderFulfillmentStatus({ orders: held, users: fakeUserRepo([]) }, "order-1", "cancelled");
+    expect((await held.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
   });
 });
