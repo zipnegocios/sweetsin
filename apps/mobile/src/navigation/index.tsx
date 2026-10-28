@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { NavigationContainer, type InitialState } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
 import { CredentialScreen } from "../screens/CredentialScreen";
 import { SecurityScreen } from "../screens/SecurityScreen";
-import { clearSession, getCachedRole, getToken, saveRole } from "../auth/session";
+import { clearSession, getCachedRole, getSavedLocale, getToken, saveRole } from "../auth/session";
 import { AuthContext } from "../auth/context";
 import { resolveStartupSession, type StaffRole } from "../auth/startup";
 import { apiFetch } from "../api/client";
 import { clearAssigned } from "../offline/assigned-cache";
 import { withTimeout } from "../hooks/with-timeout";
 import { endShift } from "../tracking/shift";
+import { locale, setLocale, subscribeLocale } from "../i18n";
 import { indoor, outdoor, ThemeProvider } from "../design-system";
 
 const Stack = createNativeStackNavigator();
@@ -45,15 +46,22 @@ async function registerPushToken(): Promise<void> {
 
 export function RootNavigator() {
   const [role, setRole] = useState<StaffRole | null | "loading">("loading");
+  // Cambiar de idioma remonta la navegación (los textos se leen al renderizar); se conserva en qué pantalla estaba.
+  const currentLocale = useSyncExternalStore(subscribeLocale, () => locale);
+  const navState = useRef<InitialState | undefined>(undefined);
 
   // Único cierre de sesión (credencial o 401). Corta el seguimiento del turno antes de borrar el token; no toca la cola de entregas.
   const logout = useCallback(async () => {
     await withTimeout(endShift(), 8000).catch(() => undefined);
+    navState.current = undefined; // la próxima sesión arranca en su pantalla inicial
     await Promise.allSettled([clearAssigned(), clearSession()]);
     setRole(null);
   }, []);
 
   useEffect(() => {
+    getSavedLocale()
+      .then((saved) => saved && setLocale(saved))
+      .catch(() => {}); // sin idioma guardado se queda el del teléfono
     resolveStartupSession({ getToken, getCachedRole, saveRole, fetchMe: () => apiFetch("/api/mobile/auth/me") })
       .then(({ role: next, invalid }) => (invalid ? logout() : setRole(next)))
       .catch(() => setRole(null)); // nunca queda en blanco; el token se conserva
@@ -69,7 +77,7 @@ export function RootNavigator() {
 
   return (
     <AuthContext.Provider value={{ logout }}>
-      <NavigationContainer>
+      <NavigationContainer key={currentLocale} initialState={navState.current} onStateChange={(state) => (navState.current = state)}>
         <Stack.Navigator>
           {role === null && <Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoggedIn={setRole} />}</Stack.Screen>}
           {role === "despachador" && (

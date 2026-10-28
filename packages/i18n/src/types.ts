@@ -365,6 +365,18 @@ export interface Dictionary {
     credentialLogout: string;
     credentialCloseCard: string;
     securityOpen: string;
+    photoSectionTitle: string;
+    photoFront: string;
+    photoRear: string;
+    photoRemove: string;
+    photoSaved: string;
+    photoCameraDenied: string;
+    photoTooLarge: string;
+    photoError: string;
+    languageSectionTitle: string;
+    languageOptionEn: string;
+    languageOptionEs: string;
+    languageSaveError: string;
     securityTitle: string;
     securityBack: string;
     pinSectionTitle: string;

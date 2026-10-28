@@ -1726,3 +1726,8 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Parte 3 — intentos fallidos:** otro comando de shell con varios heredocs no se parseó (se rehízo con Write); un actualizador de estado con efectos secundarios en `LoginScreen` se refactorizó a un `signIn` que devuelve resultado.
 
 **Parte 3 — próximos pasos:** (1) probar en teléfono real: activar huella, entrar con huella, registrar otra huella (debe volver al PIN), cambiar PIN y contraseña, X y cerrar sesión de la credencial; (2) si Android no muestra el aviso de huella, agregar `android.permissions: ["USE_BIOMETRIC"]` en `app.json` (requiere recompilar el APK); (3) redeploy de `sweetsin-web` y `sweetsin-metro-android-dev`; (4) decidir si exigir PIN no trivial (ahora solo 6 dígitos); (5) paradas del trailer.
+
+## Sesión: foto con cámara e idioma del staff (app mobile)
+- Foto de perfil desde la app: `CredentialScreen` (cámara frontal/trasera con `expo-image-picker`, recorte cuadrado, calidad 0.4) sube a `POST/DELETE /api/mobile/account/photo` (mismo almacén R2 y reglas que el admin; tope 2 MB → 413 "foto pesada"). Sin módulo nativo nuevo. `cameraType` es una sugerencia en Android: algunos teléfonos la ignoran.
+- Idioma: el campo `preferredLocale` que ya edita el admin en la ficha del staff es el idioma de la app. `GET /auth/me` devuelve `locale` y la app lo adopta (`useProfile`); `PUT /api/mobile/account/locale` lo guarda cuando el usuario lo cambia en la credencial. Se recuerda en SecureStore y `strings` es una vista viva (`i18n/live-strings.ts`); al cambiar, la navegación se remonta conservando la pantalla.
+- Pendiente: probar cámara frontal/trasera y cambio de idioma en un teléfono real (hace falta redeploy de web y de Metro).

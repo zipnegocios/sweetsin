@@ -12,6 +12,7 @@ export async function GET(req: Request): Promise<Response> {
   return NextResponse.json({
     ...session,
     name: user?.name ?? null,
+    locale: user?.preferredLocale ?? null,
     photoUrl: await viewUrlOrNull(user?.photoKey),
   });
 }

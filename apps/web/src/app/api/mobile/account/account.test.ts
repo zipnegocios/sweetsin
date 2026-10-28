@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({
   changeStaffPin: vi.fn(),
   changeStaffPassword: vi.fn(),
   verifyStaffPin: vi.fn(),
+  updateUserPreferredLocale: vi.fn(),
 }));
 
 vi.mock("../_lib/require-mobile-auth", () => ({ requireMobileAuth: async () => state.session }));
@@ -13,11 +14,13 @@ vi.mock("@workspace/domain/users", () => ({
   changeStaffPin: state.changeStaffPin,
   changeStaffPassword: state.changeStaffPassword,
   verifyStaffPin: state.verifyStaffPin,
+  updateUserPreferredLocale: state.updateUserPreferredLocale,
 }));
 
 import { PUT as putPin } from "./pin/route";
 import { PUT as putPassword } from "./password/route";
 import { POST as verifyPin } from "./verify-pin/route";
+import { PUT as putLocale } from "./locale/route";
 
 const req = (method: string, body: unknown) =>
   new Request("http://localhost/x", { method, body: JSON.stringify(body), headers: { authorization: "Bearer t" } });
@@ -85,5 +88,22 @@ describe("POST /api/mobile/account/verify-pin", () => {
     const res = await verifyPin(req("POST", { pin: "000000" }));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "invalid_current" });
+  });
+});
+
+describe("PUT /api/mobile/account/locale", () => {
+  it("401 sin sesión", async () => {
+    state.session = null;
+    expect((await putLocale(req("PUT", { locale: "es" }))).status).toBe(401);
+  });
+
+  it("guarda el idioma del usuario de la sesión", async () => {
+    const res = await putLocale(req("PUT", { locale: "es" }));
+    expect(res.status).toBe(200);
+    expect(state.updateUserPreferredLocale).toHaveBeenCalledWith(expect.anything(), "d1", "es");
+  });
+
+  it("rechaza idiomas no soportados", async () => {
+    expect((await putLocale(req("PUT", { locale: "fr" }))).status).toBe(400);
   });
 });

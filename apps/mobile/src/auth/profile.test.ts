@@ -11,7 +11,12 @@ describe("parseProfile", () => {
   it("extrae nombre, foto y código", () => {
     expect(
       parseProfile({ userId: "1a2b3c4d-0000", role: "delivery", name: "  Ana Pérez ", photoUrl: "https://x.r2/p.jpg?sig=1" }),
-    ).toEqual({ name: "Ana Pérez", photoUrl: "https://x.r2/p.jpg?sig=1", code: "SS-1A2B3C4D" });
+    ).toEqual({ name: "Ana Pérez", photoUrl: "https://x.r2/p.jpg?sig=1", code: "SS-1A2B3C4D", locale: null });
+  });
+
+  it("toma el idioma solo si es en o es", () => {
+    expect(parseProfile({ userId: "u1", name: "Ana", locale: "es" })?.locale).toBe("es");
+    expect(parseProfile({ userId: "u1", name: "Ana", locale: "fr" })?.locale).toBeNull();
   });
 
   it("sin foto (o con una URL que no es https) deja photoUrl en null", () => {
