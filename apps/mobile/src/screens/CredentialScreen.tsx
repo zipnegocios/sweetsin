@@ -31,8 +31,16 @@ export function CredentialScreen({ role }: { role: StaffRole }) {
     setBusy(true);
     setNotice(null);
     try {
-      const outcome = await uploadProfilePhoto(await prepareProfilePhoto(uri)).catch((): PhotoOutcome => "error");
-      setNotice(noticeFor(outcome));
+      let prepared: string;
+      try {
+        prepared = await prepareProfilePhoto(uri);
+      } catch (error) {
+        setNotice({ kind: "error", text: `${s.photoError} (procesar: ${error instanceof Error ? error.message : String(error)})` });
+        return;
+      }
+      const { outcome, detail } = await uploadProfilePhoto(prepared);
+      const next = noticeFor(outcome);
+      setNotice(outcome === "error" && next ? { ...next, text: `${next.text} (${detail})` } : next);
       if (outcome === "ok") reload();
     } finally {
       setBusy(false);
