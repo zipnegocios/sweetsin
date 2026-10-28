@@ -2,6 +2,7 @@ import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listAvailableProducts } from "@workspace/domain/products";
 import { DrizzleProductRepository } from "@workspace/db/repositories";
+import { requireAdmin } from "@/lib/require-admin";
 import { StockTemplateForm } from "@/components/admin/stock-template-form";
 import { PageHeader } from "@/components/admin/page-header";
 
@@ -11,6 +12,7 @@ export default async function NewStockTemplatePage({ params }: { params: Promise
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("admin");
+  await requireAdmin();
 
   const products = await listAvailableProducts(new DrizzleProductRepository());
 

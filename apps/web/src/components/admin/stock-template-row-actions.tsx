@@ -9,13 +9,13 @@ import {
   deleteStockTemplateAction,
   type StockTemplateActionResult,
 } from "@/app/actions/admin-stock-templates";
-import { stockTemplateErrorKey } from "@/lib/stock-template-error";
+import { stockTemplateErrorKey, type StockTemplateErrorKey } from "@/lib/stock-template-error";
 
 export function StockTemplateRowActions({ templateId, archived }: { templateId: string; archived: boolean }) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<StockTemplateErrorKey | null>(null);
 
   async function handle(action: (id: string) => Promise<StockTemplateActionResult>, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -51,7 +51,7 @@ export function StockTemplateRowActions({ templateId, archived }: { templateId: 
       </button>
       {errorKey && (
         <span role="alert" className="text-[12px] text-sin-red">
-          {t(errorKey as "tplErrorGeneric")}
+          {t(errorKey)}
         </span>
       )}
     </div>

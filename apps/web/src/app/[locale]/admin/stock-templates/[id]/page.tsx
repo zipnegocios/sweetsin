@@ -5,6 +5,8 @@ import { listAvailableProducts } from "@workspace/domain/products";
 import { DrizzleProductRepository, DrizzleStockTemplateRepository } from "@workspace/db/repositories";
 import { StockTemplateForm } from "@/components/admin/stock-template-form";
 import { PageHeader } from "@/components/admin/page-header";
+import { requireAdmin } from "@/lib/require-admin";
+import { isUuid } from "@/app/api/admin/_lib/domain-error-response";
 import { Link } from "@/i18n/navigation";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,8 @@ export default async function EditStockTemplatePage({
   setRequestLocale(locale);
   const t = await getTranslations("admin");
 
+  await requireAdmin();
+  if (!isUuid(id)) notFound();
   const template = await new DrizzleStockTemplateRepository().findById(id);
   if (!template) notFound();
   const products = await listAvailableProducts(new DrizzleProductRepository());
