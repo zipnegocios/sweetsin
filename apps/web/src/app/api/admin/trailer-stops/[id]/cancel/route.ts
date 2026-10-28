@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DrizzleTrailerStopRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleTrailerStopRepository } from "@workspace/db/repositories";
 import { cancelTrailerStop } from "@workspace/domain/trailer-stops";
 import { authorizeAdmin } from "../../../_lib/authorize-admin";
 import { domainErrorResponse, isUuid, notFoundResponse } from "../../../_lib/domain-error-response";
@@ -10,7 +10,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   if (!isUuid(id)) return notFoundResponse();
   try {
-    await cancelTrailerStop(new DrizzleTrailerStopRepository(), id);
+    await cancelTrailerStop({ stops: new DrizzleTrailerStopRepository(), orders: new DrizzleOrderRepository() }, id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return domainErrorResponse(error);

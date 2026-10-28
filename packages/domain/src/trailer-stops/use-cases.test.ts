@@ -9,9 +9,28 @@ import {
   reactivateTrailerStop,
   deleteTrailerStop,
   getStopChanges,
+  openTrailerStop,
+  closeTrailerStop,
+  getStopCloseSummary,
+  isStopConflictMessage,
 } from "./use-cases";
 import type { TrailerStop, NewTrailerStop } from "./entities";
 import type { TrailerStopRepository } from "./ports";
+import type { OrderRepository } from "../orders/ports";
+import type { StockRepository } from "../stock/ports";
+
+function fakeOrders(o: { paid?: number; undelivered?: number } = {}) {
+  const cancelled: string[] = [];
+  const repo = {
+    countPaidUndeliveredForStop: async () => o.paid ?? 0,
+    countUndeliveredForStop: async () => o.undelivered ?? 0,
+    cancelPendingOrdersForStop: async (id: string) => {
+      cancelled.push(id);
+      return 1;
+    },
+  } as unknown as OrderRepository;
+  return { repo, cancelled };
+}
 
 function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
   return {
@@ -148,7 +167,7 @@ describe("completeTrailerStop / cancelTrailerStop", () => {
   it("marks a stop as cancelled", async () => {
     const repo = fakeRepo([fakeStop({ id: "stop1", status: "scheduled" })]);
 
-    await cancelTrailerStop(repo, "stop1");
+    await cancelTrailerStop({ stops: repo, orders: fakeOrders().repo }, "stop1");
 
     expect((await repo.findById("stop1"))?.status).toBe("cancelled");
   });
@@ -157,7 +176,7 @@ describe("completeTrailerStop / cancelTrailerStop", () => {
 describe("transition guards", () => {
   it("cancel throws unless scheduled", async () => {
     const repo = fakeRepo([fakeStop({ status: "active" })]);
-    await expect(cancelTrailerStop(repo, "stop1")).rejects.toThrow();
+    await expect(cancelTrailerStop({ stops: repo, orders: fakeOrders().repo }, "stop1")).rejects.toThrow();
   });
 
   it("reactivate moves cancelled to scheduled and throws otherwise", async () => {
@@ -293,5 +312,94 @@ describe("minute granularity and invalid dates", () => {
     const bad = { ...base, startTime: new Date("nope"), endTime: new Date("2026-09-18T10:30:00Z") };
     await expect(createTrailerStop(fakeRepo([]), bad)).rejects.toThrow("Invalid date");
     await expect(updateTrailerStop(fakeRepo([fakeStop({ id: "s" })]), "s", bad)).rejects.toThrow("Invalid date");
+  });
+});
+
+describe("openTrailerStop", () => {
+  it("opens a scheduled stop without stock", async () => {
+    const repo = fakeRepo([fakeStop()]);
+    await openTrailerStop({ stops: repo }, "stop1", { allowMultipleActive: false });
+    expect((await repo.findById("stop1"))?.status).toBe("active");
+  });
+
+  it("is a no-op when already active", async () => {
+    const repo = fakeRepo([fakeStop({ status: "active" })]);
+    await openTrailerStop({ stops: repo }, "stop1", { allowMultipleActive: false });
+    expect((await repo.findById("stop1"))?.status).toBe("active");
+  });
+
+  it("rejects cancelled and completed", async () => {
+    for (const status of ["cancelled", "completed"] as const) {
+      const repo = fakeRepo([fakeStop({ status })]);
+      await expect(openTrailerStop({ stops: repo }, "stop1", { allowMultipleActive: false })).rejects.toThrow(
+        "Only scheduled stops can be opened",
+      );
+    }
+  });
+
+  it("rejects when another stop is active, naming it", async () => {
+    const repo = fakeRepo([fakeStop({ id: "a", status: "active", location: "Rundle" }), fakeStop({ id: "b" })]);
+    await expect(openTrailerStop({ stops: repo }, "b", { allowMultipleActive: false })).rejects.toThrow(
+      "Another stop is active: Rundle",
+    );
+    expect(isStopConflictMessage("Another stop is active: Rundle")).toBe(true);
+  });
+
+  it("allows multiple active when configured", async () => {
+    const repo = fakeRepo([fakeStop({ id: "a", status: "active" }), fakeStop({ id: "b" })]);
+    await openTrailerStop({ stops: repo }, "b", { allowMultipleActive: true });
+    expect((await repo.findById("b"))?.status).toBe("active");
+  });
+});
+
+describe("closeTrailerStop", () => {
+  it("closes an active stop with no undelivered orders", async () => {
+    const repo = fakeRepo([fakeStop({ status: "active" })]);
+    await closeTrailerStop({ stops: repo, orders: fakeOrders().repo }, "stop1", { confirmUndelivered: false });
+    expect((await repo.findById("stop1"))?.status).toBe("completed");
+  });
+
+  it("requires confirmation when undelivered orders exist", async () => {
+    const repo = fakeRepo([fakeStop({ status: "active" })]);
+    const deps = { stops: repo, orders: fakeOrders({ undelivered: 2 }).repo };
+    await expect(closeTrailerStop(deps, "stop1", { confirmUndelivered: false })).rejects.toThrow(
+      "Stop has undelivered orders",
+    );
+    await closeTrailerStop(deps, "stop1", { confirmUndelivered: true });
+    expect((await repo.findById("stop1"))?.status).toBe("completed");
+  });
+
+  it("rejects a scheduled stop", async () => {
+    const repo = fakeRepo([fakeStop()]);
+    await expect(
+      closeTrailerStop({ stops: repo, orders: fakeOrders().repo }, "stop1", { confirmUndelivered: true }),
+    ).rejects.toThrow("Only active stops can be closed");
+  });
+});
+
+describe("getStopCloseSummary", () => {
+  it("combines stock summary and undelivered count", async () => {
+    const products = [{ productId: "p", maxStock: 5, currentStock: 1, sold: 3, wasted: 1, soldOut: false }];
+    const stock = { summarizeByStop: async () => products } as unknown as StockRepository;
+    const res = await getStopCloseSummary({ stock, orders: fakeOrders({ undelivered: 4 }).repo }, "stop1");
+    expect(res).toEqual({ products, undeliveredOrders: 4 });
+  });
+});
+
+describe("cancelTrailerStop with orders", () => {
+  it("rejects when paid undelivered orders exist", async () => {
+    const repo = fakeRepo([fakeStop()]);
+    const o = fakeOrders({ paid: 1 });
+    await expect(cancelTrailerStop({ stops: repo, orders: o.repo }, "stop1")).rejects.toThrow("Stop has paid orders");
+    expect(o.cancelled).toEqual([]);
+    expect((await repo.findById("stop1"))?.status).toBe("scheduled");
+  });
+
+  it("cancels pending orders and then the stop", async () => {
+    const repo = fakeRepo([fakeStop()]);
+    const o = fakeOrders();
+    await cancelTrailerStop({ stops: repo, orders: o.repo }, "stop1");
+    expect(o.cancelled).toEqual(["stop1"]);
+    expect((await repo.findById("stop1"))?.status).toBe("cancelled");
   });
 });

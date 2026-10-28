@@ -1,5 +1,8 @@
 import type { TrailerStopRepository } from "./ports";
 import type { TrailerStop } from "./entities";
+import type { OrderRepository } from "../orders/ports";
+import type { StockRepository } from "../stock/ports";
+import type { StopStockSummary } from "../stock/entities";
 
 interface StopInput {
   location: string;
@@ -19,7 +22,13 @@ export function isStopConflictMessage(message: string): boolean {
       "Only scheduled stops can be cancelled",
       "Only cancelled stops can be reactivated",
       "Stop has orders",
-    ].includes(message) || message.startsWith("Cannot complete a ")
+      "Only scheduled stops can be opened",
+      "Only active stops can be closed",
+      "Stop has undelivered orders",
+      "Stop has paid orders",
+    ].includes(message) ||
+    message.startsWith("Cannot complete a ") ||
+    message.startsWith("Another stop is active")
   );
 }
 
@@ -95,10 +104,54 @@ export async function completeTrailerStop(repo: TrailerStopRepository, id: strin
   await repo.updateStatus(id, "completed");
 }
 
-export async function cancelTrailerStop(repo: TrailerStopRepository, id: string): Promise<void> {
-  const stop = await requireStop(repo, id);
+export async function openTrailerStop(
+  deps: { stops: TrailerStopRepository },
+  id: string,
+  options: { allowMultipleActive: boolean },
+): Promise<void> {
+  const stop = await requireStop(deps.stops, id);
+  if (stop.status === "active") return;
+  if (stop.status !== "scheduled") throw new Error("Only scheduled stops can be opened");
+  if (!options.allowMultipleActive) {
+    const other = (await deps.stops.listAll()).find((s) => s.status === "active" && s.id !== id);
+    if (other) throw new Error(`Another stop is active: ${other.location}`);
+  }
+  await deps.stops.updateStatus(id, "active");
+}
+
+export async function getStopCloseSummary(
+  deps: { stock: StockRepository; orders: OrderRepository },
+  stopId: string,
+): Promise<{ products: StopStockSummary[]; undeliveredOrders: number }> {
+  const [products, undeliveredOrders] = await Promise.all([
+    deps.stock.summarizeByStop(stopId),
+    deps.orders.countUndeliveredForStop(stopId),
+  ]);
+  return { products, undeliveredOrders };
+}
+
+export async function closeTrailerStop(
+  deps: { stops: TrailerStopRepository; orders: OrderRepository },
+  id: string,
+  options: { confirmUndelivered: boolean },
+): Promise<void> {
+  const stop = await requireStop(deps.stops, id);
+  if (stop.status !== "active") throw new Error("Only active stops can be closed");
+  if (!options.confirmUndelivered && (await deps.orders.countUndeliveredForStop(id)) > 0) {
+    throw new Error("Stop has undelivered orders");
+  }
+  await deps.stops.updateStatus(id, "completed");
+}
+
+export async function cancelTrailerStop(
+  deps: { stops: TrailerStopRepository; orders: OrderRepository },
+  id: string,
+): Promise<void> {
+  const stop = await requireStop(deps.stops, id);
   if (stop.status !== "scheduled") throw new Error("Only scheduled stops can be cancelled");
-  await repo.updateStatus(id, "cancelled");
+  if ((await deps.orders.countPaidUndeliveredForStop(id)) > 0) throw new Error("Stop has paid orders");
+  await deps.orders.cancelPendingOrdersForStop(id);
+  await deps.stops.updateStatus(id, "cancelled");
 }
 
 export async function reactivateTrailerStop(repo: TrailerStopRepository, id: string): Promise<void> {

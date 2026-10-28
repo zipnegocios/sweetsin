@@ -27,6 +27,7 @@ import {
   DrizzleStockRepository,
   DrizzleEventBookingRepository,
   DrizzleStockTemplateRepository,
+  DrizzleOrderRepository,
 } from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
 import { runAdminAction } from "@/lib/run-admin-action";
@@ -82,7 +83,7 @@ export async function completeTrailerStopAction(id: string): Promise<void> {
 
 export async function cancelTrailerStopAction(id: string): Promise<void> {
   await requireAdmin();
-  await cancelTrailerStop(new DrizzleTrailerStopRepository(), id);
+  await cancelTrailerStop({ stops: new DrizzleTrailerStopRepository(), orders: new DrizzleOrderRepository() }, id);
 }
 
 export async function updateTrailerStopAction(
