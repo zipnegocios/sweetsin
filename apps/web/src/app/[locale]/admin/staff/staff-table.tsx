@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import type { User } from "@workspace/domain/users";
-import { resetStaffPinAction, toggleStaffActiveAction } from "@/app/actions/admin-staff";
+import { resetStaffPinAction, toggleStaffActiveAction, deleteStaffAction } from "@/app/actions/admin-staff";
 
 export function StaffTable({ staff }: { staff: User[] }) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [revealedPin, setRevealedPin] = useState<{ userId: string; pin: string } | null>(null);
 
   async function handleResetPin(userId: string) {
@@ -27,6 +29,22 @@ export function StaffTable({ staff }: { staff: User[] }) {
     setPendingId(userId);
     try {
       await toggleStaffActiveAction(userId, !isActive);
+      router.refresh();
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleDelete(userId: string) {
+    setPendingId(userId);
+    setDeleteError("");
+    try {
+      const result = await deleteStaffAction(userId);
+      if (!result.ok) {
+        setDeleteError(t("staffDeleteError"));
+        return;
+      }
+      setConfirmingId(null);
       router.refresh();
     } finally {
       setPendingId(null);
@@ -53,9 +71,14 @@ export function StaffTable({ staff }: { staff: User[] }) {
           <tr key={user.id} >
             <td>{user.name}</td>
             <td>{user.email}</td>
-            <td>{user.role}</td>
-            <td>{user.isActive ? "✓" : "✗"}</td>
-            <td className="px-4 py-3 space-x-3">
+            <td>{user.role === "despachador" ? t("staffFormRoleDespachador") : t("staffFormRoleDelivery")}</td>
+            <td>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${user.isActive ? "bg-emerald-500/12 text-emerald-700" : "bg-navy/8 text-navy/60"}`}>
+                <span className={`size-1.5 rounded-full ${user.isActive ? "bg-emerald-500" : "bg-navy/40"}`} />
+                {user.isActive ? t("staffStatusActive") : t("staffStatusInactive")}
+              </span>
+            </td>
+            <td className="space-x-3 whitespace-nowrap">
               <button
                 type="button"
                 disabled={pendingId === user.id}
@@ -72,6 +95,31 @@ export function StaffTable({ staff }: { staff: User[] }) {
               >
                 {user.isActive ? t("staffDeactivateButton") : t("staffActivateButton")}
               </button>
+              {confirmingId === user.id ? (
+                <span className="admin-enter inline-flex items-center gap-2 rounded-lg bg-sin-red/10 px-2.5 py-1">
+                  <span className="text-[12px] font-medium text-sin-red-dark">{t("staffDeleteConfirm")}</span>
+                  <button
+                    type="button"
+                    disabled={pendingId === user.id}
+                    onClick={() => handleDelete(user.id)}
+                    className="text-[12px] font-semibold text-sin-red-dark underline-offset-2 hover:underline disabled:opacity-50"
+                  >
+                    {t("staffDeleteConfirmYes")}
+                  </button>
+                  <button type="button" onClick={() => setConfirmingId(null)} className="text-[12px] text-navy/60 hover:text-navy">
+                    {t("staffDeleteCancel")}
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pendingId === user.id}
+                  onClick={() => { setDeleteError(""); setConfirmingId(user.id); }}
+                  className="text-sin-red-dark/80 hover:text-sin-red hover:underline disabled:opacity-50"
+                >
+                  {t("staffDeleteButton")}
+                </button>
+              )}
               {revealedPin?.userId === user.id && (
                 <span className="text-sin-red">
                   {t("staffPinRevealPrefix")}: {revealedPin.pin}
@@ -81,6 +129,6 @@ export function StaffTable({ staff }: { staff: User[] }) {
           </tr>
         ))}
       </tbody>
-    </table></div>
+    </table>{deleteError && <p role="alert" className="px-5 py-3 text-[13px] text-sin-red">{deleteError}</p>}</div>
   );
 }

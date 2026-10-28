@@ -66,3 +66,24 @@ describe("recordFailedPinAttempt / resetPinAttempts", () => {
     expect(reset?.pinLockedUntil).toBeNull();
   });
 });
+
+describe("deleteStaff", () => {
+  it("elimina al staff y deja de encontrarlo", async () => {
+    const repo = new DrizzleUserRepository();
+    const created = await repo.create({
+      name: "Delete Test Staff",
+      email: `delete-test-${Date.now()}@example.com`,
+      role: "delivery",
+      pinHash: "irrelevant",
+      passwordHash: "irrelevant",
+      isActive: true,
+      preferredLocale: "es",
+      failedPinAttempts: 0,
+      pinLockedUntil: null,
+    });
+
+    await repo.deleteStaff(created.id);
+
+    expect(await repo.findById(created.id)).toBeNull();
+  });
+});

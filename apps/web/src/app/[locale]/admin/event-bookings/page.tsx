@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listEventBookingsAction } from "@/app/actions/admin-event-bookings";
 import type { EventBookingStatus } from "@workspace/domain/event-bookings";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { PageHeader } from "@/components/admin/page-header";
 
 type SearchParams = Record<string, string | undefined>;
@@ -28,8 +29,8 @@ export default async function AdminEventBookingsPage({
       <form method="get" className="flex flex-wrap gap-3 mb-6">
         <select name="status" defaultValue={sp.status ?? ""} className="admin-input">
           <option value="">{t("filterAll")}</option>
-          {["quote_requested", "quoted", "confirmed", "completed", "cancelled"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+          {(["quote_requested", "quoted", "confirmed", "completed", "cancelled"] as const).map((s) => (
+            <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
         <button type="submit" className="admin-btn">{t("applyFilters")}</button>
@@ -51,7 +52,7 @@ export default async function AdminEventBookingsPage({
             <tr key={booking.id} className={`${booking.location === "TBD" ? "bg-sin-red/5" : ""}`}>
               <td>{booking.clientName}</td>
               <td>{booking.eventType}</td>
-              <td>{booking.eventDate.toLocaleDateString()}</td>
+              <td>{booking.eventDate.toLocaleDateString(locale)}</td>
               <td>
                 {booking.location === "TBD" ? (
                   <span className="text-sin-red font-bold">{t("bookingLocationTbdWarning")}</span>
@@ -59,7 +60,7 @@ export default async function AdminEventBookingsPage({
                   booking.location
                 )}
               </td>
-              <td>{booking.status}</td>
+              <td><StatusBadge status={booking.status} /></td>
               <td>
                 <Link href={`/admin/event-bookings/${booking.id}`} className="admin-link">
                   {t("viewDetail")}

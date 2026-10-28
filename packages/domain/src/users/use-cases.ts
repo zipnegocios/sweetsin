@@ -114,3 +114,12 @@ export async function resetStaffPin(repo: UserRepository, userId: string): Promi
   await repo.resetPinAttempts(userId);
   return plainPin;
 }
+
+export async function deleteStaffUser(repo: UserRepository, userId: string): Promise<void> {
+  const user = await repo.findById(userId);
+  if (!user) throw new Error(`User not found: ${userId}`);
+  if (user.role !== "despachador" && user.role !== "delivery") {
+    throw new Error("Only staff users can be deleted");
+  }
+  await repo.deleteStaff(userId);
+}

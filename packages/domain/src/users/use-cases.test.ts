@@ -8,6 +8,7 @@ import {
   registerStaffUser,
   resetStaffPin,
   generatePin,
+  deleteStaffUser,
 } from "./use-cases";
 import { hashPassword } from "./auth";
 import type { User, UserRole } from "./entities";
@@ -178,6 +179,9 @@ function makeFakeUserRepo(users: User[]): UserRepository {
       if (!user) return;
       store.set(id, { ...user, failedPinAttempts: 0, pinLockedUntil: null });
     },
+    deleteStaff: async (id) => {
+      store.delete(id);
+    },
   };
 }
 
@@ -280,5 +284,30 @@ describe("generatePin", () => {
     for (let i = 0; i < 50; i++) {
       expect(generatePin()).toMatch(/^\d{6}$/);
     }
+  });
+});
+
+describe("deleteStaffUser", () => {
+  it("elimina a un miembro del staff", async () => {
+    const repo = makeFakeUserRepo([baseStaff]);
+
+    await deleteStaffUser(repo, "staff-1");
+
+    expect(await repo.findById("staff-1")).toBeNull();
+  });
+
+  it("rechaza eliminar a un admin o a un cliente", async () => {
+    const repo = makeFakeUserRepo([
+      { ...baseStaff, id: "admin-1", role: "admin" },
+      { ...baseStaff, id: "customer-1", role: "customer" },
+    ]);
+
+    await expect(deleteStaffUser(repo, "admin-1")).rejects.toThrow("Only staff");
+    await expect(deleteStaffUser(repo, "customer-1")).rejects.toThrow("Only staff");
+    expect(await repo.findById("admin-1")).not.toBeNull();
+  });
+
+  it("falla si el usuario no existe", async () => {
+    await expect(deleteStaffUser(makeFakeUserRepo([]), "nope")).rejects.toThrow("not found");
   });
 });

@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listTrailerStopsAction } from "@/app/actions/admin-trailer-stops";
 import { TrailerStopRowActions } from "@/components/admin/trailer-stop-row-actions";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { PageHeader } from "@/components/admin/page-header";
 
 export default async function AdminTrailerStopsPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -34,8 +35,8 @@ export default async function AdminTrailerStopsPage({ params }: { params: Promis
           {stops.map((stop) => (
             <tr key={stop.id} >
               <td>{stop.location}</td>
-              <td>{stop.startTime.toLocaleDateString()}</td>
-              <td>{stop.status}</td>
+              <td>{stop.startTime.toLocaleDateString(locale)}</td>
+              <td><StatusBadge status={stop.status} /></td>
               <td>
                 <Link href={`/admin/trailer-stops/${stop.id}`} className="admin-link">
                   {t("viewDetail")}

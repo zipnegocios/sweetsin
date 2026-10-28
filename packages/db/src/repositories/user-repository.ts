@@ -2,7 +2,13 @@ import { and, eq } from "drizzle-orm";
 import type { User, UserRepository, UserRole } from "@workspace/domain/users";
 import type { Locale } from "@workspace/domain/shared";
 import { db } from "../index";
-import { usersTable } from "../schema";
+import {
+  usersTable,
+  ordersTable,
+  stockEventsTable,
+  pushTokensTable,
+  deliveryLocationsTable,
+} from "../schema";
 
 export class DrizzleUserRepository implements UserRepository {
   async findById(id: string): Promise<User | null> {
@@ -50,5 +56,21 @@ export class DrizzleUserRepository implements UserRepository {
 
   async resetPinAttempts(id: string): Promise<void> {
     await db.update(usersTable).set({ failedPinAttempts: 0, pinLockedUntil: null }).where(eq(usersTable.id, id));
+  }
+
+  async deleteStaff(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Una orden en camino asignada a esta persona vuelve a la cola del despachador
+      // (misma transición inversa a la asignación: ready_for_pickup -> out_for_delivery).
+      await tx
+        .update(ordersTable)
+        .set({ fulfillmentStatus: "ready_for_pickup" })
+        .where(and(eq(ordersTable.assignedDeliveryUserId, id), eq(ordersTable.fulfillmentStatus, "out_for_delivery")));
+      await tx.update(ordersTable).set({ assignedDeliveryUserId: null }).where(eq(ordersTable.assignedDeliveryUserId, id));
+      await tx.update(stockEventsTable).set({ reportedByUserId: null }).where(eq(stockEventsTable.reportedByUserId, id));
+      await tx.delete(pushTokensTable).where(eq(pushTokensTable.userId, id));
+      await tx.delete(deliveryLocationsTable).where(eq(deliveryLocationsTable.userId, id));
+      await tx.delete(usersTable).where(eq(usersTable.id, id));
+    });
   }
 }

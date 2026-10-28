@@ -30,7 +30,7 @@ export default async function TrailerStopDetailPage({
     <div>
       <PageHeader title={stop.location} />
       <p className="text-[13px] text-navy/50 mb-6">
-        {stop.startTime.toLocaleString()} — {stop.endTime.toLocaleString()} · {stop.status}
+        {stop.startTime.toLocaleString(locale)} — {stop.endTime.toLocaleString(locale)} · {t(`status_${stop.status}`)}
       </p>
 
       <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("stockTitle")}</h2>

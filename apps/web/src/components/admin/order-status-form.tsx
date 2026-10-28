@@ -47,7 +47,7 @@ export function OrderStatusForm({
           className="admin-input"
         >
           {FULFILLMENT_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
       </div>
@@ -59,7 +59,7 @@ export function OrderStatusForm({
           className="admin-input"
         >
           {PAYMENT_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
       </div>

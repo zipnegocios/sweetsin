@@ -9,4 +9,6 @@ export interface UserRepository {
   update(id: string, data: Partial<Pick<User, "preferredLocale" | "pinHash" | "isActive">>): Promise<User>;
   recordFailedPinAttempt(id: string, lockedUntil: Date | null): Promise<void>;
   resetPinAttempts(id: string): Promise<void>;
+  /** Elimina al usuario y libera todo lo que lo referencia (asignaciones, tokens, ubicación). */
+  deleteStaff(id: string): Promise<void>;
 }

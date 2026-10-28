@@ -8,6 +8,7 @@ import {
   TruckIcon,
   XIcon,
   UndoIcon,
+  CalendarIcon,
 } from "./admin-icons";
 
 type Status =
@@ -20,7 +21,15 @@ type Status =
   | "cancelled"
   | "paid"
   | "failed"
-  | "refunded";
+  | "refunded"
+  | "quote_requested"
+  | "quoted"
+  | "confirmed"
+  | "completed"
+  | "scheduled"
+  | "active"
+  | "sent"
+  | "blocked";
 
 // Color + icono + texto: el estado nunca depende solo del color.
 const STYLES: Record<Status, { icon: ComponentType<SVGProps<SVGSVGElement>>; tone: string }> = {
@@ -34,6 +43,14 @@ const STYLES: Record<Status, { icon: ComponentType<SVGProps<SVGSVGElement>>; ton
   paid: { icon: CheckIcon, tone: "bg-emerald-500/12 text-emerald-700" },
   failed: { icon: XIcon, tone: "bg-sin-red/12 text-sin-red-dark" },
   refunded: { icon: UndoIcon, tone: "bg-navy/8 text-navy/60" },
+  quote_requested: { icon: ClockIcon, tone: "bg-gold/15 text-[#8A611C]" },
+  quoted: { icon: BoxIcon, tone: "bg-navy-light/10 text-navy-light" },
+  confirmed: { icon: CheckIcon, tone: "bg-emerald-500/12 text-emerald-700" },
+  completed: { icon: CheckIcon, tone: "bg-emerald-500/12 text-emerald-700" },
+  scheduled: { icon: CalendarIcon, tone: "bg-navy-light/10 text-navy-light" },
+  active: { icon: TruckIcon, tone: "bg-emerald-500/12 text-emerald-700" },
+  sent: { icon: CheckIcon, tone: "bg-emerald-500/12 text-emerald-700" },
+  blocked: { icon: XIcon, tone: "bg-gold/15 text-[#8A611C]" },
 };
 
 export async function StatusBadge({ status }: { status: Status }) {

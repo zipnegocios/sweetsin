@@ -1,6 +1,7 @@
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listEmailLogsAction } from "@/app/actions/admin-email-logs";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { PageHeader } from "@/components/admin/page-header";
 
 export default async function AdminEmailLogsPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -30,10 +31,10 @@ export default async function AdminEmailLogsPage({ params }: { params: Promise<{
             {logs.map((log) => (
               <tr key={log.id} >
                 <td>{log.to}</td>
-                <td>{log.type}</td>
-                <td>{log.locale}</td>
-                <td>{log.status}</td>
-                <td>{log.createdAt.toLocaleString()}</td>
+                <td>{t(`emailType_${log.type}`)}</td>
+                <td className="font-mono text-xs uppercase">{log.locale}</td>
+                <td><StatusBadge status={log.status} /></td>
+                <td>{log.createdAt.toLocaleString(locale)}</td>
               </tr>
             ))}
           </tbody>

@@ -646,6 +646,7 @@ function fakeUserRepo(users: User[]): UserRepository {
     },
     async recordFailedPinAttempt() {},
     async resetPinAttempts() {},
+    async deleteStaff() {},
   };
 }
 
