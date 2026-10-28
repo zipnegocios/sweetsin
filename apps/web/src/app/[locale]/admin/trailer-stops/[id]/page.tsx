@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleProductRepository } from "@workspace/db/repositories";
-import { StockRow } from "@/components/admin/stock-row";
+import { listAvailableProducts } from "@workspace/domain/products";
+import { requireAdmin } from "@/lib/require-admin";
+import { StopStockEditor } from "@/components/admin/stop-stock-editor";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TrailerStopRowActions } from "@/components/admin/trailer-stop-row-actions";
@@ -19,18 +21,24 @@ export default async function TrailerStopDetailPage({
   const { locale, id } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("admin");
+  await requireAdmin();
 
   const stop = await new DrizzleTrailerStopRepository().findById(id);
   if (!stop) notFound();
 
-  const stock = await new DrizzleStockRepository().listByStop(id);
+  const stockRepo = new DrizzleStockRepository();
+  const stock = await stockRepo.listByStop(id);
   const productRepo = new DrizzleProductRepository();
   const stockWithNames = await Promise.all(
     stock.map(async (s) => {
-      const product = await productRepo.findById(s.productId);
-      return { ...s, productName: product?.nameEn ?? s.productId };
+      const [product, soldUnits] = await Promise.all([productRepo.findById(s.productId), stockRepo.sumSold(s.id)]);
+      return { ...s, productName: product?.nameEn ?? s.productId, soldUnits };
     }),
   );
+  const inStop = new Set(stock.map((s) => s.productId));
+  const availableProducts = (await listAvailableProducts(productRepo))
+    .filter((p) => !inStop.has(p.id))
+    .map((p) => ({ id: p.id, nameEn: p.nameEn }));
 
   return (
     <div>
@@ -56,28 +64,12 @@ export default async function TrailerStopDetailPage({
       <LocationMap lat={stop.lat} lng={stop.lng} label={stop.location} className="w-full h-64 rounded-xl overflow-hidden mb-6" />
 
       <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("stockTitle")}</h2>
-      <div className="admin-card admin-enter overflow-x-auto"><table className="admin-table">
-        <thead>
-          <tr>
-            <th>{t("stockColumnProduct")}</th>
-            <th>{t("stockColumnCurrent")}</th>
-            <th>{t("stockColumnMax")}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {stockWithNames.map((s) => (
-            <StockRow
-              key={s.id}
-              stopId={stop.id}
-              productId={s.productId}
-              productName={s.productName}
-              currentStock={s.currentStock}
-              maxStock={s.maxStock}
-            />
-          ))}
-        </tbody>
-      </table></div>
+      <StopStockEditor
+        stopId={stop.id}
+        rows={stockWithNames}
+        availableProducts={availableProducts}
+        readOnly={stop.status === "completed"}
+      />
     </div>
   );
 }

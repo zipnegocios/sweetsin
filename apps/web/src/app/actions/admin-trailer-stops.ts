@@ -10,9 +10,25 @@ import {
   deleteTrailerStop,
 } from "@workspace/domain/trailer-stops";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
-import { initializeStopStock, restockProduct, reportStockWaste } from "@workspace/domain/stock";
-import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleEventBookingRepository } from "@workspace/db/repositories";
+import {
+  initializeStopStock,
+  restockProduct,
+  reportStockWaste,
+  setStopProductQuantity,
+  addStopProduct,
+  removeStopProduct,
+  saveStopStockAsTemplate,
+  isStockConflictMessage,
+} from "@workspace/domain/stock";
+import { isStockTemplateConflictMessage } from "@workspace/domain/stock-templates";
+import {
+  DrizzleTrailerStopRepository,
+  DrizzleStockRepository,
+  DrizzleEventBookingRepository,
+  DrizzleStockTemplateRepository,
+} from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
+import { runAdminAction } from "@/lib/run-admin-action";
 
 export async function listTrailerStopsAction(): Promise<TrailerStop[]> {
   await requireAdmin();
@@ -105,4 +121,26 @@ export async function reportWasteAction(
 ): Promise<void> {
   await requireAdmin();
   await reportStockWaste(new DrizzleStockRepository(), stopId, productId, quantity, reason, null);
+}
+
+function runStock(fn: () => Promise<unknown>) {
+  return runAdminAction(fn, (m) => isStockConflictMessage(m) || isStockTemplateConflictMessage(m));
+}
+
+export async function setStopProductQuantityAction(stopId: string, productId: string, quantity: number) {
+  return runStock(() => setStopProductQuantity(new DrizzleStockRepository(), stopId, productId, quantity));
+}
+
+export async function addStopProductAction(stopId: string, productId: string, quantity: number) {
+  return runStock(() => addStopProduct(new DrizzleStockRepository(), stopId, productId, quantity));
+}
+
+export async function removeStopProductAction(stopId: string, productId: string) {
+  return runStock(() => removeStopProduct(new DrizzleStockRepository(), stopId, productId));
+}
+
+export async function saveStopStockAsTemplateAction(stopId: string, name: string) {
+  return runStock(() =>
+    saveStopStockAsTemplate(new DrizzleStockRepository(), new DrizzleStockTemplateRepository(), stopId, name),
+  );
 }

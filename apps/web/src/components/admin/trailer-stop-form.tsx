@@ -18,7 +18,21 @@ interface ProductOption {
 const DEFAULT_LAT = -34.9285;
 const DEFAULT_LNG = 138.6007;
 
-export function TrailerStopForm({ products, stop }: { products: ProductOption[]; stop?: TrailerStop }) {
+interface TemplateOption {
+  id: string;
+  name: string;
+  items: { productId: string; quantity: number }[];
+}
+
+export function TrailerStopForm({
+  products,
+  stop,
+  templates = [],
+}: {
+  products: ProductOption[];
+  stop?: TrailerStop;
+  templates?: TemplateOption[];
+}) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [location, setLocation] = useState(stop?.location ?? "");
@@ -26,7 +40,7 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
   const [lng, setLng] = useState(stop?.lng ?? DEFAULT_LNG);
   const [startTime, setStartTime] = useState(stop ? toAdelaideLocalInput(stop.startTime) : "");
   const [endTime, setEndTime] = useState(stop ? toAdelaideLocalInput(stop.endTime) : "");
-  const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, string>>({});
   const [overlaps, setOverlaps] = useState<{ clientName: string; eventDate: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -75,14 +89,32 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
   function toggleProduct(productId: string, checked: boolean) {
     setSelectedProducts((prev) => {
       const next = { ...prev };
-      if (checked) next[productId] = next[productId] ?? 10;
+      if (checked) next[productId] = next[productId] ?? "10";
       else delete next[productId];
       return next;
     });
   }
 
+  // Copia la plantilla al estado (editable después); "Ninguna" no lo toca.
+  function applyTemplate(templateId: string) {
+    const template = templates.find((tpl) => tpl.id === templateId);
+    if (!template) return;
+    const available = new Set(products.map((p) => p.id));
+    setSelectedProducts(
+      Object.fromEntries(template.items.filter((i) => available.has(i.productId)).map((i) => [i.productId, String(i.quantity)])),
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const stockItems = Object.entries(selectedProducts).map(([productId, raw]) => ({
+      productId,
+      maxStock: /^\d+$/.test(raw.trim()) ? Number(raw) : 0,
+    }));
+    if (!stop && stockItems.some((i) => i.maxStock < 1)) {
+      setSubmitError(t("tplErrorQuantity"));
+      return;
+    }
     const start = parseAdelaideLocal(startTime);
     const end = parseAdelaideLocal(endTime);
     if (start >= end) {
@@ -101,7 +133,7 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
           lat,
           lng,
           ...times,
-          products: Object.entries(selectedProducts).map(([productId, maxStock]) => ({ productId, maxStock })),
+          products: stockItems,
         });
       }
       router.push(stop ? `/admin/trailer-stops/${stop.id}` : "/admin/trailer-stops");
@@ -148,6 +180,19 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
 
       {!stop && (
       <div>
+        {templates.length > 0 && (
+          <div className="mb-3">
+            <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("stopFormTemplate")}</label>
+            <select defaultValue="" onChange={(e) => applyTemplate(e.target.value)} className="admin-input">
+              <option value="">{t("stopFormTemplateNone")}</option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <p className="text-[11px] uppercase text-navy/40 mb-2">{t("stopFormProducts")}</p>
         <div className="space-y-2">
           {products.map((product) => (
@@ -164,7 +209,7 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
                   min={1}
                   value={selectedProducts[product.id]}
                   onChange={(e) =>
-                    setSelectedProducts((prev) => ({ ...prev, [product.id]: Number(e.target.value) }))
+                    setSelectedProducts((prev) => ({ ...prev, [product.id]: e.target.value }))
                   }
                   placeholder={t("stopFormMaxStock")}
                   className="w-24 border border-navy/15 rounded-lg px-2 py-1 text-sm"
@@ -176,7 +221,11 @@ export function TrailerStopForm({ products, stop }: { products: ProductOption[];
       </div>
       )}
 
-      {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
+      {submitError && (
+        <p role="alert" className="text-[13px] text-sin-red">
+          {submitError}
+        </p>
+      )}
 
       <button type="submit" disabled={isSubmitting} className="admin-btn disabled:opacity-50">
         {t(stop ? "stopFormSave" : "stopFormSubmit")}
