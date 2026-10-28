@@ -61,6 +61,9 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 
 ### Sesión paradas CRUD completo (2026-10-28)
 - Meta: CRUD completo de paradas del trailer (editar, cancelar, reactivar, completar, borrar) con etiquetas públicas "Cambió de lugar/fecha", horas siempre en Australia/Adelaide y endpoints `/api/admin/trailer-stops/**`.
+### Sesión plantillas de stock (2026-10-28)
+- Meta: proyecto 2 de 4. Plantillas de stock reutilizables (nombre + productos con cantidad) para crear paradas del trailer con un clic, y edición del stock de una parada ya existente. Spec: `docs/superpowers/specs/2026-10-28-plantillas-stock-design.md`; plan: `docs/superpowers/plans/2026-10-28-plantillas-stock.md`; ledger: `.superpowers/sdd/2026-10-28-plantillas-stock/progress.md`.
+
 
 ## Estado actual
 
@@ -430,6 +433,13 @@ corrida tarea por tarea durante la ejecución).
 ### Sesión paradas CRUD completo (2026-10-28)
 - Hecho (tareas 1-6, todo en el índice, sin commit): dominio (estados, `getStopChanges`, `listVisibleTrailerStops`), repo + 5 columnas `original_*` nullables (ya aplicadas a la DB compartida), helper `adelaide-time`, acciones admin y endpoints REST, panel (editar/detalle/borrar) y sitio público (etiquetas + aviso).
 - Verificación (tarea 7): `pnpm run typecheck` OK; `pnpm run test` OK en una sola corrida: i18n 1, domain 176, notifications 9, mobile 274, db 30, web 127 (0 fallos). Verificación manual en navegador pendiente.
+### Sesión plantillas de stock (2026-10-28)
+- Hecho y en `main` (tareas 1-7 + cierre). Verificación (tarea 8): `pnpm run typecheck` OK; `pnpm run test` OK: i18n 1, domain 204, notifications 9, mobile 275, db 36, web 157 (0 fallos). La DB compartida quedó sin filas de prueba (0 plantillas, 0 paradas 'Stock Test Stop'/'Test Stop', 0 huérfanos).
+- Plantilla = **copia, no vínculo**: crear una parada desde una plantilla copia sus cantidades; editar la plantilla después no toca paradas ya creadas. Las plantillas se **archivan** (no se borran) y una archivada no se ofrece al crear paradas.
+- **Definición de "vendido" (corregida):** es la suma de los `stock_events` de tipo `sale` de esa parada y producto, **no** `maxStock - currentStock`. Motivo: restock y merma (`waste`) también mueven `currentStock`, así que `max - current` mezclaría ventas con mermas y el piso de edición sería incorrecto. La guarda rechaza bajar `maxStock` por debajo de lo vendido.
+- **Los pedidos aún no se ligan a una parada** (`orders.stopId` no se asigna en el checkout), así que hoy casi no existen eventos `sale`: la guarda "no bajar por debajo de lo vendido" se ejercita por tests (dominio y db), no a mano en el panel. Se podrá probar a mano en el proyecto 3.
+- **Esquema:** dos tablas nuevas `stock_templates` y `stock_template_items`, ya aplicadas a la DB compartida con `db push` (solo aditivo).
+
 
 ## Archivos y cambios
 
@@ -838,6 +848,9 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 
 ### Sesión paradas CRUD completo (2026-10-28)
 - Archivos (staged): `apps/web/src/app/[locale]/admin/trailer-stops/[id]/edit/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/[id]/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/page.tsx`, `apps/web/src/app/actions/admin-trailer-stops.ts`, `apps/web/src/app/api/admin/_lib/authorize-admin.ts`, `apps/web/src/app/api/admin/_lib/domain-error-response.ts`, `apps/web/src/app/api/admin/_lib/trailer-stop-body.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/cancel/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/complete/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/reactivate/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.ts`, `apps/web/src/app/api/admin/trailer-stops/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/route.ts`, `apps/web/src/components/admin/delete-stop-button.tsx`, `apps/web/src/components/admin/trailer-stop-form.tsx`, `apps/web/src/components/admin/trailer-stop-row-actions.tsx`, `apps/web/src/components/sections/find-us-client.tsx`, `apps/web/src/components/sections/find-us.tsx`, `apps/web/src/lib/adelaide-time.test.ts`, `apps/web/src/lib/adelaide-time.ts`, `packages/db/src/repositories/trailer-stop-repository.test.ts`, `packages/db/src/repositories/trailer-stop-repository.ts`, `packages/db/src/schema/trailer-stops.ts`, `packages/domain/src/trailer-stops/entities.ts`, `packages/domain/src/trailer-stops/ports.ts`, `packages/domain/src/trailer-stops/use-cases.test.ts`, `packages/domain/src/trailer-stops/use-cases.ts`, `packages/i18n/src/dictionaries/en.ts`, `packages/i18n/src/dictionaries/es.ts`, `packages/i18n/src/types.ts`. Plan y spec en `docs/superpowers/plans|specs/2026-10-28-paradas-crud-completo*`.
+### Sesión plantillas de stock (2026-10-28)
+- Archivos: dominio `packages/domain/src/stock-templates/**` (entidades, puertos, casos de uso + tests) y `stock/{ports,use-cases}.ts` (edición de stock con piso de vendido); db `schema/stock-templates.ts`, `repositories/stock-template-repository.ts` (+ test), `stock-repository.ts` (+ test, `sumSold`); web `api/admin/stock-templates/**`, `api/admin/trailer-stops/[id]/{stock,stock/[productId],save-as-template}/route.ts`, `api/admin/_lib/{stock-body,require-stop,domain-error-response}.ts`, `actions/admin-stock-templates.ts`, `actions/admin-trailer-stops.ts`, `[locale]/admin/stock-templates/**` (lista, nueva, editar), `[locale]/admin/trailer-stops/{new,[id]}/page.tsx`, `components/admin/{stock-template-form,stock-template-row-actions,stock-row,stop-stock-editor,trailer-stop-form,admin-sidebar}.tsx`, `lib/{run-admin-action,stock-template-error}.ts`; i18n `types.ts`, `en.ts`, `es.ts`. Doc: spec y plan en `docs/superpowers/`.
+
 
 ## Intentos fallidos
 
@@ -1466,6 +1479,11 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - Se borraron por error los 79 archivos de test del repo; se restauraron desde git.
 - La primera guarda de limpieza de datos de prueba se detuvo por un conteo mal calculado (no borró nada de más).
 - `stock-repository.test.ts` dejó filas 'Stock Test Stop' filtradas en la DB compartida (sin afterAll); se limpiaron a mano.
+### Sesión plantillas de stock (2026-10-28)
+- Se definió "vendido" primero como `max - current` y se corrigió a la suma de eventos `sale` antes de implementarlo (restock y merma lo falseaban).
+- `stock-repository.test.ts` y los tests de plantillas deben limpiar sus filas; la verificación final confirmó 0 filas de prueba restantes.
+- La UI de plantillas y de edición de stock no se probó en navegador (solo typecheck, tests y revisión).
+
 
 ## Próximos pasos
 
@@ -1741,6 +1759,16 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Parte 3 — intentos fallidos:** otro comando de shell con varios heredocs no se parseó (se rehízo con Write); un actualizador de estado con efectos secundarios en `LoginScreen` se refactorizó a un `signIn` que devuelve resultado.
 
 **Parte 3 — próximos pasos:** (1) probar en teléfono real: activar huella, entrar con huella, registrar otra huella (debe volver al PIN), cambiar PIN y contraseña, X y cerrar sesión de la credencial; (2) si Android no muestra el aviso de huella, agregar `android.permissions: ["USE_BIOMETRIC"]` en `app.json` (requiere recompilar el APK); (3) redeploy de `sweetsin-web` y `sweetsin-metro-android-dev`; (4) decidir si exigir PIN no trivial (ahora solo 6 dígitos); (5) paradas del trailer.
+### Próximos pasos: plantillas de stock (2026-10-28)
+1. Verificación manual en el navegador (guía en el informe de la tarea 8): crear plantilla, crear parada desde ella, editar la plantilla sin que cambie la parada, subir/bajar cantidades, guardar parada como plantilla, archivar/desarchivar.
+2. Proyecto 3: abrir/cerrar el trailer, reponer en vivo, **pedidos ligados a una parada** (para que existan eventos `sale`) y mostrar "Agotado" en el sitio público. Ahí se prueba a mano la guarda de no bajar por debajo de lo vendido.
+3. Quedan los proyectos de jornadas de delivery + stock compartido/separado y auth por token para la APK admin.
+4. Menores diferidos (ledger `.superpowers/sdd/2026-10-28-plantillas-stock/progress.md`):
+   - Dominio: test de update conservando su nombre (`excludeId`); `validate` revisa nombre antes que cantidades; archivar id inexistente sin test; tests de rechazo sin afirmar que nada se modificó; falta caso cantidad -1; fake de plantillas con `as unknown as`.
+   - Repos: update de plantilla con id inexistente devuelve objeto parcial; ítems sin `orderBy`; create/update devuelven los ítems de entrada; test de update débil.
+   - Endpoints: tests más finos (JSON malformado, 500 sin fuga, precedencia 404>409, DELETE 409, 401 en archive/unarchive); GET stock con `sumSold` por fila (N+1 pequeño); renombrar `stopNotFound` en `require-stop.ts`.
+   - Panel: mover `isUuid` fuera de `app/api/admin/_lib`; limpiar el error de cantidad al editar; default 10 como número mágico; `window.confirm` nativo para borrar; `maxRaw` de `StockRow` no se resincroniza tras refresh; Remove sin confirmación; select de plantilla no controlado; "Plantilla guardada" puede coexistir con error; "Guardar como plantilla" oculto en paradas completadas; renombrar `stockTemplateErrorKey`; restock/waste siguen lanzando y con `Number()`.
+
 
 ## Sesión: foto con cámara e idioma del staff (app mobile)
 - Foto de perfil desde la app: `CredentialScreen` (cámara frontal/trasera con `expo-image-picker`, recorte cuadrado, calidad 0.4) sube a `POST/DELETE /api/mobile/account/photo` (mismo almacén R2 y reglas que el admin; tope 2 MB → 413 "foto pesada"). Sin módulo nativo nuevo. `cameraType` es una sugerencia en Android: algunos teléfonos la ignoran.
