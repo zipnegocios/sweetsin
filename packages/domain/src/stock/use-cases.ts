@@ -2,6 +2,7 @@ import type { StockRepository } from "./ports";
 import type { StockEventType, StopProductStock } from "./entities";
 import { createStockTemplate } from "../stock-templates";
 import type { StockTemplateRepository, StockTemplateWithItems } from "../stock-templates";
+import type { TrailerStopRepository } from "../trailer-stops";
 
 async function decrementWithEvent(
   repo: StockRepository,
@@ -88,6 +89,8 @@ export function isStockConflictMessage(message: string): boolean {
     "Product already has stock at this stop",
     "Stock row not found",
     "Quantity must be a positive integer",
+    "Stop is not active",
+    "Waste exceeds current stock",
   ].includes(message);
 }
 
@@ -99,6 +102,48 @@ async function requireRow(repo: StockRepository, stopId: string, productId: stri
   const row = await repo.findByStopAndProduct(stopId, productId);
   if (!row) throw new Error("Stock row not found");
   return row;
+}
+
+interface ActiveStopStockDeps {
+  stops: TrailerStopRepository;
+  stock: StockRepository;
+}
+
+async function requireActiveStopRow(
+  deps: ActiveStopStockDeps,
+  stopId: string,
+  productId: string,
+  quantity: number,
+): Promise<StopProductStock> {
+  assertPositiveInteger(quantity);
+  const stop = await deps.stops.findById(stopId);
+  if (!stop) throw new Error("Stop not found");
+  if (stop.status !== "active") throw new Error("Stop is not active");
+  return requireRow(deps.stock, stopId, productId);
+}
+
+export async function restockStopProduct(
+  deps: ActiveStopStockDeps,
+  stopId: string,
+  productId: string,
+  quantity: number,
+  reportedByUserId: string | null,
+): Promise<void> {
+  await requireActiveStopRow(deps, stopId, productId, quantity);
+  await restockProduct(deps.stock, stopId, productId, quantity, reportedByUserId);
+}
+
+export async function wasteStopProduct(
+  deps: ActiveStopStockDeps,
+  stopId: string,
+  productId: string,
+  quantity: number,
+  reason: string | null,
+  reportedByUserId: string | null,
+): Promise<void> {
+  const row = await requireActiveStopRow(deps, stopId, productId, quantity);
+  if (quantity > row.currentStock) throw new Error("Waste exceeds current stock");
+  await reportStockWaste(deps.stock, stopId, productId, quantity, reason, reportedByUserId);
 }
 
 export async function setStopProductQuantity(

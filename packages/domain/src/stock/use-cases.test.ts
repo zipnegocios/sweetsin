@@ -6,11 +6,14 @@ import {
   isStockConflictMessage,
   removeStopProduct,
   restockProduct,
+  restockStopProduct,
   reportStockWaste,
   saveStopStockAsTemplate,
   setStopProductQuantity,
+  wasteStopProduct,
 } from "./use-cases";
 import type { StockTemplateRepository } from "../stock-templates";
+import type { TrailerStop, TrailerStopRepository, TrailerStopStatus } from "../trailer-stops";
 import type { StopProductStock, StockEvent } from "./entities";
 import type { StockRepository } from "./ports";
 
@@ -56,7 +59,18 @@ function fakeStockRepo(
       return stock.filter((s) => s.stopId === stopId);
     },
     async sumSold(id) {
-      return movements.filter((m) => m.stockId === id && m.type === "sale").reduce((a, m) => a + m.quantity, 0);
+      return movements
+        .filter((m) => m.stockId === id && (m.type === "sale" || m.type === "sale_reversal"))
+        .reduce((a, m) => a + (m.type === "sale" ? m.quantity : -m.quantity), 0);
+    },
+    async decrementForOrder() {
+      throw new Error("not used");
+    },
+    async reverseOrderSale() {
+      throw new Error("not used");
+    },
+    async summarizeByStop() {
+      throw new Error("not used");
     },
     async hasMovements(id) {
       return movements.some((m) => m.stockId === id);
@@ -248,8 +262,89 @@ describe("saveStopStockAsTemplate", () => {
   });
 });
 
+function fakeStops(status: TrailerStopStatus): TrailerStopRepository {
+  return {
+    async findById(id: string) {
+      return id === "stop1" ? ({ id, status } as TrailerStop) : null;
+    },
+  } as unknown as TrailerStopRepository;
+}
+
+describe("restockStopProduct", () => {
+  it("repone en una parada activa y guarda quién reportó", async () => {
+    const stock = fakeStockRepo([row({ currentStock: 4 })]);
+    await restockStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", 6, "user1");
+    expect((await stock.findByStopAndProduct("stop1", "p1"))?.currentStock).toBe(10);
+    expect(stock.events).toEqual([
+      { stopProductStockId: "s1", eventType: "restock", quantity: 6, reason: null, reportedByUserId: "user1" },
+    ]);
+  });
+
+  it.each(["scheduled", "completed"] as const)("rechaza una parada %s", async (status) => {
+    const stock = fakeStockRepo([row()]);
+    await expect(restockStopProduct({ stops: fakeStops(status), stock }, "stop1", "p1", 1, null)).rejects.toThrow(
+      "Stop is not active",
+    );
+    expect(stock.events).toEqual([]);
+  });
+
+  it.each([0, -1, 1.5])("rechaza cantidad %s", async (q) => {
+    const stock = fakeStockRepo([row()]);
+    await expect(restockStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", q, null)).rejects.toThrow(
+      "Quantity must be a positive integer",
+    );
+  });
+
+  it("rechaza si la fila no existe", async () => {
+    await expect(
+      restockStopProduct({ stops: fakeStops("active"), stock: fakeStockRepo() }, "stop1", "p1", 1, null),
+    ).rejects.toThrow("Stock row not found");
+  });
+});
+
+describe("wasteStopProduct", () => {
+  it("merma igual al stock actual lo deja en 0 y guarda motivo y quién reportó", async () => {
+    const stock = fakeStockRepo([row({ currentStock: 3 })]);
+    await wasteStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", 3, "Se cayó", "user1");
+    expect((await stock.findByStopAndProduct("stop1", "p1"))?.currentStock).toBe(0);
+    expect(stock.events).toEqual([
+      { stopProductStockId: "s1", eventType: "waste", quantity: 3, reason: "Se cayó", reportedByUserId: "user1" },
+    ]);
+  });
+
+  it("rechaza merma mayor al stock actual", async () => {
+    const stock = fakeStockRepo([row({ currentStock: 3 })]);
+    await expect(
+      wasteStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", 4, null, null),
+    ).rejects.toThrow("Waste exceeds current stock");
+    expect(stock.events).toEqual([]);
+  });
+
+  it.each(["scheduled", "completed"] as const)("rechaza una parada %s", async (status) => {
+    await expect(
+      wasteStopProduct({ stops: fakeStops(status), stock: fakeStockRepo([row()]) }, "stop1", "p1", 1, null, null),
+    ).rejects.toThrow("Stop is not active");
+  });
+
+  it.each([0, -1, 1.5])("rechaza cantidad %s", async (q) => {
+    await expect(
+      wasteStopProduct({ stops: fakeStops("active"), stock: fakeStockRepo([row()]) }, "stop1", "p1", q, null, null),
+    ).rejects.toThrow("Quantity must be a positive integer");
+  });
+});
+
+describe("setStopProductQuantity con reversas", () => {
+  it("lo vendido neto descuenta las reversas", async () => {
+    const repo = fakeStockRepo([row({ currentStock: 17 })], [
+      { stockId: "s1", type: "sale", quantity: 5 },
+      { stockId: "s1", type: "sale_reversal", quantity: 2 },
+    ]);
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 3)).resolves.toMatchObject({ maxStock: 3 });
+  });
+});
+
 describe("isStockConflictMessage", () => {
-  it("reconoce los seis mensajes de conflicto", () => {
+  it("reconoce los mensajes de conflicto", () => {
     for (const m of [
       "Cannot set stock below units already sold",
       "Current stock would be negative",
@@ -257,6 +352,8 @@ describe("isStockConflictMessage", () => {
       "Product already has stock at this stop",
       "Stock row not found",
       "Quantity must be a positive integer",
+      "Stop is not active",
+      "Waste exceeds current stock",
     ]) expect(isStockConflictMessage(m)).toBe(true);
     expect(isStockConflictMessage("boom")).toBe(false);
   });

@@ -2,6 +2,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { DrizzleStockRepository } from "./stock-repository";
 import { DrizzleTrailerStopRepository } from "./trailer-stop-repository";
 import { DrizzleProductRepository } from "./product-repository";
+import { eq, inArray } from "drizzle-orm";
+import { setStopProductQuantity } from "@workspace/domain/stock";
+import { db } from "../index";
+import { ordersTable, productsTable, stockEventsTable } from "../schema";
 
 describe("DrizzleStockRepository", () => {
   let stopId: string;
@@ -70,5 +74,179 @@ describe("DrizzleStockRepository", () => {
     const fresh = await repo.create({ stopId, productId: wrath.id, maxStock: 5, currentStock: 5 });
     await repo.remove(fresh.id);
     expect((await repo.listByStop(stopId)).some((x) => x.id === fresh.id)).toBe(false);
+  }, 15000);
+});
+
+describe("DrizzleStockRepository — ventas por pedido", () => {
+  const repo = new DrizzleStockRepository();
+  const stops = new DrizzleTrailerStopRepository();
+  const tag = `stock-order-test-${Date.now()}`;
+  let stopId: string;
+  const productIds: string[] = [];
+  const orderIds: string[] = [];
+
+  async function newOrder(): Promise<string> {
+    const [o] = await db
+      .insert(ordersTable)
+      .values({
+        customerName: "Stock Test",
+        customerEmail: `${tag}@example.com`,
+        customerPhone: "+61400000000",
+        fulfillmentType: "pickup",
+        subtotalCents: 0,
+        totalCents: 0,
+        channel: "web",
+      })
+      .returning({ id: ordersTable.id });
+    orderIds.push(o.id);
+    return o.id;
+  }
+
+  async function freshRows(quantities: number[]) {
+    for (const r of await repo.listByStop(stopId)) {
+      await db.delete(stockEventsTable).where(eq(stockEventsTable.stopProductStockId, r.id));
+      await repo.remove(r.id);
+    }
+    return Promise.all(
+      quantities.map((q, i) => repo.create({ stopId, productId: productIds[i], maxStock: q, currentStock: q })),
+    );
+  }
+
+  const eventsOf = (rowIds: string[]) =>
+    db.select().from(stockEventsTable).where(inArray(stockEventsTable.stopProductStockId, rowIds));
+
+  const currentOf = async (rowId: string) =>
+    (await repo.listByStop(stopId)).find((r) => r.id === rowId)?.currentStock;
+
+  beforeAll(async () => {
+    const stop = await stops.create({
+      location: `Stock Order Test Stop ${Date.now()}`,
+      lat: -34.9,
+      lng: 138.6,
+      startTime: new Date("2026-11-03T00:00:00Z"),
+      endTime: new Date("2026-11-03T05:00:00Z"),
+      status: "active",
+    });
+    stopId = stop.id;
+    for (let i = 0; i < 3; i++) {
+      const [p] = await db
+        .insert(productsTable)
+        .values({
+          slug: `${tag}-${i}`,
+          category: "sin",
+          nameEn: `Stock Test ${i}`,
+          nameEs: `Prueba Stock ${i}`,
+          descriptionEn: "Test",
+          descriptionEs: "Prueba",
+          priceCents: 1000,
+        })
+        .returning({ id: productsTable.id });
+      productIds.push(p.id);
+    }
+  }, 15000);
+
+  afterAll(async () => {
+    if (stopId) await stops.deleteWithStock(stopId);
+    if (orderIds.length) await db.delete(ordersTable).where(inArray(ordersTable.id, orderIds));
+    if (productIds.length) await db.delete(productsTable).where(inArray(productsTable.id, productIds));
+  }, 15000);
+
+  it("(a) si una línea no alcanza, revierte todo y no deja eventos", async () => {
+    const rows = await freshRows([5, 1, 5]);
+    const orderId = await newOrder();
+    const result = await repo.decrementForOrder(stopId, orderId, [
+      { productId: productIds[0], quantity: 2 },
+      { productId: productIds[1], quantity: 2 },
+      { productId: productIds[2], quantity: 2 },
+    ]);
+    expect(result).toEqual({ ok: false, productId: productIds[1] });
+    expect(await Promise.all(rows.map((r) => currentOf(r.id)))).toEqual([5, 1, 5]);
+    expect(await eventsOf(rows.map((r) => r.id))).toEqual([]);
+  }, 15000);
+
+  it("(b) dos pedidos concurrentes por la última unidad: exactamente uno gana", async () => {
+    const [row] = await freshRows([1]);
+    const [o1, o2] = [await newOrder(), await newOrder()];
+    const line = [{ productId: productIds[0], quantity: 1 }];
+    const results = await Promise.all([
+      repo.decrementForOrder(stopId, o1, line),
+      repo.decrementForOrder(stopId, o2, line),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, productId: productIds[0] }]);
+    expect(await currentOf(row.id)).toBe(0);
+    const sales = (await eventsOf([row.id])).filter((e) => e.eventType === "sale");
+    expect(sales).toHaveLength(1);
+  }, 15000);
+
+  it("(c) llegar a 0 por venta registra un solo early_sellout", async () => {
+    const [row] = await freshRows([3]);
+    const orderId = await newOrder();
+    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 2 }])).toEqual({ ok: true });
+    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 1 }])).toEqual({ ok: true });
+    expect(await repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 1 }])).toEqual({
+      ok: false,
+      productId: productIds[0],
+    });
+    const events = await eventsOf([row.id]);
+    const sellouts = events.filter((e) => e.eventType === "early_sellout");
+    expect(sellouts).toHaveLength(1);
+    expect(sellouts[0]).toMatchObject({ quantity: 0, orderId: null });
+    expect(events.filter((e) => e.eventType === "sale").every((e) => e.orderId === orderId)).toBe(true);
+  }, 15000);
+
+  it("(d) reverseOrderSale devuelve el stock una sola vez y no toca pedidos sin ventas", async () => {
+    const rows = await freshRows([5, 5]);
+    const orderId = await newOrder();
+    await repo.decrementForOrder(stopId, orderId, [
+      { productId: productIds[0], quantity: 2 },
+      { productId: productIds[1], quantity: 3 },
+    ]);
+    await repo.reverseOrderSale(orderId);
+    expect(await Promise.all(rows.map((r) => currentOf(r.id)))).toEqual([5, 5]);
+    await repo.reverseOrderSale(orderId);
+    expect(await Promise.all(rows.map((r) => currentOf(r.id)))).toEqual([5, 5]);
+    const reversals = (await eventsOf(rows.map((r) => r.id))).filter((e) => e.eventType === "sale_reversal");
+    expect(reversals.map((e) => ({ id: e.stopProductStockId, q: e.quantity, o: e.orderId })).sort((a, b) => a.q - b.q)).toEqual([
+      { id: rows[0].id, q: 2, o: orderId },
+      { id: rows[1].id, q: 3, o: orderId },
+    ]);
+
+    const empty = await newOrder();
+    await repo.reverseOrderSale(empty);
+    expect(await Promise.all(rows.map((r) => currentOf(r.id)))).toEqual([5, 5]);
+    expect(await eventsOf(rows.map((r) => r.id))).toHaveLength(4);
+  }, 15000);
+
+  it("(e) sumSold descuenta reversas y setStopProductQuantity sigue rechazando bajo lo vendido neto", async () => {
+    const [row] = await freshRows([10]);
+    const [o1, o2] = [await newOrder(), await newOrder()];
+    await repo.decrementForOrder(stopId, o1, [{ productId: productIds[0], quantity: 4 }]);
+    await repo.decrementForOrder(stopId, o2, [{ productId: productIds[0], quantity: 3 }]);
+    await repo.reverseOrderSale(o1);
+    expect(await repo.sumSold(row.id)).toBe(3);
+    await expect(setStopProductQuantity(repo, stopId, productIds[0], 2)).rejects.toThrow(
+      "Cannot set stock below units already sold",
+    );
+    await expect(setStopProductQuantity(repo, stopId, productIds[0], 3)).resolves.toMatchObject({
+      maxStock: 3,
+      currentStock: 0,
+    });
+  }, 15000);
+
+  it("(f) summarizeByStop cuenta vendido, merma y agotado", async () => {
+    const rows = await freshRows([4, 6, 2]);
+    const orderId = await newOrder();
+    await repo.decrementForOrder(stopId, orderId, [
+      { productId: productIds[0], quantity: 4 },
+      { productId: productIds[1], quantity: 1 },
+    ]);
+    await repo.decrementStock(rows[1].id, 2);
+    await repo.recordEvent({ stopProductStockId: rows[1].id, eventType: "waste", quantity: 2, reason: null, reportedByUserId: null });
+    const summary = await repo.summarizeByStop(stopId);
+    const byProduct = Object.fromEntries(summary.map((s) => [s.productId, s]));
+    expect(byProduct[productIds[0]]).toEqual({ productId: productIds[0], maxStock: 4, currentStock: 0, sold: 4, wasted: 0, soldOut: true });
+    expect(byProduct[productIds[1]]).toEqual({ productId: productIds[1], maxStock: 6, currentStock: 3, sold: 1, wasted: 2, soldOut: false });
+    expect(byProduct[productIds[2]]).toEqual({ productId: productIds[2], maxStock: 2, currentStock: 2, sold: 0, wasted: 0, soldOut: false });
   }, 15000);
 });

@@ -15,4 +15,14 @@ export interface StockEvent {
   quantity: number;
   reason: string | null;
   reportedByUserId: string | null;
+  orderId?: string | null;
+}
+
+export interface StopStockSummary {
+  productId: string;
+  maxStock: number;
+  currentStock: number;
+  sold: number;
+  wasted: number;
+  soldOut: boolean;
 }

@@ -1,7 +1,26 @@
-import { and, eq, sql } from "drizzle-orm";
-import type { StockEvent, StockRepository, StopProductStock } from "@workspace/domain/stock";
+import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
+import type {
+  StockEvent,
+  StockEventType,
+  StockRepository,
+  StopProductStock,
+  StopStockSummary,
+} from "@workspace/domain/stock";
 import { db } from "../index";
 import { stockEventsTable, stopProductStockTable } from "../schema";
+
+const sumOf = (type: StockEventType) =>
+  sql<number>`coalesce(sum(${stockEventsTable.quantity}) filter (where ${stockEventsTable.eventType} = ${type}), 0)::int`;
+
+/** Vendido neto: ventas menos reversas. */
+const netSold = sql<number>`(${sumOf("sale")} - ${sumOf("sale_reversal")})::int`;
+
+/** Centinela para revertir la transacción de decrementForOrder. */
+class InsufficientStock extends Error {
+  constructor(readonly productId: string) {
+    super(`Insufficient stock for product ${productId}`);
+  }
+}
 
 export class DrizzleStockRepository implements StockRepository {
   async findByStopAndProduct(stopId: string, productId: string): Promise<StopProductStock | null> {
@@ -46,10 +65,106 @@ export class DrizzleStockRepository implements StockRepository {
 
   async sumSold(stopProductStockId: string): Promise<number> {
     const [row] = await db
-      .select({ total: sql<number>`coalesce(sum(${stockEventsTable.quantity}), 0)::int` })
+      .select({ total: netSold })
       .from(stockEventsTable)
-      .where(and(eq(stockEventsTable.stopProductStockId, stopProductStockId), eq(stockEventsTable.eventType, "sale")));
+      .where(eq(stockEventsTable.stopProductStockId, stopProductStockId));
     return row.total;
+  }
+
+  async decrementForOrder(
+    stopId: string,
+    orderId: string,
+    lines: { productId: string; quantity: number }[],
+  ): Promise<{ ok: true } | { ok: false; productId: string }> {
+    try {
+      await db.transaction(async (tx) => {
+        for (const { productId, quantity } of lines) {
+          // UPDATE con guarda: la fila queda bloqueada hasta el commit, así que dos
+          // pedidos por la última unidad se serializan y solo uno la descuenta.
+          const [updated] = await tx
+            .update(stopProductStockTable)
+            .set({ currentStock: sql`${stopProductStockTable.currentStock} - ${quantity}` })
+            .where(
+              and(
+                eq(stopProductStockTable.stopId, stopId),
+                eq(stopProductStockTable.productId, productId),
+                gte(stopProductStockTable.currentStock, quantity),
+              ),
+            )
+            .returning();
+          if (!updated) throw new InsufficientStock(productId);
+
+          const base = { stopProductStockId: updated.id, reason: null, reportedByUserId: null };
+          await tx.insert(stockEventsTable).values({ ...base, eventType: "sale", quantity, orderId });
+          // Si la fila tenía stock antes de esta venta y ahora quedó en 0, es un agotamiento nuevo.
+          if (updated.currentStock === 0 && quantity > 0) {
+            await tx.insert(stockEventsTable).values({ ...base, eventType: "early_sellout", quantity: 0 });
+          }
+        }
+      });
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof InsufficientStock) return { ok: false, productId: err.productId };
+      throw err;
+    }
+  }
+
+  async reverseOrderSale(orderId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      const rowIds = await tx
+        .selectDistinct({ id: stockEventsTable.stopProductStockId })
+        .from(stockEventsTable)
+        .where(and(eq(stockEventsTable.orderId, orderId), eq(stockEventsTable.eventType, "sale")));
+      if (rowIds.length === 0) return;
+
+      // Bloquea las filas antes de calcular lo pendiente: dos reversas simultáneas
+      // del mismo pedido se serializan y la segunda ve la primera ya registrada.
+      const ids = rowIds.map((r) => r.id).sort();
+      await tx
+        .select({ id: stopProductStockTable.id })
+        .from(stopProductStockTable)
+        .where(inArray(stopProductStockTable.id, ids))
+        .orderBy(asc(stopProductStockTable.id))
+        .for("update");
+
+      const pending = await tx
+        .select({ id: stockEventsTable.stopProductStockId, net: netSold })
+        .from(stockEventsTable)
+        .where(and(eq(stockEventsTable.orderId, orderId), inArray(stockEventsTable.stopProductStockId, ids)))
+        .groupBy(stockEventsTable.stopProductStockId);
+
+      for (const { id, net } of pending) {
+        if (net <= 0) continue;
+        await tx
+          .update(stopProductStockTable)
+          .set({ currentStock: sql`${stopProductStockTable.currentStock} + ${net}` })
+          .where(eq(stopProductStockTable.id, id));
+        await tx.insert(stockEventsTable).values({
+          stopProductStockId: id,
+          eventType: "sale_reversal",
+          quantity: net,
+          reason: null,
+          reportedByUserId: null,
+          orderId,
+        });
+      }
+    });
+  }
+
+  async summarizeByStop(stopId: string): Promise<StopStockSummary[]> {
+    const rows = await db
+      .select({
+        productId: stopProductStockTable.productId,
+        maxStock: stopProductStockTable.maxStock,
+        currentStock: stopProductStockTable.currentStock,
+        sold: netSold,
+        wasted: sumOf("waste"),
+      })
+      .from(stopProductStockTable)
+      .leftJoin(stockEventsTable, eq(stockEventsTable.stopProductStockId, stopProductStockTable.id))
+      .where(eq(stopProductStockTable.stopId, stopId))
+      .groupBy(stopProductStockTable.id);
+    return rows.map((r) => ({ ...r, soldOut: r.currentStock === 0 }));
   }
 
   async hasMovements(stopProductStockId: string): Promise<boolean> {
