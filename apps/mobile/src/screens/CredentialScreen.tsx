@@ -31,7 +31,7 @@ export function CredentialScreen({ role }: { role: StaffRole }) {
     setBusy(true);
     setNotice(null);
     try {
-      let prepared: string;
+      let prepared: Uint8Array;
       try {
         prepared = await prepareProfilePhoto(uri);
       } catch (error) {

@@ -9,6 +9,12 @@ export function classifyPhotoResponse(status: number): PhotoOutcome {
 /** Lado (px) de la foto de perfil subida: el mismo que recorta la web. */
 export const PROFILE_PHOTO_SIDE = 600;
 
+/** Bytes de un base64 (lo que devuelve el recorte): el `fetch` de Expo no sube archivos por `uri`, solo bytes. */
+export function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
 /** Cuadrado central de una imagen rectangular (lo que muestra el círculo de la credencial). */
 export function centerSquare(width: number, height: number): { originX: number; originY: number; width: number; height: number } {
   const side = Math.min(width, height);

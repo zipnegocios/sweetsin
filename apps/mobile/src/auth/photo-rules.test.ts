@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { centerSquare, classifyPhotoResponse } from "./photo-rules";
+import { base64ToBytes, centerSquare, classifyPhotoResponse } from "./photo-rules";
+
+describe("base64ToBytes", () => {
+  it("decodifica los bytes de un JPEG", () => {
+    expect(Array.from(base64ToBytes("/9j/4A=="))).toEqual([0xff, 0xd8, 0xff, 0xe0]);
+  });
+});
 
 describe("classifyPhotoResponse", () => {
   it("separa éxito, foto pesada y error", () => {

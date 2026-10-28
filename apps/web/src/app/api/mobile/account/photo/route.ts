@@ -20,12 +20,13 @@ export async function POST(req: Request): Promise<Response> {
   const session = await guard(req);
   if (session instanceof Response) return session;
 
-  const file = (await req.formData().catch(() => null))?.get("file");
-  if (!(file instanceof File)) return NextResponse.json({ error: "Missing file" }, { status: 400 });
-  if (file.size > MAX_STAFF_PHOTO_BYTES) return NextResponse.json({ error: "Photo is too large" }, { status: 413 });
+  // El cuerpo es el JPEG tal cual (la app no puede subir multipart por uri con el fetch de Expo).
+  const jpeg = new Uint8Array(await req.arrayBuffer());
+  if (jpeg.length === 0) return NextResponse.json({ error: "Missing file" }, { status: 400 });
+  if (jpeg.length > MAX_STAFF_PHOTO_BYTES) return NextResponse.json({ error: "Photo is too large" }, { status: 413 });
 
   try {
-    const user = await replaceStaffPhoto(deps(), session.userId, new Uint8Array(await file.arrayBuffer()));
+    const user = await replaceStaffPhoto(deps(), session.userId, jpeg);
     return NextResponse.json({ photoUrl: await viewUrlOrNull(user.photoKey) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
