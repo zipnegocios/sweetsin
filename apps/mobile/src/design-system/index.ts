@@ -17,6 +17,7 @@ export { Button } from "./molecules/Button";
 export { Avatar } from "./molecules/Avatar";
 export { Card } from "./molecules/Card";
 export { OptionRow } from "./molecules/OptionRow";
+export { TextField } from "./molecules/TextField";
 export { StatusPill } from "./molecules/StatusPill";
 
 export { EmptyState } from "./organisms/EmptyState";

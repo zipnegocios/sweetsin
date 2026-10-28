@@ -13,8 +13,12 @@ import {
   replaceStaffPhoto,
   removeStaffPhoto,
   MAX_STAFF_PHOTO_BYTES,
+  isValidPin,
+  verifyStaffPin,
+  changeStaffPin,
+  changeStaffPassword,
 } from "./use-cases";
-import { hashPassword } from "./auth";
+import { hashPassword, verifyPassword } from "./auth";
 import type { User, UserRole } from "./entities";
 import type { UserRepository } from "./ports";
 
@@ -440,5 +444,109 @@ describe("replaceStaffPhoto / removeStaffPhoto", () => {
     await deleteStaffUser(repo, "staff-1", storage);
 
     expect(objects.size).toBe(0);
+  });
+});
+
+describe("isValidPin", () => {
+  it("acepta exactamente 6 dígitos (con ceros a la izquierda) y rechaza lo demás", () => {
+    expect(isValidPin("012345")).toBe(true);
+    for (const bad of ["12345", "1234567", "12345a", "", "12 345"]) expect(isValidPin(bad)).toBe(false);
+  });
+});
+
+describe("PIN escrito manualmente", () => {
+  it("registerStaffUser usa el PIN indicado en vez de generar uno", async () => {
+    const repo = makeFakeUserRepo([]);
+
+    const { user, plainPin } = await registerStaffUser(repo, {
+      name: "Ana", email: "ana@sweetsin.com", role: "delivery", password: "hunter2hunter2", pin: "135790",
+    });
+
+    expect(plainPin).toBe("135790");
+    expect(await authenticateStaffByPin(repo, "ana@sweetsin.com", "135790")).toMatchObject({ id: user.id });
+  });
+
+  it("registerStaffUser rechaza un PIN manual inválido sin crear al usuario", async () => {
+    const repo = makeFakeUserRepo([]);
+
+    await expect(
+      registerStaffUser(repo, { name: "Ana", email: "ana@sweetsin.com", role: "delivery", password: "hunter2hunter2", pin: "12" }),
+    ).rejects.toThrow("6 digits");
+    expect(await repo.findByEmail("ana@sweetsin.com")).toBeNull();
+  });
+
+  it("resetStaffPin fija el PIN indicado y resetea el lockout", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, failedPinAttempts: 4, pinLockedUntil: new Date(Date.now() + 60_000) }]);
+
+    expect(await resetStaffPin(repo, "staff-1", "246810")).toBe("246810");
+
+    expect(await authenticateStaffByPin(repo, "ana@sweetsin.com", "246810")).toMatchObject({ id: "staff-1" });
+  });
+
+  it("resetStaffPin rechaza un PIN manual inválido", async () => {
+    await expect(resetStaffPin(makeFakeUserRepo([baseStaff]), "staff-1", "abc")).rejects.toThrow("6 digits");
+  });
+});
+
+describe("verifyStaffPin / changeStaffPin (autoservicio)", () => {
+  it("verifyStaffPin devuelve al usuario con el PIN correcto y cuenta el fallo si es incorrecto", async () => {
+    const pinHash = await hashPassword("123456");
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash }]);
+
+    expect(await verifyStaffPin(repo, "staff-1", "123456")).toMatchObject({ id: "staff-1" });
+    expect(await verifyStaffPin(repo, "staff-1", "000000")).toBeNull();
+    expect((await repo.findById("staff-1"))?.failedPinAttempts).toBe(1);
+  });
+
+  it("changeStaffPin cambia el PIN cuando el actual es correcto", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash: await hashPassword("123456") }]);
+
+    await changeStaffPin(repo, "staff-1", "123456", "654321");
+
+    expect(await authenticateStaffByPin(repo, "ana@sweetsin.com", "654321")).not.toBeNull();
+    expect(await authenticateStaffByPin(repo, "ana@sweetsin.com", "123456")).toBeNull();
+  });
+
+  it("changeStaffPin rechaza el PIN actual incorrecto o un PIN nuevo inválido, y no cambia nada", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash: await hashPassword("123456") }]);
+
+    await expect(changeStaffPin(repo, "staff-1", "000000", "654321")).rejects.toThrow("incorrect");
+    await expect(changeStaffPin(repo, "staff-1", "123456", "65")).rejects.toThrow("6 digits");
+    expect(await authenticateStaffByPin(repo, "ana@sweetsin.com", "123456")).not.toBeNull();
+  });
+
+  it("el PIN actual incorrecto cuenta para el bloqueo temporal", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, pinHash: await hashPassword("123456"), failedPinAttempts: 4 }]);
+    // Quinto intento fallido: la fake no calcula el bloqueo, pero el contador debe llegar a 5.
+    await expect(changeStaffPin(repo, "staff-1", "000000", "654321")).rejects.toThrow();
+    expect((await repo.findById("staff-1"))?.failedPinAttempts).toBe(5);
+  });
+});
+
+describe("changeStaffPassword", () => {
+  it("cambia la contraseña cuando la actual es correcta", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, passwordHash: await hashPassword("claveactual1") }]);
+
+    await changeStaffPassword(repo, "staff-1", "claveactual1", "clavenueva99");
+
+    const stored = await repo.findById("staff-1");
+    expect(await verifyPassword("clavenueva99", stored!.passwordHash!)).toBe(true);
+  });
+
+  it("rechaza contraseña actual incorrecta, nueva corta y usuarios que no son staff", async () => {
+    const repo = makeFakeUserRepo([
+      { ...baseStaff, passwordHash: await hashPassword("claveactual1") },
+      { ...baseStaff, id: "admin-1", role: "admin", passwordHash: await hashPassword("claveactual1") },
+    ]);
+
+    await expect(changeStaffPassword(repo, "staff-1", "otra", "clavenueva99")).rejects.toThrow("incorrect");
+    await expect(changeStaffPassword(repo, "staff-1", "claveactual1", "corta")).rejects.toThrow("8 characters");
+    await expect(changeStaffPassword(repo, "admin-1", "claveactual1", "clavenueva99")).rejects.toThrow("Only staff");
+  });
+
+  it("falla si el usuario no tiene contraseña configurada", async () => {
+    const repo = makeFakeUserRepo([{ ...baseStaff, passwordHash: null }]);
+
+    await expect(changeStaffPassword(repo, "staff-1", "x", "clavenueva99")).rejects.toThrow("incorrect");
   });
 });

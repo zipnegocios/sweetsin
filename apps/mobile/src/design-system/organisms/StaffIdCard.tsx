@@ -1,5 +1,7 @@
 import { View } from "react-native";
+import { Glyph } from "../atoms/Glyph";
 import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 import { Avatar } from "../molecules/Avatar";
 import { BrandMark } from "../molecules/BrandMark";
 import { useTheme } from "../use-theme";
@@ -11,17 +13,18 @@ export type StaffIdCardProps = {
   codeLabel: string;
   code: string;
   photoUrl: string | null;
+  /** Acción de la X en la esquina de la tarjeta. */
+  onClose?: () => void;
+  closeLabel?: string;
 };
 
 /** Credencial del staff: marca, foto, nombre, rol y código. Todo lo que identifica va en texto. */
-export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, photoUrl }: StaffIdCardProps) {
+export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, photoUrl, onClose, closeLabel }: StaffIdCardProps) {
   const theme = useTheme();
   const t = theme.components.credential;
 
   return (
     <View
-      accessible
-      accessibilityLabel={`${brandLabel}. ${name}. ${roleLabel}. ${codeLabel} ${code}`}
       style={{
         alignSelf: "center",
         width: "100%",
@@ -50,7 +53,20 @@ export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, phot
         </Text>
       </View>
 
+      {onClose ? (
+        <Touchable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={closeLabel}
+          style={{ position: "absolute", top: t.closeInset, right: t.closeInset, alignItems: "center", justifyContent: "center", zIndex: 1 }}
+        >
+          <Glyph char="✕" color={t.bandFg} variant="title" />
+        </Touchable>
+      ) : null}
+
       <View
+        accessible
+        accessibilityLabel={`${brandLabel}. ${name}. ${roleLabel}. ${codeLabel} ${code}`}
         style={{
           alignItems: "center",
           gap: t.bodyGap,

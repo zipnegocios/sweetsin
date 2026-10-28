@@ -57,6 +57,8 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 
 **Sesión admin, parte 2 (2026-10-28):** login/registro rediseñados; selector de idioma en el sidebar; estados traducidos en todo el admin; eliminar staff (transacción que libera órdenes/tokens/ubicación); ficha de staff editable (`/admin/staff/[id]`: nombre, email, rol, idioma, teléfono, contacto de emergencia, notas, contraseña, activo, PIN) con foto en R2 (`sweet-assets`, privado, URL firmada); credencial con foto en la app mobile (`CredentialScreen`, avatar tocable en la cabecera). Typecheck, 151 pruebas de dominio, 253 de mobile y `next build` pasan. Esquema al día: `drizzle-kit push` reportó "No changes detected" (las 5 columnas nuevas de `users` ya estaban en la DB) y `pnpm run test` completo pasa (dominio 151, db 27, mobile 253, web 17 archivos).
 
+**Sesión admin, parte 3 (2026-10-28):** PIN manual en el admin (alta y edición); autoservicio del staff en la app (cambiar PIN y contraseña, `Seguridad`); acceso con huella (SecureStore + `requireAuthentication`: activar, reconfigurar, revocar; oferta única tras el primer login); credencial con cerrar sesión abajo, X en la esquina y la foto más abajo. Suite completa verde (dominio 163, mobile 269, web 113, db 27); typecheck y `next build` pasan. **No probado en teléfono real** (la huella y el Keystore lo exigen).
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -824,6 +826,8 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Sesión admin (2026-10-28) — archivos:** `apps/web/src/app/icon.png` (reemplaza `favicon.ico` de Next); `admin/page.tsx` (redirect); `components/admin/{admin-sidebar,admin-icons,status-badge,page-header}.tsx` (nuevos); `admin/layout.tsx` (sidebar + main); `globals.css` (tokens `gold`, clases `.admin-card/.admin-input/.admin-btn/.admin-link/.admin-table`, `.admin-enter`); `packages/i18n` (claves `signOut`, `collapseMenu`, `expandMenu`, `openMenu`, `closeMenu`, `status_*`, `channel_*`); páginas y formularios admin migrados a las clases compartidas y a `PageHeader`.
 
 **Parte 2 — archivos:** dominio `users/{entities,ports,use-cases}.ts` (`deleteStaffUser`, `updateStaffProfile`, `replaceStaffPhoto`, `removeStaffPhoto`, puerto `StaffPhotoStorage`); `db/schema/users.ts`; `infra/r2-client.ts` (cliente compartido), `infra/r2-staff-photo-storage.ts`; `api/admin/staff/[id]/photo/route.ts`; `api/mobile/auth/me/route.ts`; admin `staff/[id]/*`, `staff-avatar`, `staff-photo-uploader`; mobile `auth/{profile,use-profile,use-header-avatar}.ts`, `design-system/{molecules/Avatar,organisms/StaffIdCard}`, `screens/CredentialScreen.tsx`, `navigation/index.tsx`; `CLAUDE.md` (variables R2).
+
+**Parte 3 — archivos:** dominio `users/use-cases.ts` (`isValidPin`, `verifyStaffPin`, `changeStaffPin`, `changeStaffPassword`, PIN opcional en `registerStaffUser`/`resetStaffPin`, bloqueo temporal unificado en `checkStaffPin`); web `api/mobile/account/{pin,password,verify-pin}/route.ts` + `_lib/account-error.ts`, `admin-staff.ts` (`setStaffPinAction`), `new-staff-form.tsx`, `staff-edit-form.tsx`; mobile `auth/{biometric,account-rules}.ts`, `screens/{LoginScreen,CredentialScreen,SecurityScreen}.tsx`, `design-system/molecules/TextField.tsx` (extraído del login), `StaffIdCard` (X y `avatarOverlap` 40), `navigation/index.tsx`; i18n `staffApp` y `admin`.
 
 ## Intentos fallidos
 
@@ -1718,3 +1722,7 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Parte 2 — intentos fallidos:** un comando de shell muy largo con varios heredocs no se parseó y no escribió nada (se rehízo con Write); una prueba esperaba la URL de R2 en formato path-style cuando el SDK usa el bucket como subdominio (se corrigió la expectativa).
 
 **Parte 2 — próximos pasos:** (1) [hecho] push de esquema y suite completa en verde; (2) en prod/local añadir `R2_ASSETS_BUCKET` si el bucket no se llama `sweet-assets`; (3) probar en dispositivo la credencial (necesita recompilar el APK de desarrollo solo si se agregan módulos nativos: aquí no); (4) paradas del trailer: definir con el owner (editar/eliminar/duplicar); (5) aviso de lint `<img>` en `staff-avatar.tsx` es intencional.
+
+**Parte 3 — intentos fallidos:** otro comando de shell con varios heredocs no se parseó (se rehízo con Write); un actualizador de estado con efectos secundarios en `LoginScreen` se refactorizó a un `signIn` que devuelve resultado.
+
+**Parte 3 — próximos pasos:** (1) probar en teléfono real: activar huella, entrar con huella, registrar otra huella (debe volver al PIN), cambiar PIN y contraseña, X y cerrar sesión de la credencial; (2) si Android no muestra el aviso de huella, agregar `android.permissions: ["USE_BIOMETRIC"]` en `app.json` (requiere recompilar el APK); (3) redeploy de `sweetsin-web` y `sweetsin-metro-android-dev`; (4) decidir si exigir PIN no trivial (ahora solo 6 dígitos); (5) paradas del trailer.

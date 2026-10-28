@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import type { StaffRole } from "@workspace/domain/users";
 import type { Locale } from "@workspace/domain/shared";
-import { resetStaffPinAction, toggleStaffActiveAction, updateStaffProfileAction } from "@/app/actions/admin-staff";
+import { resetStaffPinAction, setStaffPinAction, toggleStaffActiveAction, updateStaffProfileAction } from "@/app/actions/admin-staff";
 
 export interface StaffEditValues {
   id: string;
@@ -38,6 +38,8 @@ export function StaffEditForm({ initial }: { initial: StaffEditValues }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error" | "emailTaken">("idle");
   const [pin, setPin] = useState<string | null>(null);
+  const [manualPin, setManualPin] = useState("");
+  const [pinStatus, setPinStatus] = useState<"idle" | "saved" | "invalid">("idle");
 
   const set = <K extends keyof StaffEditValues>(key: K, value: StaffEditValues[K]) => {
     setV((prev) => ({ ...prev, [key]: value }));
@@ -80,7 +82,15 @@ export function StaffEditForm({ initial }: { initial: StaffEditValues }) {
   }
 
   async function handleResetPin() {
+    setPinStatus("idle");
     setPin((await resetStaffPinAction(v.id)).plainPin);
+  }
+
+  async function handleSetPin() {
+    setPin(null);
+    const result = await setStaffPinAction(v.id, manualPin);
+    setPinStatus(result.ok ? "saved" : "invalid");
+    if (result.ok) setManualPin("");
   }
 
   return (
@@ -161,6 +171,27 @@ export function StaffEditForm({ initial }: { initial: StaffEditValues }) {
               </span>
             )}
           </div>
+        </div>
+        <div className="mt-5 border-t border-navy/[0.07] pt-5">
+          <Field label={t("staffFormPin")} hint={t("staffPinManualHint")}>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                inputMode="numeric"
+                maxLength={6}
+                value={manualPin}
+                onChange={(e) => {
+                  setManualPin(e.target.value.replace(/\D/g, ""));
+                  setPinStatus("idle");
+                }}
+                className="admin-input w-40 font-mono tracking-[0.3em]"
+              />
+              <button type="button" onClick={handleSetPin} disabled={manualPin.length === 0} className="admin-btn">
+                {t("staffPinSetButton")}
+              </button>
+              {pinStatus === "saved" && <span role="status" className="admin-enter text-[13px] font-medium text-emerald-700">✓ {t("staffPinSaved")}</span>}
+              {pinStatus === "invalid" && <span role="alert" className="text-[13px] text-sin-red">{t("staffPinInvalid")}</span>}
+            </div>
+          </Field>
         </div>
       </section>
 

@@ -5,6 +5,7 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { DespachadorQueueScreen } from "../screens/DespachadorQueueScreen";
 import { DeliveryQueueScreen } from "../screens/DeliveryQueueScreen";
 import { CredentialScreen } from "../screens/CredentialScreen";
+import { SecurityScreen } from "../screens/SecurityScreen";
 import { clearSession, getCachedRole, getToken, saveRole } from "../auth/session";
 import { AuthContext } from "../auth/context";
 import { resolveStartupSession, type StaffRole } from "../auth/startup";
@@ -83,6 +84,15 @@ export function RootNavigator() {
               {() => (
                 <ThemeProvider theme={role === "delivery" ? outdoor : indoor}>
                   <CredentialScreen role={role} />
+                </ThemeProvider>
+              )}
+            </Stack.Screen>
+          )}
+          {(role === "despachador" || role === "delivery") && (
+            <Stack.Screen name="Seguridad" options={{ headerShown: false }}>
+              {() => (
+                <ThemeProvider theme={role === "delivery" ? outdoor : indoor}>
+                  <SecurityScreen />
                 </ThemeProvider>
               )}
             </Stack.Screen>

@@ -174,7 +174,8 @@ export function buildComponentTokens(t: ThemeBase) {
       bodyPaddingH: space.xl,
       bodyPaddingBottom: space.xxl,
       bodyGap: space.sm,
-      avatarOverlap: 74,
+      avatarOverlap: 40, // la foto solo roza la banda: el nombre de la marca queda libre
+      closeInset: space.xs,
       codeBorder: c.textQuiet,
       codeRadius: radius.small,
       codePaddingH: space.md,

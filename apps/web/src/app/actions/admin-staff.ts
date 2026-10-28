@@ -21,11 +21,26 @@ export async function createStaffAction(input: {
   email: string;
   role: Extract<UserRole, "despachador" | "delivery">;
   password: string;
+  /** PIN escrito por el admin; sin él se genera uno aleatorio. */
+  pin?: string;
 }): Promise<{ ok: true; plainPin: string } | { ok: false; message: string }> {
   await requireAdmin();
   try {
     const { plainPin } = await registerStaffUser(new DrizzleUserRepository(), input);
     return { ok: true, plainPin };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+export async function setStaffPinAction(
+  userId: string,
+  pin: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireAdmin();
+  try {
+    await resetStaffPin(new DrizzleUserRepository(), userId, pin);
+    return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Unknown error" };
   }

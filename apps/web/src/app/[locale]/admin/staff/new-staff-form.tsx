@@ -12,6 +12,7 @@ export function NewStaffForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"despachador" | "delivery">("despachador");
   const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [newPin, setNewPin] = useState<string | null>(null);
@@ -21,10 +22,14 @@ export function NewStaffForm() {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      const result = await createStaffAction({ name, email, role, password });
+      const result = await createStaffAction({ name, email, role, password, pin: pin || undefined });
       if (!result.ok) {
         setSubmitError(
-          result.message.includes("already exists") ? t("staffFormEmailExists") : result.message || t("staffFormSubmitError"),
+          result.message.includes("already exists")
+            ? t("staffFormEmailExists")
+            : result.message.includes("6 digits")
+              ? t("staffPinInvalid")
+              : result.message || t("staffFormSubmitError"),
         );
         return;
       }
@@ -32,6 +37,7 @@ export function NewStaffForm() {
       setName("");
       setEmail("");
       setPassword("");
+      setPin("");
       router.refresh();
     } catch {
       setSubmitError(t("staffFormSubmitError"));
@@ -82,6 +88,19 @@ export function NewStaffForm() {
           required
           className="w-full admin-input"
         />
+
+        <div>
+          <input
+            inputMode="numeric"
+            pattern="\d{6}"
+            maxLength={6}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            placeholder={t("staffFormPin")}
+            className="w-full admin-input font-mono tracking-[0.3em]"
+          />
+          <span className="mt-1 block text-[12px] text-navy/40">{t("staffFormPinHint")}</span>
+        </div>
 
         {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
 

@@ -58,15 +58,17 @@ export function generatePin(): string {
     .padStart(6, "0");
 }
 
-export async function authenticateStaffByPin(
-  repo: UserRepository,
-  email: string,
-  pin: string,
-): Promise<User | null> {
-  const user = await repo.findByEmail(email);
-  if (!user || !user.isActive || !user.pinHash) return null;
-  if (user.role !== "despachador" && user.role !== "delivery") return null;
-  if (user.pinLockedUntil && user.pinLockedUntil > new Date()) return null;
+const PIN_PATTERN = /^\d{6}$/;
+
+export const isValidPin = (pin: string): boolean => PIN_PATTERN.test(pin);
+
+const PIN_ERROR = "PIN must be exactly 6 digits";
+
+/** Comprueba el PIN aplicando el bloqueo temporal y el conteo de fallos. Una sola regla para login y autoservicio. */
+async function checkStaffPin(repo: UserRepository, user: User, pin: string): Promise<boolean> {
+  if (!user.isActive || !user.pinHash) return false;
+  if (user.role !== "despachador" && user.role !== "delivery") return false;
+  if (user.pinLockedUntil && user.pinLockedUntil > new Date()) return false;
 
   const valid = await verifyPassword(pin, user.pinHash);
   if (!valid) {
@@ -74,22 +76,65 @@ export async function authenticateStaffByPin(
     const lockedUntil =
       attempts >= PIN_LOCKOUT_ATTEMPTS ? new Date(Date.now() + PIN_LOCKOUT_MINUTES * 60_000) : null;
     await repo.recordFailedPinAttempt(user.id, lockedUntil);
-    return null;
+    return false;
   }
 
   await repo.resetPinAttempts(user.id);
-  return user;
+  return true;
+}
+
+export async function authenticateStaffByPin(
+  repo: UserRepository,
+  email: string,
+  pin: string,
+): Promise<User | null> {
+  const user = await repo.findByEmail(email);
+  return user && (await checkStaffPin(repo, user, pin)) ? user : null;
+}
+
+/** Verifica el PIN de una sesión ya autenticada (por id). Mismo bloqueo temporal que el login. */
+export async function verifyStaffPin(repo: UserRepository, userId: string, pin: string): Promise<User | null> {
+  const user = await repo.findById(userId);
+  return user && (await checkStaffPin(repo, user, pin)) ? user : null;
+}
+
+export async function changeStaffPin(
+  repo: UserRepository,
+  userId: string,
+  currentPin: string,
+  newPin: string,
+): Promise<void> {
+  if (!isValidPin(newPin)) throw new Error(PIN_ERROR);
+  if (!(await verifyStaffPin(repo, userId, currentPin))) throw new Error("Current PIN is incorrect");
+  await repo.update(userId, { pinHash: await hashPassword(newPin) });
+}
+
+const MIN_PASSWORD_LENGTH = 8;
+
+export async function changeStaffPassword(
+  repo: UserRepository,
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  if (newPassword.length < MIN_PASSWORD_LENGTH) throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  const user = await findStaff(repo, userId);
+  if (!user.passwordHash || !(await verifyPassword(currentPassword, user.passwordHash))) {
+    throw new Error("Current password is incorrect");
+  }
+  await repo.update(userId, { passwordHash: await hashPassword(newPassword) });
 }
 
 export async function registerStaffUser(
   repo: UserRepository,
-  input: { name: string; email: string; role: Exclude<UserRole, "customer">; password: string },
+  input: { name: string; email: string; role: Exclude<UserRole, "customer">; password: string; pin?: string },
 ): Promise<{ user: User; plainPin: string }> {
+  if (input.pin !== undefined && !isValidPin(input.pin)) throw new Error(PIN_ERROR);
   const existing = await repo.findByEmail(input.email);
   if (existing) throw new Error(`User already exists with email: ${input.email}`);
 
   const passwordHash = await hashPassword(input.password);
-  const plainPin = generatePin();
+  const plainPin = input.pin ?? generatePin();
   const pinHash = await hashPassword(plainPin);
 
   const user = await repo.create({
@@ -107,8 +152,10 @@ export async function registerStaffUser(
   return { user, plainPin };
 }
 
-export async function resetStaffPin(repo: UserRepository, userId: string): Promise<string> {
-  const plainPin = generatePin();
+/** Sin `pin` genera uno aleatorio; con `pin` fija el que escribió el admin. Devuelve el PIN en texto plano. */
+export async function resetStaffPin(repo: UserRepository, userId: string, pin?: string): Promise<string> {
+  if (pin !== undefined && !isValidPin(pin)) throw new Error(PIN_ERROR);
+  const plainPin = pin ?? generatePin();
   const pinHash = await hashPassword(plainPin);
   await repo.update(userId, { pinHash });
   await repo.resetPinAttempts(userId);
