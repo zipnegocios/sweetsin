@@ -6,11 +6,14 @@ import { useTheme } from "../use-theme";
 /** Fila de elección única (radio): el estado lo portan el glifo ●/○ y el lector de pantalla, no solo el color. */
 export function OptionRow({
   label,
+  flag,
   selected,
   onPress,
   disabled = false,
 }: {
   label: string;
+  /** Bandera (emoji) opcional antes del texto; el lector de pantalla sigue leyendo solo `label`. */
+  flag?: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
@@ -37,6 +40,7 @@ export function OptionRow({
       }}
     >
       <Glyph char={selected ? t.glyphOn : t.glyphOff} color={theme.colors.textPrimary} variant="bodyStrong" />
+      {flag ? <Glyph char={flag} color={theme.colors.textPrimary} variant="title" /> : null}
       <Text variant={selected ? "bodyStrong" : "body"} style={{ flex: 1 }}>
         {label}
       </Text>

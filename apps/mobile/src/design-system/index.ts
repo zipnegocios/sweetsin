@@ -24,6 +24,7 @@ export { EmptyState } from "./organisms/EmptyState";
 export { OfflineBanner } from "./organisms/OfflineBanner";
 export { ScreenHeader } from "./organisms/ScreenHeader";
 export type { HeaderAvatar } from "./organisms/ScreenHeader";
+export { PhotoCapture, type PhotoCaptureLabels } from "./organisms/PhotoCapture";
 export { StaffIdCard } from "./organisms/StaffIdCard";
 
 export { ScreenLayout } from "./templates/ScreenLayout";

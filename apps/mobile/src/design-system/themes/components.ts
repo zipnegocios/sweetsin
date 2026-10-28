@@ -159,6 +159,18 @@ export function buildComponentTokens(t: ThemeBase) {
       sizes: { header: 40, card: 148 },
       transitionMs: motion.enterMs,
     },
+    // Captura de la foto de perfil dentro de la app: fondo Tinta, círculo guía y disparador grande.
+    capture: {
+      bg: c.textPrimary,
+      fg: c.actionLabel,
+      guide: c.actionLabel,
+      guideWidth: 4,
+      guideFraction: 0.78, // diámetro del círculo guía respecto al lado del visor
+      shutterSize: 72,
+      shutterRing: 6,
+      padding: space.lg,
+      gap: space.lg,
+    },
     // Credencial: banda Tinta con la marca arriba y la foto que la cruza; el texto lleva la información, el color solo marca.
     credential: {
       bg: c.surface,
@@ -176,6 +188,10 @@ export function buildComponentTokens(t: ThemeBase) {
       bodyGap: space.sm,
       avatarOverlap: 40, // la foto solo roza la banda: el nombre de la marca queda libre
       closeInset: space.xs,
+      badgeSize: 44,
+      badgeBg: c.textPrimary,
+      badgeFg: c.actionLabel,
+      badgeBorder: c.surface,
       codeBorder: c.textQuiet,
       codeRadius: radius.small,
       codePaddingH: space.md,

@@ -16,10 +16,13 @@ export type StaffIdCardProps = {
   /** Acción de la X en la esquina de la tarjeta. */
   onClose?: () => void;
   closeLabel?: string;
+  /** Si se pasa, tocar la foto la cambia: la foto lleva una insignia de cámara. */
+  onPhotoPress?: () => void;
+  photoLabel?: string;
 };
 
 /** Credencial del staff: marca, foto, nombre, rol y código. Todo lo que identifica va en texto. */
-export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, photoUrl, onClose, closeLabel }: StaffIdCardProps) {
+export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, photoUrl, onClose, closeLabel, onPhotoPress, photoLabel }: StaffIdCardProps) {
   const theme = useTheme();
   const t = theme.components.credential;
 
@@ -76,7 +79,30 @@ export function StaffIdCard({ brandLabel, name, roleLabel, codeLabel, code, phot
           marginTop: -t.avatarOverlap,
         }}
       >
-        <Avatar name={name} photoUrl={photoUrl} size="card" />
+        {onPhotoPress ? (
+          <Touchable onPress={onPhotoPress} accessibilityRole="button" accessibilityLabel={photoLabel} style={{ borderRadius: theme.components.avatar.sizes.card / 2 }}>
+            <Avatar name={name} photoUrl={photoUrl} size="card" />
+            <View
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 0,
+                width: t.badgeSize,
+                height: t.badgeSize,
+                borderRadius: t.badgeSize / 2,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: t.badgeBg,
+                borderWidth: 3,
+                borderColor: t.badgeBorder,
+              }}
+            >
+              <Glyph char="📷" color={t.badgeFg} variant="bodyStrong" />
+            </View>
+          </Touchable>
+        ) : (
+          <Avatar name={name} photoUrl={photoUrl} size="card" />
+        )}
         <Text variant="title" style={{ textAlign: "center" }}>
           {name}
         </Text>

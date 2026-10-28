@@ -366,8 +366,14 @@ export interface Dictionary {
     credentialCloseCard: string;
     securityOpen: string;
     photoSectionTitle: string;
-    photoFront: string;
-    photoRear: string;
+    photoTake: string;
+    photoGallery: string;
+    photoFlip: string;
+    photoShoot: string;
+    photoCancel: string;
+    photoGrant: string;
+    photoGuide: string;
+    photoChangeLabel: string;
     photoRemove: string;
     photoSaved: string;
     photoCameraDenied: string;

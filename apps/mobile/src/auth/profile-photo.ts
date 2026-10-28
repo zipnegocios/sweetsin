@@ -1,23 +1,20 @@
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { apiFetch } from "../api/client";
+import { centerSquare, classifyPhotoResponse, PROFILE_PHOTO_SIDE, type PhotoOutcome } from "./photo-rules";
 
-import { classifyPhotoResponse, type PhotoOutcome } from "./photo-rules";
+/** Foto existente de la galería, cuadrada. El selector del sistema no pide permiso en Android. */
+export async function pickProfilePhotoFromGallery(): Promise<{ uri: string } | null> {
+  const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 1 });
+  return picked.canceled || !picked.assets[0] ? null : { uri: picked.assets[0].uri };
+}
 
-export type TakePhotoResult = { ok: true; uri: string } | { ok: false; reason: "camera-denied" | "cancelled" };
-
-/** Foto cuadrada con la cámara elegida. El permiso se pide recién al tocar el botón. Calidad baja: el servidor topa en 2 MB. */
-export async function takeProfilePhoto(camera: "front" | "back"): Promise<TakePhotoResult> {
-  const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) return { ok: false, reason: "camera-denied" };
-  const shot = await ImagePicker.launchCameraAsync({
-    mediaTypes: ["images"],
-    cameraType: camera === "front" ? ImagePicker.CameraType.front : ImagePicker.CameraType.back,
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.4,
-  });
-  if (shot.canceled || !shot.assets[0]) return { ok: false, reason: "cancelled" };
-  return { ok: true, uri: shot.assets[0].uri };
+/** Recorta el cuadrado central y reduce a 600 px JPEG (igual que la web): pesa unas decenas de KB y cabe de sobra en el tope del servidor. */
+export async function prepareProfilePhoto(uri: string): Promise<string> {
+  const base = await ImageManipulator.manipulate(uri).renderAsync(); // dimensiones ya con la orientación aplicada
+  const context = ImageManipulator.manipulate(uri).crop(centerSquare(base.width, base.height)).resize({ width: PROFILE_PHOTO_SIDE });
+  const out = await (await context.renderAsync()).saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+  return out.uri;
 }
 
 export async function uploadProfilePhoto(uri: string): Promise<PhotoOutcome> {
