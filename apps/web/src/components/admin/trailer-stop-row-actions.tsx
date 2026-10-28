@@ -24,7 +24,8 @@ export function TrailerStopRowActions({ stopId, status }: { stopId: string; stat
     }
   }
 
-  if (status === "completed") return null;
+  // Una parada abierta se cierra desde su detalle (resumen + confirmación de pedidos sin entregar).
+  if (status === "completed" || status === "active") return null;
 
   const cls = "text-[12px] text-navy/60 hover:text-sin-red disabled:opacity-50";
   return (

@@ -5,6 +5,8 @@ import { Link } from "@/i18n/navigation";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 import { OrderStatusForm } from "@/components/admin/order-status-form";
 import { PageHeader } from "@/components/admin/page-header";
+import { AttentionBadge } from "@/components/admin/status-badge";
+import { OrderAttentionActions } from "@/components/admin/order-attention-actions";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -44,8 +46,19 @@ export default async function AdminOrderDetailPage({
         <p className="text-sm font-bold mt-3">{t("columnTotal")}: ${(order.totalCents / 100).toFixed(2)}</p>
       </div>
 
-      <div className="bg-white rounded-xl p-5">
-        <OrderStatusForm orderId={order.id} fulfillmentStatus={order.fulfillmentStatus} paymentStatus={order.paymentStatus} />
+      <div className="bg-white rounded-xl p-5 space-y-4">
+        {order.attentionReason && <AttentionBadge reason={order.attentionReason} />}
+        <OrderAttentionActions
+          orderId={order.id}
+          requiresAttention={Boolean(order.attentionReason)}
+          canHandOver={order.fulfillmentType === "pickup" && order.fulfillmentStatus === "ready_for_pickup"}
+        />
+        <OrderStatusForm
+          orderId={order.id}
+          fulfillmentStatus={order.fulfillmentStatus}
+          paymentStatus={order.paymentStatus}
+          requiresAttention={Boolean(order.attentionReason)}
+        />
       </div>
     </div>
   );

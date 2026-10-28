@@ -15,8 +15,6 @@ import {
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
 import {
   initializeStopStock,
-  restockProduct,
-  reportStockWaste,
   setStopProductQuantity,
   addStopProduct,
   removeStopProduct,
@@ -117,21 +115,6 @@ export async function reactivateTrailerStopAction(id: string): Promise<void> {
 export async function deleteTrailerStopAction(id: string): Promise<void> {
   await requireAdmin();
   await deleteTrailerStop(new DrizzleTrailerStopRepository(), id);
-}
-
-export async function restockAction(stopId: string, productId: string, quantity: number): Promise<void> {
-  await requireAdmin();
-  await restockProduct(new DrizzleStockRepository(), stopId, productId, quantity, null);
-}
-
-export async function reportWasteAction(
-  stopId: string,
-  productId: string,
-  quantity: number,
-  reason: string | null,
-): Promise<void> {
-  await requireAdmin();
-  await reportStockWaste(new DrizzleStockRepository(), stopId, productId, quantity, reason, null);
 }
 
 function runStock(fn: () => Promise<unknown>) {

@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import {
-  restockAction,
-  reportWasteAction,
-  setStopProductQuantityAction,
-  removeStopProductAction,
-} from "@/app/actions/admin-trailer-stops";
+import { setStopProductQuantityAction, removeStopProductAction } from "@/app/actions/admin-trailer-stops";
 import { stockTemplateErrorKey, type StockTemplateErrorKey } from "@/lib/stock-template-error";
 
 export function StockRow({
@@ -30,8 +25,6 @@ export function StockRow({
 }) {
   const t = useTranslations("admin");
   const router = useRouter();
-  const [quantity, setQuantity] = useState(1);
-  const [reason, setReason] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [maxRaw, setMaxRaw] = useState(String(maxStock));
   const [errorKey, setErrorKey] = useState<StockTemplateErrorKey | null>(null);
@@ -72,28 +65,8 @@ export function StockRow({
     }
   }
 
-  async function handleRestock() {
-    setIsPending(true);
-    try {
-      await restockAction(stopId, productId, quantity);
-      router.refresh();
-    } finally {
-      setIsPending(false);
-    }
-  }
-
-  async function handleWaste() {
-    setIsPending(true);
-    try {
-      await reportWasteAction(stopId, productId, quantity, reason || null);
-      router.refresh();
-    } finally {
-      setIsPending(false);
-    }
-  }
-
   return (
-    <tr >
+    <tr>
       <td>{productName}</td>
       <td>{soldUnits}</td>
       <td>{currentStock}</td>
@@ -125,25 +98,6 @@ export function StockRow({
       <td>
         {!readOnly && (
           <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-            className="w-16 border border-navy/15 rounded-lg px-2 py-1 text-sm"
-          />
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={t("stockWasteReasonPlaceholder")}
-            className="w-32 border border-navy/15 rounded-lg px-2 py-1 text-sm"
-          />
-          <button disabled={isPending} onClick={handleRestock} className="text-[12px] text-navy/60 hover:text-sin-red disabled:opacity-50">
-            {t("stockRestockButton")}
-          </button>
-          <button disabled={isPending} onClick={handleWaste} className="text-[12px] text-navy/60 hover:text-sin-red disabled:opacity-50">
-            {t("stockWasteButton")}
-          </button>
           <button disabled={isPending} onClick={handleRemove} className="text-[12px] text-navy/60 hover:text-sin-red disabled:opacity-50">
             {t("stockRemoveButton")}
           </button>

@@ -3,7 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listTrailerStopsAction } from "@/app/actions/admin-trailer-stops";
 import { TrailerStopRowActions } from "@/components/admin/trailer-stop-row-actions";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { StatusBadge, PastClosingBadge } from "@/components/admin/status-badge";
 import { formatAdelaide } from "@/lib/adelaide-time";
 import { PageHeader } from "@/components/admin/page-header";
 
@@ -38,7 +38,12 @@ export default async function AdminTrailerStopsPage({ params }: { params: Promis
             <tr key={stop.id} >
               <td>{stop.location}</td>
               <td>{formatAdelaide(stop.startTime, locale)}</td>
-              <td><StatusBadge status={stop.status} /></td>
+              <td>
+                <div className="flex flex-wrap gap-1.5">
+                  <StatusBadge status={stop.status} />
+                  <PastClosingBadge status={stop.status} endTime={stop.endTime} />
+                </div>
+              </td>
               <td>
                 <Link href={`/admin/trailer-stops/${stop.id}`} className="admin-link">
                   {t("viewDetail")}

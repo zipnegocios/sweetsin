@@ -14,10 +14,12 @@ export function OrderStatusForm({
   orderId,
   fulfillmentStatus,
   paymentStatus,
+  requiresAttention = false,
 }: {
   orderId: string;
   fulfillmentStatus: FulfillmentStatus;
   paymentStatus: PaymentStatus;
+  requiresAttention?: boolean;
 }) {
   const t = useTranslations("admin");
   const [fulfillment, setFulfillment] = useState(fulfillmentStatus);
@@ -46,7 +48,10 @@ export function OrderStatusForm({
           onChange={(e) => setFulfillment(e.target.value as FulfillmentStatus)}
           className="admin-input"
         >
-          {FULFILLMENT_STATUSES.map((s) => (
+          {(requiresAttention
+            ? FULFILLMENT_STATUSES.filter((s) => s === fulfillmentStatus || s === "cancelled")
+            : FULFILLMENT_STATUSES
+          ).map((s) => (
             <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>

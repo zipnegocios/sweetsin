@@ -5,7 +5,8 @@ import { listOrdersAction } from "@/app/actions/admin-orders";
 import type { FulfillmentStatus, PaymentStatus, OrderChannel } from "@workspace/domain/orders";
 
 import { PageHeader } from "@/components/admin/page-header";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { StatusBadge, AttentionBadge } from "@/components/admin/status-badge";
+import { OrderAttentionActions } from "@/components/admin/order-attention-actions";
 
 type SearchParams = Record<string, string | undefined>;
 
@@ -82,12 +83,24 @@ export default async function AdminOrdersPage({
                   <span className="block font-medium text-navy">{order.customerName}</span>
                   <span className="block text-navy/45 text-xs mt-0.5">{order.customerEmail}</span>
                 </td>
-                <td><StatusBadge status={order.fulfillmentStatus} /></td>
+                <td>
+                  <div className="flex flex-wrap gap-1.5">
+                    <StatusBadge status={order.fulfillmentStatus} />
+                    {order.attentionReason && <AttentionBadge reason={order.attentionReason} />}
+                  </div>
+                </td>
                 <td><StatusBadge status={order.paymentStatus} /></td>
                 <td className="text-navy/70">{t(`channel_${order.channel}`)}</td>
                 <td className="text-right font-mono tabular-nums text-navy">${(order.totalCents / 100).toFixed(2)}</td>
                 <td className="text-right">
-                  <Link href={`/admin/orders/${order.id}`} className="admin-link">{t("viewDetail")} →</Link>
+                  <div className="flex flex-col items-end gap-1">
+                    <Link href={`/admin/orders/${order.id}`} className="admin-link">{t("viewDetail")} →</Link>
+                    <OrderAttentionActions
+                      orderId={order.id}
+                      requiresAttention={Boolean(order.attentionReason)}
+                      canHandOver={order.fulfillmentType === "pickup" && order.fulfillmentStatus === "ready_for_pickup"}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}
