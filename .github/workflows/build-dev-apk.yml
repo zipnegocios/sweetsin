@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
       API_BASE_URL: ${{ inputs.api_base_url }}
       APP_VARIANT: development
