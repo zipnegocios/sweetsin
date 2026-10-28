@@ -345,6 +345,7 @@ export interface Dictionary {
     stockSaveTemplateButton: string;
     stockTemplateSaved: string;
     stockErrorBelowSold: string;
+    stockErrorNegative: string;
     stockErrorHasMovements: string;
     stockErrorDuplicate: string;
     stockErrorNotFound: string;

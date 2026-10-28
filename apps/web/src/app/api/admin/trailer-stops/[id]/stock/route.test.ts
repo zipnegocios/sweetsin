@@ -4,6 +4,8 @@ const state = vi.hoisted(() => ({
   session: null as { user: { role: string } } | null,
   stop: true,
   existing: false,
+  completed: false,
+  fk: false,
 }));
 const row = { id: "r1", stopId: "s", productId: "p", maxStock: 10, currentStock: 7 };
 
@@ -11,7 +13,7 @@ vi.mock("@/auth", () => ({ auth: async () => state.session }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {
     async findById() {
-      return state.stop ? { id: "s" } : null;
+      return state.stop ? { id: "s", status: state.completed ? "completed" : "scheduled" } : null;
     }
   },
   DrizzleStockRepository: class {
@@ -25,6 +27,7 @@ vi.mock("@workspace/db/repositories", () => ({
       return state.existing ? row : null;
     }
     async create(r: Record<string, unknown>) {
+      if (state.fk) throw Object.assign(new Error("fk"), { cause: { code: "23503" } });
       return { id: "r2", ...r };
     }
   },
@@ -42,6 +45,8 @@ beforeEach(() => {
   state.session = { user: { role: "admin" } };
   state.stop = true;
   state.existing = false;
+  state.completed = false;
+  state.fk = false;
 });
 
 describe("/api/admin/trailer-stops/[id]/stock", () => {
@@ -72,5 +77,20 @@ describe("/api/admin/trailer-stops/[id]/stock", () => {
     expect((await POST(post({ productId: ID, quantity: 5 }), ctx)).status).toBe(201);
     state.existing = true;
     expect((await POST(post({ productId: ID, quantity: 5 }), ctx)).status).toBe(409);
+  });
+
+  it("POST a una parada completada responde 409; GET sigue funcionando", async () => {
+    state.completed = true;
+    const res = await POST(post({ productId: ID, quantity: 3 }), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("Completed stops cannot be edited");
+    expect((await GET(new Request("http://x"), ctx)).status).toBe(200);
+  });
+
+  it("productId inexistente (violación de FK 23503) responde 404 Product not found", async () => {
+    state.fk = true;
+    const res = await POST(post({ productId: ID, quantity: 3 }), ctx);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("Product not found");
   });
 });

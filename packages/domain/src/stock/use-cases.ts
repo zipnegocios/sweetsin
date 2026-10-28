@@ -83,6 +83,7 @@ export async function restockProduct(
 export function isStockConflictMessage(message: string): boolean {
   return [
     "Cannot set stock below units already sold",
+    "Current stock would be negative",
     "Stock row has movements",
     "Product already has stock at this stop",
     "Stock row not found",
@@ -109,9 +110,10 @@ export async function setStopProductQuantity(
   assertPositiveInteger(quantity);
   const row = await requireRow(repo, stopId, productId);
   const sold = await repo.sumSold(row.id);
-  const current = row.currentStock + (quantity - row.maxStock);
-  if (quantity < sold || current < 0) throw new Error("Cannot set stock below units already sold");
-  return repo.setQuantity(row.id, quantity, current);
+  if (quantity < sold) throw new Error("Cannot set stock below units already sold");
+  const updated = await repo.setQuantity(row.id, quantity);
+  if (!updated) throw new Error("Current stock would be negative");
+  return updated;
 }
 
 export async function addStopProduct(

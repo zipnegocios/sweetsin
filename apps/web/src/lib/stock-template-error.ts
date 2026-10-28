@@ -5,6 +5,7 @@ export type StockTemplateErrorKey =
   | "tplErrorQuantity"
   | "tplErrorDuplicate"
   | "stockErrorBelowSold"
+  | "stockErrorNegative"
   | "stockErrorHasMovements"
   | "stockErrorDuplicate"
   | "stockErrorNotFound";
@@ -15,6 +16,7 @@ const KEYS: Record<string, StockTemplateErrorKey> = {
   "Quantity must be a positive integer": "tplErrorQuantity",
   "Duplicate product in template": "tplErrorDuplicate",
   "Cannot set stock below units already sold": "stockErrorBelowSold",
+  "Current stock would be negative": "stockErrorNegative",
   "Stock row has movements": "stockErrorHasMovements",
   "Product already has stock at this stop": "stockErrorDuplicate",
   "Stock row not found": "stockErrorNotFound",

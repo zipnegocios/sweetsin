@@ -20,6 +20,9 @@ export function domainErrorResponse(error: unknown): Response {
   if (isStopConflictMessage(message) || isStockConflictMessage(message) || isStockTemplateConflictMessage(message)) {
     return NextResponse.json({ error: message }, { status: 409 });
   }
+  // Violación de FK de Postgres (23503): productId con forma de UUID pero inexistente. drizzle la envuelve en .cause.
+  const code = (error as { code?: string; cause?: { code?: string } } | null)?.code ?? (error as { cause?: { code?: string } } | null)?.cause?.code;
+  if (code === "23503") return notFoundResponse("Product not found");
   console.error(error);
   return NextResponse.json({ error: "Internal error" }, { status: 500 });
 }

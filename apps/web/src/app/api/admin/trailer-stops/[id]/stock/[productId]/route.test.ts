@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   sold: 0,
   movements: false,
   removed: [] as string[],
+  completed: false,
 }));
 const row = { id: "r1", stopId: "s", productId: "p", maxStock: 10, currentStock: 7 };
 
@@ -14,7 +15,7 @@ vi.mock("@/auth", () => ({ auth: async () => state.session }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {
     async findById() {
-      return state.stop ? { id: "s" } : null;
+      return state.stop ? { id: "s", status: state.completed ? "completed" : "scheduled" } : null;
     }
   },
   DrizzleStockRepository: class {
@@ -24,8 +25,8 @@ vi.mock("@workspace/db/repositories", () => ({
     async sumSold() {
       return state.sold;
     }
-    async setQuantity(_id: string, max: number, cur: number) {
-      return { ...row, maxStock: max, currentStock: cur };
+    async setQuantity(_id: string, max: number) {
+      return { ...row, maxStock: max, currentStock: row.currentStock + (max - row.maxStock) };
     }
     async hasMovements() {
       return state.movements;
@@ -51,6 +52,7 @@ beforeEach(() => {
   state.sold = 0;
   state.movements = false;
   state.removed = [];
+  state.completed = false;
 });
 
 describe("/api/admin/trailer-stops/[id]/stock/[productId]", () => {
@@ -90,5 +92,12 @@ describe("/api/admin/trailer-stops/[id]/stock/[productId]", () => {
     expect(state.removed).toEqual(["r1"]);
     state.movements = true;
     expect((await DELETE(del(), ctx)).status).toBe(409);
+  });
+
+  it("PATCH y DELETE sobre una parada completada responden 409", async () => {
+    state.completed = true;
+    expect((await PATCH(patch({ quantity: 12 }), ctx)).status).toBe(409);
+    expect((await DELETE(del(), ctx)).status).toBe(409);
+    expect(state.removed).toEqual([]);
   });
 });

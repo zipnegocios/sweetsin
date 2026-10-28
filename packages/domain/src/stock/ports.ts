@@ -10,6 +10,7 @@ export interface StockRepository {
   /** Unidades vendidas: suma de los eventos 'sale' de la fila. */
   sumSold(stopProductStockId: string): Promise<number>;
   hasMovements(stopProductStockId: string): Promise<boolean>;
-  setQuantity(stopProductStockId: string, maxStock: number, currentStock: number): Promise<StopProductStock>;
+  /** Atomico y relativo: ajusta currentStock por el delta de maxStock; null si quedaria negativo o no existe. */
+  setQuantity(stopProductStockId: string, maxStock: number): Promise<StopProductStock | null>;
   remove(stopProductStockId: string): Promise<void>;
 }

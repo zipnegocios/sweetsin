@@ -22,7 +22,11 @@ export function StockTemplateForm({ products, template }: { products: ProductOpt
   const router = useRouter();
   const [name, setName] = useState(template?.name ?? "");
   const [selected, setSelected] = useState<Record<string, string>>(
-    Object.fromEntries((template?.items ?? []).map((i) => [i.productId, String(i.quantity)])),
+    Object.fromEntries(
+      (template?.items ?? [])
+        .filter((i) => products.some((p) => p.id === i.productId)) // productos ya no disponibles no se reenvían
+        .map((i) => [i.productId, String(i.quantity)]),
+    ),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorKey, setErrorKey] = useState<StockTemplateErrorKey | null>(null);

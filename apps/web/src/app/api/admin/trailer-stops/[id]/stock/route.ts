@@ -3,7 +3,7 @@ import { DrizzleStockRepository } from "@workspace/db/repositories";
 import { addStopProduct } from "@workspace/domain/stock";
 import { authorizeAdmin } from "../../../_lib/authorize-admin";
 import { domainErrorResponse } from "../../../_lib/domain-error-response";
-import { stopNotFound } from "../../../_lib/require-stop";
+import { stopNotEditable, stopNotFound } from "../../../_lib/require-stop";
 import { stockAddBodySchema } from "../../../_lib/stock-body";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
   if (denied) return denied;
   const { id } = await params;
   try {
-    const missing = await stopNotFound(id);
+    const missing = await stopNotEditable(id);
     if (missing) return missing;
     const parsed = stockAddBodySchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });

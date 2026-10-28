@@ -61,13 +61,14 @@ export class DrizzleStockRepository implements StockRepository {
     return row !== undefined;
   }
 
-  async setQuantity(stopProductStockId: string, maxStock: number, currentStock: number): Promise<StopProductStock> {
+  async setQuantity(stopProductStockId: string, maxStock: number): Promise<StopProductStock | null> {
+    const delta = sql`${maxStock} - ${stopProductStockTable.maxStock}`;
     const [updated] = await db
       .update(stopProductStockTable)
-      .set({ maxStock, currentStock })
-      .where(eq(stopProductStockTable.id, stopProductStockId))
+      .set({ maxStock, currentStock: sql`${stopProductStockTable.currentStock} + (${delta})` })
+      .where(and(eq(stopProductStockTable.id, stopProductStockId), sql`${stopProductStockTable.currentStock} + (${delta}) >= 0`))
       .returning();
-    return updated;
+    return updated ?? null;
   }
 
   async remove(stopProductStockId: string): Promise<void> {

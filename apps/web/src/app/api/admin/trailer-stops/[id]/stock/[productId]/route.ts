@@ -3,7 +3,7 @@ import { DrizzleStockRepository } from "@workspace/db/repositories";
 import { removeStopProduct, setStopProductQuantity } from "@workspace/domain/stock";
 import { authorizeAdmin } from "../../../../_lib/authorize-admin";
 import { domainErrorResponse, isUuid, notFoundResponse } from "../../../../_lib/domain-error-response";
-import { stopNotFound } from "../../../../_lib/require-stop";
+import { stopNotEditable } from "../../../../_lib/require-stop";
 import { stockQuantityBodySchema } from "../../../../_lib/stock-body";
 
 type Ctx = { params: Promise<{ id: string; productId: string }> };
@@ -14,7 +14,7 @@ export async function PATCH(req: Request, { params }: Ctx): Promise<Response> {
   const { id, productId } = await params;
   if (!isUuid(productId)) return notFoundResponse("Stock row not found");
   try {
-    const missing = await stopNotFound(id);
+    const missing = await stopNotEditable(id);
     if (missing) return missing;
     const parsed = stockQuantityBodySchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
@@ -31,7 +31,7 @@ export async function DELETE(_req: Request, { params }: Ctx): Promise<Response> 
   const { id, productId } = await params;
   if (!isUuid(productId)) return notFoundResponse("Stock row not found");
   try {
-    const missing = await stopNotFound(id);
+    const missing = await stopNotEditable(id);
     if (missing) return missing;
     await removeStopProduct(new DrizzleStockRepository(), id, productId);
     return NextResponse.json({ ok: true });

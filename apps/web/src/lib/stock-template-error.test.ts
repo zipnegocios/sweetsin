@@ -8,6 +8,7 @@ describe("stockTemplateErrorKey", () => {
   });
   it("traduce las reglas de stock de la parada", () => {
     expect(stockTemplateErrorKey("Cannot set stock below units already sold")).toBe("stockErrorBelowSold");
+    expect(stockTemplateErrorKey("Current stock would be negative")).toBe("stockErrorNegative");
     expect(stockTemplateErrorKey("Stock row has movements")).toBe("stockErrorHasMovements");
     expect(stockTemplateErrorKey("Product already has stock at this stop")).toBe("stockErrorDuplicate");
     expect(stockTemplateErrorKey("Stock row not found")).toBe("stockErrorNotFound");

@@ -348,6 +348,7 @@ export const es: Dictionary = {
     stockSaveTemplateButton: "Guardar como plantilla",
     stockTemplateSaved: "Plantilla guardada.",
     stockErrorBelowSold: "La cantidad no puede ser menor a las unidades ya vendidas.",
+    stockErrorNegative: "El stock actual quedaría negativo (hubo mermas). Elige una cantidad mayor.",
     stockErrorHasMovements: "Este postre ya tiene ventas o movimientos de stock y no se puede quitar.",
     stockErrorDuplicate: "Este postre ya está en la parada.",
     stockErrorNotFound: "Esa fila de stock ya no existe. Recargá la página.",

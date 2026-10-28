@@ -61,11 +61,13 @@ function fakeStockRepo(
     async hasMovements(id) {
       return movements.some((m) => m.stockId === id);
     },
-    async setQuantity(id, maxStock, currentStock) {
+    async setQuantity(id, maxStock) {
       const item = stock.find((s) => s.id === id);
-      if (!item) throw new Error("not found");
+      if (!item) return null;
+      const current = item.currentStock + (maxStock - item.maxStock);
+      if (current < 0) return null;
       item.maxStock = maxStock;
-      item.currentStock = currentStock;
+      item.currentStock = current;
       return item;
     },
     async remove(id) {
@@ -178,9 +180,7 @@ describe("setStopProductQuantity", () => {
 
   it("rechaza si el stock actual quedaría negativo (hubo mermas)", async () => {
     const repo = fakeStockRepo([row({ currentStock: 5 })], [{ stockId: "s1", type: "waste", quantity: 15 }]);
-    await expect(setStopProductQuantity(repo, "stop1", "p1", 10)).rejects.toThrow(
-      "Cannot set stock below units already sold",
-    );
+    await expect(setStopProductQuantity(repo, "stop1", "p1", 10)).rejects.toThrow("Current stock would be negative");
   });
 
   it("rechaza cantidad 0 o decimal", async () => {
@@ -249,9 +249,10 @@ describe("saveStopStockAsTemplate", () => {
 });
 
 describe("isStockConflictMessage", () => {
-  it("reconoce los cinco mensajes de conflicto", () => {
+  it("reconoce los seis mensajes de conflicto", () => {
     for (const m of [
       "Cannot set stock below units already sold",
+      "Current stock would be negative",
       "Stock row has movements",
       "Product already has stock at this stop",
       "Stock row not found",

@@ -347,6 +347,7 @@ export const en: Dictionary = {
     stockSaveTemplateButton: "Save as template",
     stockTemplateSaved: "Template saved.",
     stockErrorBelowSold: "The quantity cannot be lower than the units already sold.",
+    stockErrorNegative: "Current stock would be negative (units were wasted). Choose a higher quantity.",
     stockErrorHasMovements: "This dessert already has sales or stock movements and cannot be removed.",
     stockErrorDuplicate: "This dessert is already in the stop.",
     stockErrorNotFound: "That stock row no longer exists. Reload the page.",

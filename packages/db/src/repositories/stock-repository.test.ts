@@ -57,9 +57,13 @@ describe("DrizzleStockRepository", () => {
     expect(await repo.sumSold(row.id)).toBe(5);
     expect(await repo.hasMovements(row.id)).toBe(true);
 
-    const updated = await repo.setQuantity(row.id, 20, 15);
-    expect(updated.maxStock).toBe(20);
-    expect(updated.currentStock).toBe(15);
+    const updated = await repo.setQuantity(row.id, 20);
+    expect(updated).toMatchObject({ maxStock: 20, currentStock: 20 }); // delta relativo: 10 + (20 - 10)
+
+    await repo.decrementStock(row.id, 17); // current 3
+    expect(await repo.setQuantity(row.id, 10)).toBeNull(); // 3 + (10 - 20) < 0
+    expect((await repo.listByStop(stopId)).find((x) => x.id === row.id)).toMatchObject({ maxStock: 20, currentStock: 3 });
+    expect(await repo.setQuantity(row.id, 18)).toMatchObject({ maxStock: 18, currentStock: 1 });
 
     const wrath = await new DrizzleProductRepository().findBySlug("wrath");
     if (!wrath) throw new Error("Seed product 'wrath' not found");

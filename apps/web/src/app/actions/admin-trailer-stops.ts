@@ -20,6 +20,7 @@ import {
   saveStopStockAsTemplate,
   isStockConflictMessage,
 } from "@workspace/domain/stock";
+import { isStopConflictMessage } from "@workspace/domain/trailer-stops";
 import { isStockTemplateConflictMessage } from "@workspace/domain/stock-templates";
 import {
   DrizzleTrailerStopRepository,
@@ -124,19 +125,37 @@ export async function reportWasteAction(
 }
 
 function runStock(fn: () => Promise<unknown>) {
-  return runAdminAction(fn, (m) => isStockConflictMessage(m) || isStockTemplateConflictMessage(m));
+  return runAdminAction(
+    fn,
+    (m) => isStockConflictMessage(m) || isStockTemplateConflictMessage(m) || isStopConflictMessage(m),
+  );
+}
+
+// Una parada completada no admite cambios de stock (misma regla que updateTrailerStop).
+async function assertStopEditable(stopId: string): Promise<void> {
+  const stop = await new DrizzleTrailerStopRepository().findById(stopId);
+  if (stop?.status === "completed") throw new Error("Completed stops cannot be edited");
 }
 
 export async function setStopProductQuantityAction(stopId: string, productId: string, quantity: number) {
-  return runStock(() => setStopProductQuantity(new DrizzleStockRepository(), stopId, productId, quantity));
+  return runStock(async () => {
+    await assertStopEditable(stopId);
+    return setStopProductQuantity(new DrizzleStockRepository(), stopId, productId, quantity);
+  });
 }
 
 export async function addStopProductAction(stopId: string, productId: string, quantity: number) {
-  return runStock(() => addStopProduct(new DrizzleStockRepository(), stopId, productId, quantity));
+  return runStock(async () => {
+    await assertStopEditable(stopId);
+    return addStopProduct(new DrizzleStockRepository(), stopId, productId, quantity);
+  });
 }
 
 export async function removeStopProductAction(stopId: string, productId: string) {
-  return runStock(() => removeStopProduct(new DrizzleStockRepository(), stopId, productId));
+  return runStock(async () => {
+    await assertStopEditable(stopId);
+    return removeStopProduct(new DrizzleStockRepository(), stopId, productId);
+  });
 }
 
 export async function saveStopStockAsTemplateAction(stopId: string, name: string) {
