@@ -76,9 +76,14 @@ export class DrizzleStockRepository implements StockRepository {
     orderId: string,
     lines: { productId: string; quantity: number }[],
   ): Promise<{ ok: true } | { ok: false; productId: string }> {
+    for (const { quantity } of lines) {
+      if (!Number.isInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive integer");
+    }
+    // Orden fijo de bloqueo: dos pedidos [A,B] y [B,A] no se esperan mutuamente (deadlock).
+    const sorted = [...lines].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
     try {
       await db.transaction(async (tx) => {
-        for (const { productId, quantity } of lines) {
+        for (const { productId, quantity } of sorted) {
           // UPDATE con guarda: la fila queda bloqueada hasta el commit, así que dos
           // pedidos por la última unidad se serializan y solo uno la descuenta.
           const [updated] = await tx
@@ -97,7 +102,7 @@ export class DrizzleStockRepository implements StockRepository {
           const base = { stopProductStockId: updated.id, reason: null, reportedByUserId: null };
           await tx.insert(stockEventsTable).values({ ...base, eventType: "sale", quantity, orderId });
           // Si la fila tenía stock antes de esta venta y ahora quedó en 0, es un agotamiento nuevo.
-          if (updated.currentStock === 0 && quantity > 0) {
+          if (updated.currentStock === 0) {
             await tx.insert(stockEventsTable).values({ ...base, eventType: "early_sellout", quantity: 0 });
           }
         }
@@ -107,6 +112,30 @@ export class DrizzleStockRepository implements StockRepository {
       if (err instanceof InsufficientStock) return { ok: false, productId: err.productId };
       throw err;
     }
+  }
+
+  async recordWaste(
+    stopProductStockId: string,
+    quantity: number,
+    reason: string | null,
+    reportedByUserId: string | null,
+  ): Promise<StopProductStock | null> {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(stopProductStockTable)
+        .set({ currentStock: sql`${stopProductStockTable.currentStock} - ${quantity}` })
+        .where(and(eq(stopProductStockTable.id, stopProductStockId), gte(stopProductStockTable.currentStock, quantity)))
+        .returning();
+      if (!updated) return null;
+      await tx.insert(stockEventsTable).values({
+        stopProductStockId,
+        eventType: "waste",
+        quantity,
+        reason,
+        reportedByUserId,
+      });
+      return updated;
+    });
   }
 
   async reverseOrderSale(orderId: string): Promise<void> {

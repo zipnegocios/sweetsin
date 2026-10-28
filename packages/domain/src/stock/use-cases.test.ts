@@ -63,6 +63,13 @@ function fakeStockRepo(
         .filter((m) => m.stockId === id && (m.type === "sale" || m.type === "sale_reversal"))
         .reduce((a, m) => a + (m.type === "sale" ? m.quantity : -m.quantity), 0);
     },
+    async recordWaste(id, quantity, reason, reportedByUserId) {
+      const item = stock.find((s) => s.id === id);
+      if (!item || item.currentStock < quantity) return null;
+      item.currentStock -= quantity;
+      events.push({ stopProductStockId: id, eventType: "waste", quantity, reason, reportedByUserId });
+      return item;
+    },
     async decrementForOrder() {
       throw new Error("not used");
     },
@@ -318,6 +325,14 @@ describe("wasteStopProduct", () => {
       wasteStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", 4, null, null),
     ).rejects.toThrow("Waste exceeds current stock");
     expect(stock.events).toEqual([]);
+  });
+
+  it("si la guarda del repositorio no descuenta (venta concurrente), rechaza por merma excesiva", async () => {
+    const stock = fakeStockRepo([row({ currentStock: 3 })]);
+    stock.recordWaste = async () => null;
+    await expect(
+      wasteStopProduct({ stops: fakeStops("active"), stock }, "stop1", "p1", 3, null, null),
+    ).rejects.toThrow("Waste exceeds current stock");
   });
 
   it.each(["scheduled", "completed"] as const)("rechaza una parada %s", async (status) => {

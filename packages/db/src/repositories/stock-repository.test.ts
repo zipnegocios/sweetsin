@@ -234,6 +234,53 @@ describe("DrizzleStockRepository — ventas por pedido", () => {
     });
   }, 15000);
 
+  it("recordWaste descuenta y registra el evento juntos; si no alcanza no toca nada", async () => {
+    const [row] = await freshRows([3]);
+    expect(await repo.recordWaste(row.id, 4, "x", null)).toBeNull();
+    expect(await currentOf(row.id)).toBe(3);
+    expect(await eventsOf([row.id])).toEqual([]);
+    expect(await repo.recordWaste(row.id, 2, "Se cayó", null)).toMatchObject({ currentStock: 1 });
+    expect(await eventsOf([row.id])).toMatchObject([{ eventType: "waste", quantity: 2, reason: "Se cayó" }]);
+  }, 15000);
+
+  it("merma y venta concurrentes por las últimas unidades nunca dejan stock negativo", async () => {
+    for (let i = 0; i < 3; i++) {
+      const [row] = await freshRows([3]);
+      const orderId = await newOrder();
+      const [wasted, sale] = await Promise.all([
+        repo.recordWaste(row.id, 3, null, null),
+        repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity: 3 }]),
+      ]);
+      expect([wasted !== null, sale.ok].filter(Boolean)).toHaveLength(1);
+      expect(await currentOf(row.id)).toBe(0);
+    }
+  }, 30000);
+
+  it("decrementForOrder valida cantidades enteras positivas antes de tocar la DB", async () => {
+    const [row] = await freshRows([5]);
+    const orderId = await newOrder();
+    for (const quantity of [0, -1, 1.5]) {
+      await expect(
+        repo.decrementForOrder(stopId, orderId, [{ productId: productIds[0], quantity }]),
+      ).rejects.toThrow("Quantity must be a positive integer");
+    }
+    expect(await currentOf(row.id)).toBe(5);
+    expect(await eventsOf([row.id])).toEqual([]);
+  }, 15000);
+
+  it("pedidos concurrentes con líneas en orden opuesto no fallan", async () => {
+    const rows = await freshRows([10, 10]);
+    const [o1, o2] = [await newOrder(), await newOrder()];
+    const a = { productId: productIds[0], quantity: 1 };
+    const b = { productId: productIds[1], quantity: 1 };
+    const results = await Promise.all([
+      repo.decrementForOrder(stopId, o1, [a, b]),
+      repo.decrementForOrder(stopId, o2, [b, a]),
+    ]);
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    expect(await Promise.all(rows.map((r) => currentOf(r.id)))).toEqual([8, 8]);
+  }, 15000);
+
   it("(f) summarizeByStop cuenta vendido, merma y agotado", async () => {
     const rows = await freshRows([4, 6, 2]);
     const orderId = await newOrder();
@@ -241,8 +288,7 @@ describe("DrizzleStockRepository — ventas por pedido", () => {
       { productId: productIds[0], quantity: 4 },
       { productId: productIds[1], quantity: 1 },
     ]);
-    await repo.decrementStock(rows[1].id, 2);
-    await repo.recordEvent({ stopProductStockId: rows[1].id, eventType: "waste", quantity: 2, reason: null, reportedByUserId: null });
+    await repo.recordWaste(rows[1].id, 2, null, null);
     const summary = await repo.summarizeByStop(stopId);
     const byProduct = Object.fromEntries(summary.map((s) => [s.productId, s]));
     expect(byProduct[productIds[0]]).toEqual({ productId: productIds[0], maxStock: 4, currentStock: 0, sold: 4, wasted: 0, soldOut: true });

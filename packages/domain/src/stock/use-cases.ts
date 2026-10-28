@@ -38,7 +38,7 @@ export function decrementStockOnSale(
   return decrementWithEvent(repo, stopId, productId, quantity, "sale", null, null);
 }
 
-export function reportStockWaste(
+export async function reportStockWaste(
   repo: StockRepository,
   stopId: string,
   productId: string,
@@ -46,7 +46,11 @@ export function reportStockWaste(
   reason: string | null,
   reportedByUserId: string | null,
 ): Promise<void> {
-  return decrementWithEvent(repo, stopId, productId, quantity, "waste", reason, reportedByUserId);
+  const stock = await repo.findByStopAndProduct(stopId, productId);
+  if (!stock) throw new Error(`No stock record for product ${productId} at stop ${stopId}`);
+  if (!(await repo.recordWaste(stock.id, quantity, reason, reportedByUserId))) {
+    throw new Error(`Insufficient stock for product ${productId} at stop ${stopId}`);
+  }
 }
 
 export async function initializeStopStock(
@@ -142,8 +146,10 @@ export async function wasteStopProduct(
   reportedByUserId: string | null,
 ): Promise<void> {
   const row = await requireActiveStopRow(deps, stopId, productId, quantity);
-  if (quantity > row.currentStock) throw new Error("Waste exceeds current stock");
-  await reportStockWaste(deps.stock, stopId, productId, quantity, reason, reportedByUserId);
+  // La guarda vive en el repositorio (UPDATE ... WHERE current_stock >= q): una venta
+  // concurrente entre la lectura y la escritura no puede dejar el stock negativo.
+  const updated = await deps.stock.recordWaste(row.id, quantity, reason, reportedByUserId);
+  if (!updated) throw new Error("Waste exceeds current stock");
 }
 
 export async function setStopProductQuantity(
