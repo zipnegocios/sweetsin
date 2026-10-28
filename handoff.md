@@ -59,6 +59,9 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 
 **Sesión admin, parte 3 (2026-10-28):** PIN manual en el admin (alta y edición); autoservicio del staff en la app (cambiar PIN y contraseña, `Seguridad`); acceso con huella (SecureStore + `requireAuthentication`: activar, reconfigurar, revocar; oferta única tras el primer login); credencial con cerrar sesión abajo, X en la esquina y la foto más abajo. Suite completa verde (dominio 163, mobile 269, web 113, db 27); typecheck y `next build` pasan. **No probado en teléfono real** (la huella y el Keystore lo exigen).
 
+### Sesión paradas CRUD completo (2026-10-28)
+- Meta: CRUD completo de paradas del trailer (editar, cancelar, reactivar, completar, borrar) con etiquetas públicas "Cambió de lugar/fecha", horas siempre en Australia/Adelaide y endpoints `/api/admin/trailer-stops/**`.
+
 ## Estado actual
 
 **Fase 1 y Fase 2 completas y en producción real, verificadas.** Fase 3
@@ -423,6 +426,10 @@ corrida tarea por tarea durante la ejecución).
 4. Baldosas que no descargan por red.
 
 **Commits pendientes:** el owner debe correr `bash .superpowers/sdd/2026-10-26-apk-delivery-detalle-mapa-contacto/commit-por-tarea.sh` (9 commits, el último incluye el aviso de diagnóstico del mapa y el pedido de prueba de Caracas) y luego `git push origin main`. El harness deniega a Claude `git commit`/`git push` aunque la regla del owner lo permita; no se esquiva.
+
+### Sesión paradas CRUD completo (2026-10-28)
+- Hecho (tareas 1-6, todo en el índice, sin commit): dominio (estados, `getStopChanges`, `listVisibleTrailerStops`), repo + 5 columnas `original_*` nullables (ya aplicadas a la DB compartida), helper `adelaide-time`, acciones admin y endpoints REST, panel (editar/detalle/borrar) y sitio público (etiquetas + aviso).
+- Verificación (tarea 7): `pnpm run typecheck` OK; `pnpm run test` OK en una sola corrida: i18n 1, domain 176, notifications 9, mobile 274, db 30, web 127 (0 fallos). Verificación manual en navegador pendiente.
 
 ## Archivos y cambios
 
@@ -828,6 +835,9 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 **Parte 2 — archivos:** dominio `users/{entities,ports,use-cases}.ts` (`deleteStaffUser`, `updateStaffProfile`, `replaceStaffPhoto`, `removeStaffPhoto`, puerto `StaffPhotoStorage`); `db/schema/users.ts`; `infra/r2-client.ts` (cliente compartido), `infra/r2-staff-photo-storage.ts`; `api/admin/staff/[id]/photo/route.ts`; `api/mobile/auth/me/route.ts`; admin `staff/[id]/*`, `staff-avatar`, `staff-photo-uploader`; mobile `auth/{profile,use-profile,use-header-avatar}.ts`, `design-system/{molecules/Avatar,organisms/StaffIdCard}`, `screens/CredentialScreen.tsx`, `navigation/index.tsx`; `CLAUDE.md` (variables R2).
 
 **Parte 3 — archivos:** dominio `users/use-cases.ts` (`isValidPin`, `verifyStaffPin`, `changeStaffPin`, `changeStaffPassword`, PIN opcional en `registerStaffUser`/`resetStaffPin`, bloqueo temporal unificado en `checkStaffPin`); web `api/mobile/account/{pin,password,verify-pin}/route.ts` + `_lib/account-error.ts`, `admin-staff.ts` (`setStaffPinAction`), `new-staff-form.tsx`, `staff-edit-form.tsx`; mobile `auth/{biometric,account-rules}.ts`, `screens/{LoginScreen,CredentialScreen,SecurityScreen}.tsx`, `design-system/molecules/TextField.tsx` (extraído del login), `StaffIdCard` (X y `avatarOverlap` 40), `navigation/index.tsx`; i18n `staffApp` y `admin`.
+
+### Sesión paradas CRUD completo (2026-10-28)
+- Archivos (staged): `apps/web/src/app/[locale]/admin/trailer-stops/[id]/edit/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/[id]/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/page.tsx`, `apps/web/src/app/actions/admin-trailer-stops.ts`, `apps/web/src/app/api/admin/_lib/authorize-admin.ts`, `apps/web/src/app/api/admin/_lib/domain-error-response.ts`, `apps/web/src/app/api/admin/_lib/trailer-stop-body.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/cancel/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/complete/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/reactivate/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.ts`, `apps/web/src/app/api/admin/trailer-stops/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/route.ts`, `apps/web/src/components/admin/delete-stop-button.tsx`, `apps/web/src/components/admin/trailer-stop-form.tsx`, `apps/web/src/components/admin/trailer-stop-row-actions.tsx`, `apps/web/src/components/sections/find-us-client.tsx`, `apps/web/src/components/sections/find-us.tsx`, `apps/web/src/lib/adelaide-time.test.ts`, `apps/web/src/lib/adelaide-time.ts`, `packages/db/src/repositories/trailer-stop-repository.test.ts`, `packages/db/src/repositories/trailer-stop-repository.ts`, `packages/db/src/schema/trailer-stops.ts`, `packages/domain/src/trailer-stops/entities.ts`, `packages/domain/src/trailer-stops/ports.ts`, `packages/domain/src/trailer-stops/use-cases.test.ts`, `packages/domain/src/trailer-stops/use-cases.ts`, `packages/i18n/src/dictionaries/en.ts`, `packages/i18n/src/dictionaries/es.ts`, `packages/i18n/src/types.ts`. Plan y spec en `docs/superpowers/plans|specs/2026-10-28-paradas-crud-completo*`.
 
 ## Intentos fallidos
 
@@ -1452,6 +1462,11 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 
 **Sesión admin (2026-10-28) — intentos fallidos:** ninguno que revertir; dos errores propios corregidos en el momento (un `</div>` duplicado y llaves dobles en `title={{…}}` por un script de sustitución masiva).
 
+### Sesión paradas CRUD completo (2026-10-28)
+- Se borraron por error los 79 archivos de test del repo; se restauraron desde git.
+- La primera guarda de limpieza de datos de prueba se detuvo por un conteo mal calculado (no borró nada de más).
+- `stock-repository.test.ts` dejó filas 'Stock Test Stop' filtradas en la DB compartida (sin afterAll); se limpiaron a mano.
+
 ## Próximos pasos
 
 - **Costo de Google Routes (tráfico por tramo = SKU Enterprise):** configurar en Google Cloud una cuota diaria de la Routes API y una alerta de presupuesto. Enterprise: 1.000 llamadas gratis/mes y USD 15,00 por 1.000 (consultado el 2026-10-26); la app refresca la ruta cada 120 s con el mapa visible y no recalcula al volver a primer plano si la ruta tiene menos de 60 s.
@@ -1737,3 +1752,8 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - **Dos módulos nativos nuevos (`expo-camera`, `expo-image-manipulator`): hay que recompilar el build de desarrollo una vez** (workflow `build-dev-apk.yml`) y el release ya los incluye. `expo-camera` se agregó a la lista cerrada de paquetes de `design-system/architecture.test.ts` (es UI).
 - Selector de idioma con banderas 🇪🇸 / 🇦🇺 (`OptionRow` acepta `flag`; el lector de pantalla lee solo el nombre del idioma).
 - Pendiente: probar en teléfono real (permiso de cámara, frontal/trasera, espejo, recorte, galería).
+
+### Próximos pasos: paradas CRUD completo (2026-10-28)
+1. Verificación manual en navegador: sitio EN `/` y ES `/es` (etiquetas, aviso, paradas canceladas hasta su endTime) y admin (crear, editar, cancelar, reactivar, borrar incl. advertencia de stock y rechazo si hay pedidos).
+2. Los 4 proyectos restantes: plantillas de stock; abrir/cerrar trailer + pedidos ligados a la parada; jornadas de delivery + stock compartido/separado; auth por token para la APK admin.
+3. Menores diferidos (ver `.superpowers/sdd/2026-10-28-paradas-crud-completo/progress.md`): guardas de tests sin mensaje, DELETE de id inexistente devuelve 200, `[id]/edit` sin verificar status, botón "Create stop" en edición, tests de cancel/complete/reactivate, hora inexistente/ambigua de transición DST sin documentar, timeouts de tests db por latencia remota.

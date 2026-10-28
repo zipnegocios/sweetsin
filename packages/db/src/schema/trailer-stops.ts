@@ -15,5 +15,10 @@ export const trailerStopsTable = pgTable("trailer_stops", {
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   status: trailerStopStatusEnum("status").notNull().default("scheduled"),
+  originalLocation: text("original_location"),
+  originalLat: doublePrecision("original_lat"),
+  originalLng: doublePrecision("original_lng"),
+  originalStartTime: timestamp("original_start_time", { withTimezone: true }),
+  originalEndTime: timestamp("original_end_time", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

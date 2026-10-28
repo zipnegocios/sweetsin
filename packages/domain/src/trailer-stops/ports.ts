@@ -1,9 +1,12 @@
-import type { TrailerStop, TrailerStopStatus } from "./entities";
+import type { TrailerStop, TrailerStopStatus, NewTrailerStop } from "./entities";
 
 export interface TrailerStopRepository {
-  listActive(): Promise<TrailerStop[]>;
+  listVisible(): Promise<TrailerStop[]>;
   listAll(): Promise<TrailerStop[]>;
-  create(stop: Omit<TrailerStop, "id">): Promise<TrailerStop>;
+  create(stop: NewTrailerStop): Promise<TrailerStop>;
   findById(id: string): Promise<TrailerStop | null>;
   updateStatus(id: string, status: TrailerStopStatus): Promise<void>;
+  update(id: string, patch: Partial<Omit<TrailerStop, "id">>): Promise<void>;
+  countOrders(id: string): Promise<number>;
+  deleteWithStock(id: string): Promise<void>;
 }

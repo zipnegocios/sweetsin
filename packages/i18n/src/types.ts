@@ -84,6 +84,11 @@ export interface Dictionary {
     newsletterSuccess: string;
     mapUnavailable: string;
     noStops: string;
+    notice: string;
+    cancelled: string;
+    locationChanged: string;
+    dateChanged: string;
+    before: string;
   };
   footer: {
     tagline: string;
@@ -284,6 +289,14 @@ export interface Dictionary {
     stopsColumnStatus: string;
     stopsCompleteButton: string;
     stopsCancelButton: string;
+    stopsEditButton: string;
+    stopsReactivateButton: string;
+    stopsDeleteButton: string;
+    stopsDeleteConfirm: string;
+    stopsDeleteStockWarning: string;
+    stopsDeleteError: string;
+    stopsEditTitle: string;
+    stopsBackToList: string;
     stopFormLocation: string;
     stopFormStartTime: string;
     stopFormEndTime: string;
@@ -292,6 +305,7 @@ export interface Dictionary {
     stopFormProducts: string;
     stopFormMaxStock: string;
     stopFormSubmit: string;
+    stopFormSave: string;
     stopFormInvalidRange: string;
     stopFormSubmitError: string;
     stockTitle: string;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { DrizzleStockRepository } from "./stock-repository";
 import { DrizzleTrailerStopRepository } from "./trailer-stop-repository";
 import { DrizzleProductRepository } from "./product-repository";
@@ -23,6 +23,10 @@ describe("DrizzleStockRepository", () => {
     const product = await products.findBySlug("gluttony");
     if (!product) throw new Error("Seed product 'gluttony' not found — run the seed first");
     productId = product.id;
+  });
+
+  afterAll(async () => {
+    if (stopId) await new DrizzleTrailerStopRepository().deleteWithStock(stopId);
   });
 
   it("creates a stock row, lists it by stop, increments and decrements it", async () => {

@@ -2,12 +2,15 @@
 
 import { useRef, useState } from "react";
 import gsap from "gsap";
-import type { TrailerStop } from "@workspace/domain/trailer-stops";
+import { getStopChanges, type TrailerStop } from "@workspace/domain/trailer-stops";
 import { useLocale, useTranslations } from "next-intl";
 import { LocationMap } from "@/components/ui/location-map";
 
-function formatStopSchedule(stop: TrailerStop, locale: "en" | "es"): { day: string; timeRange: string } {
-  const day = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "Australia/Adelaide" }).format(
+function formatStopSchedule(
+  stop: { startTime: Date; endTime: Date },
+  locale: "en" | "es",
+): { day: string; timeRange: string } {
+  const day = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "short", timeZone: "Australia/Adelaide" }).format(
     stop.startTime,
   );
   const timeFormatter = new Intl.DateTimeFormat(locale, {
@@ -25,7 +28,9 @@ function formatStopSchedule(stop: TrailerStop, locale: "en" | "es"): { day: stri
 export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
   const t = useTranslations("findUs");
   const locale = useLocale();
-  const [selectedStop, setSelectedStop] = useState<TrailerStop | null>(stops[0] ?? null);
+  const [selectedStop, setSelectedStop] = useState<TrailerStop | null>(
+    stops.find((stop) => stop.status !== "cancelled") ?? stops[0] ?? null,
+  );
 
   return (
     <section id="find-us" className="bg-sweet-white py-[80px] md:py-[120px] px-6 md:px-12">
@@ -36,6 +41,7 @@ export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
             {t("headline")}
           </h2>
           <p className="text-[15px] text-navy/50 max-w-md leading-[1.7] mb-10">{t("subhead")}</p>
+          <p className="font-mono text-[10px] tracking-[0.15em] text-navy/50 uppercase -mt-6 mb-10">{t("notice")}</p>
 
           {stops.length === 0 ? (
             <p className="text-navy/50 text-sm font-mono mb-12">{t("noStops")}</p>
@@ -43,6 +49,13 @@ export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
             <div className="space-y-2 mb-12">
               {stops.map((stop) => {
                 const schedule = formatStopSchedule(stop, locale);
+                const cancelled = stop.status === "cancelled";
+                const { locationChanged, dateChanged } = getStopChanges(stop);
+                const strike = cancelled ? "line-through" : "";
+                const previousSchedule =
+                  dateChanged && !cancelled && stop.originalStartTime && stop.originalEndTime
+                    ? formatStopSchedule({ startTime: stop.originalStartTime, endTime: stop.originalEndTime }, locale)
+                    : null;
                 return (
                   <button
                     key={stop.id}
@@ -59,16 +72,33 @@ export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
                       />
                       <div>
                         <span
-                          className={`block text-sm font-medium ${
+                          className={`block text-sm font-medium ${strike} ${
                             selectedStop?.id === stop.id ? "text-sin-red" : "text-navy"
                           }`}
                         >
                           {schedule.day}
                         </span>
-                        <span className="block text-xs text-navy/40 mt-1">{schedule.timeRange}</span>
+                        <span className={`block text-xs text-navy/40 mt-1 ${strike}`}>{schedule.timeRange}</span>
+                        {previousSchedule && (
+                          <span className="block text-xs text-navy/35 mt-1">
+                            {t("before")} {previousSchedule.day}, {previousSchedule.timeRange}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-sm text-navy/70 text-right max-w-[150px] md:max-w-none">{stop.location}</div>
+                    <div className="text-sm text-navy/70 text-right max-w-[150px] md:max-w-none">
+                      <span className={`block ${strike}`}>{stop.location}</span>
+                      {locationChanged && !cancelled && stop.originalLocation && (
+                        <span className="block text-xs text-navy/35 mt-1">
+                          {t("before")} {stop.originalLocation}
+                        </span>
+                      )}
+                      <div className="flex flex-wrap justify-end gap-1 mt-1">
+                        {cancelled && <StopChip tone="red">{t("cancelled")}</StopChip>}
+                        {!cancelled && locationChanged && <StopChip tone="amber">{t("locationChanged")}</StopChip>}
+                        {!cancelled && dateChanged && <StopChip tone="amber">{t("dateChanged")}</StopChip>}
+                      </div>
+                    </div>
                   </button>
                 );
               })}
@@ -129,6 +159,15 @@ export function FindUsClient({ stops }: { stops: TrailerStop[] }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function StopChip({ tone, children }: { tone: "red" | "amber"; children: React.ReactNode }) {
+  const toneClass = tone === "red" ? "bg-sin-red/10 text-sin-red" : "bg-amber-100 text-amber-800";
+  return (
+    <span className={`font-mono text-[9px] tracking-widest uppercase rounded-full px-2 py-0.5 ${toneClass}`}>
+      {children}
+    </span>
   );
 }
 

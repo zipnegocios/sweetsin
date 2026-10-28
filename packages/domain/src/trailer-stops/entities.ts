@@ -8,4 +8,14 @@ export interface TrailerStop {
   startTime: Date;
   endTime: Date;
   status: TrailerStopStatus;
+  originalLocation: string | null;
+  originalLat: number | null;
+  originalLng: number | null;
+  originalStartTime: Date | null;
+  originalEndTime: Date | null;
 }
+
+export type NewTrailerStop = Omit<
+  TrailerStop,
+  "id" | "originalLocation" | "originalLat" | "originalLng" | "originalStartTime" | "originalEndTime"
+>;

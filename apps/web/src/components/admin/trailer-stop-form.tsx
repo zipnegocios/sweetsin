@@ -5,7 +5,9 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
-import { createTrailerStopAction, checkStopOverlapAction } from "@/app/actions/admin-trailer-stops";
+import { createTrailerStopAction, updateTrailerStopAction, checkStopOverlapAction } from "@/app/actions/admin-trailer-stops";
+import { parseAdelaideLocal, toAdelaideLocalInput } from "@/lib/adelaide-time";
+import type { TrailerStop } from "@workspace/domain/trailer-stops";
 import { LocationPicker } from "@/components/admin/location-picker";
 
 interface ProductOption {
@@ -16,14 +18,14 @@ interface ProductOption {
 const DEFAULT_LAT = -34.9285;
 const DEFAULT_LNG = 138.6007;
 
-export function TrailerStopForm({ products }: { products: ProductOption[] }) {
+export function TrailerStopForm({ products, stop }: { products: ProductOption[]; stop?: TrailerStop }) {
   const t = useTranslations("admin");
   const router = useRouter();
-  const [location, setLocation] = useState("");
-  const [lat, setLat] = useState(DEFAULT_LAT);
-  const [lng, setLng] = useState(DEFAULT_LNG);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [location, setLocation] = useState(stop?.location ?? "");
+  const [lat, setLat] = useState(stop?.lat ?? DEFAULT_LAT);
+  const [lng, setLng] = useState(stop?.lng ?? DEFAULT_LNG);
+  const [startTime, setStartTime] = useState(stop ? toAdelaideLocalInput(stop.startTime) : "");
+  const [endTime, setEndTime] = useState(stop ? toAdelaideLocalInput(stop.endTime) : "");
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
   const [overlaps, setOverlaps] = useState<{ clientName: string; eventDate: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +66,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
       return;
     }
     const handle = setTimeout(async () => {
-      const result = await checkStopOverlapAction(new Date(startTime).toISOString(), new Date(endTime).toISOString());
+      const result = await checkStopOverlapAction(parseAdelaideLocal(startTime).toISOString(), parseAdelaideLocal(endTime).toISOString());
       setOverlaps(result);
     }, 500);
     return () => clearTimeout(handle);
@@ -81,22 +83,28 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (new Date(startTime) >= new Date(endTime)) {
+    const start = parseAdelaideLocal(startTime);
+    const end = parseAdelaideLocal(endTime);
+    if (start >= end) {
       setSubmitError(t("stopFormInvalidRange"));
       return;
     }
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      await createTrailerStopAction({
-        location,
-        lat,
-        lng,
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
-        products: Object.entries(selectedProducts).map(([productId, maxStock]) => ({ productId, maxStock })),
-      });
-      router.push("/admin/trailer-stops");
+      const times = { startTime: start.toISOString(), endTime: end.toISOString() };
+      if (stop) {
+        await updateTrailerStopAction(stop.id, { location, lat, lng, ...times });
+      } else {
+        await createTrailerStopAction({
+          location,
+          lat,
+          lng,
+          ...times,
+          products: Object.entries(selectedProducts).map(([productId, maxStock]) => ({ productId, maxStock })),
+        });
+      }
+      router.push(stop ? `/admin/trailer-stops/${stop.id}` : "/admin/trailer-stops");
       router.refresh();
     } catch {
       setSubmitError(t("stopFormSubmitError"));
@@ -138,6 +146,7 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
         </div>
       )}
 
+      {!stop && (
       <div>
         <p className="text-[11px] uppercase text-navy/40 mb-2">{t("stopFormProducts")}</p>
         <div className="space-y-2">
@@ -165,11 +174,12 @@ export function TrailerStopForm({ products }: { products: ProductOption[] }) {
           ))}
         </div>
       </div>
+      )}
 
       {submitError && <p className="text-[13px] text-sin-red">{submitError}</p>}
 
       <button type="submit" disabled={isSubmitting} className="admin-btn disabled:opacity-50">
-        {t("stopFormSubmit")}
+        {t(stop ? "stopFormSave" : "stopFormSubmit")}
       </button>
     </form>
   );

@@ -4,6 +4,12 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleProductRepository } from "@workspace/db/repositories";
 import { StockRow } from "@/components/admin/stock-row";
 import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { TrailerStopRowActions } from "@/components/admin/trailer-stop-row-actions";
+import { DeleteStopButton } from "@/components/admin/delete-stop-button";
+import { LocationMap } from "@/components/ui/location-map";
+import { Link } from "@/i18n/navigation";
+import { formatAdelaide } from "@/lib/adelaide-time";
 
 export default async function TrailerStopDetailPage({
   params,
@@ -28,10 +34,26 @@ export default async function TrailerStopDetailPage({
 
   return (
     <div>
+      <Link href="/admin/trailer-stops" className="admin-link text-[13px]">
+        {t("stopsBackToList")}
+      </Link>
       <PageHeader title={stop.location} />
-      <p className="text-[13px] text-navy/50 mb-6">
-        {stop.startTime.toLocaleString(locale)} — {stop.endTime.toLocaleString(locale)} · {t(`status_${stop.status}`)}
-      </p>
+      <div className="flex items-center gap-3 mb-4">
+        <StatusBadge status={stop.status} />
+        <span className="text-[13px] text-navy/50">
+          {formatAdelaide(stop.startTime, locale)} — {formatAdelaide(stop.endTime, locale)}
+        </span>
+      </div>
+      <div className="flex items-center gap-4 mb-6">
+        {(stop.status === "scheduled" || stop.status === "cancelled" || stop.status === "active") && (
+          <Link href={`/admin/trailer-stops/${stop.id}/edit`} className="admin-link text-[12px]">
+            {t("stopsEditButton")}
+          </Link>
+        )}
+        <TrailerStopRowActions stopId={stop.id} status={stop.status} />
+        <DeleteStopButton stopId={stop.id} stockCount={stock.length} />
+      </div>
+      <LocationMap lat={stop.lat} lng={stop.lng} label={stop.location} className="w-full h-64 rounded-xl overflow-hidden mb-6" />
 
       <h2 className="font-mono text-[11px] uppercase text-navy/40 mb-2">{t("stockTitle")}</h2>
       <div className="admin-card admin-enter overflow-x-auto"><table className="admin-table">

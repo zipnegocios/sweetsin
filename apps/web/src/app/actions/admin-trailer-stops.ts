@@ -1,6 +1,14 @@
 "use server";
 
-import { listAllTrailerStops, createTrailerStop, completeTrailerStop, cancelTrailerStop } from "@workspace/domain/trailer-stops";
+import {
+  listAllTrailerStops,
+  createTrailerStop,
+  completeTrailerStop,
+  cancelTrailerStop,
+  updateTrailerStop,
+  reactivateTrailerStop,
+  deleteTrailerStop,
+} from "@workspace/domain/trailer-stops";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
 import { initializeStopStock, restockProduct, reportStockWaste } from "@workspace/domain/stock";
 import { DrizzleTrailerStopRepository, DrizzleStockRepository, DrizzleEventBookingRepository } from "@workspace/db/repositories";
@@ -58,6 +66,30 @@ export async function completeTrailerStopAction(id: string): Promise<void> {
 export async function cancelTrailerStopAction(id: string): Promise<void> {
   await requireAdmin();
   await cancelTrailerStop(new DrizzleTrailerStopRepository(), id);
+}
+
+export async function updateTrailerStopAction(
+  id: string,
+  input: { location: string; lat: number; lng: number; startTime: string; endTime: string },
+): Promise<TrailerStop> {
+  await requireAdmin();
+  return updateTrailerStop(new DrizzleTrailerStopRepository(), id, {
+    location: input.location,
+    lat: input.lat,
+    lng: input.lng,
+    startTime: new Date(input.startTime),
+    endTime: new Date(input.endTime),
+  });
+}
+
+export async function reactivateTrailerStopAction(id: string): Promise<void> {
+  await requireAdmin();
+  await reactivateTrailerStop(new DrizzleTrailerStopRepository(), id);
+}
+
+export async function deleteTrailerStopAction(id: string): Promise<void> {
+  await requireAdmin();
+  await deleteTrailerStop(new DrizzleTrailerStopRepository(), id);
 }
 
 export async function restockAction(stopId: string, productId: string, quantity: number): Promise<void> {

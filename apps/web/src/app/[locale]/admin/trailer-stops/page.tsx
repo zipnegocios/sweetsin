@@ -4,6 +4,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { listTrailerStopsAction } from "@/app/actions/admin-trailer-stops";
 import { TrailerStopRowActions } from "@/components/admin/trailer-stop-row-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { formatAdelaide } from "@/lib/adelaide-time";
 import { PageHeader } from "@/components/admin/page-header";
 
 export default async function AdminTrailerStopsPage({ params }: { params: Promise<{ locale: Locale }> }) {
@@ -29,18 +30,26 @@ export default async function AdminTrailerStopsPage({ params }: { params: Promis
             <th>{t("stopsColumnStatus")}</th>
             <th></th>
             <th></th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {stops.map((stop) => (
             <tr key={stop.id} >
               <td>{stop.location}</td>
-              <td>{stop.startTime.toLocaleDateString(locale)}</td>
+              <td>{formatAdelaide(stop.startTime, locale)}</td>
               <td><StatusBadge status={stop.status} /></td>
               <td>
                 <Link href={`/admin/trailer-stops/${stop.id}`} className="admin-link">
                   {t("viewDetail")}
                 </Link>
+              </td>
+              <td>
+                {(stop.status === "scheduled" || stop.status === "cancelled" || stop.status === "active") && (
+                  <Link href={`/admin/trailer-stops/${stop.id}/edit`} className="admin-link">
+                    {t("stopsEditButton")}
+                  </Link>
+                )}
               </td>
               <td>
                 <TrailerStopRowActions stopId={stop.id} status={stop.status} />
