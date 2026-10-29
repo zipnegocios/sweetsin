@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-_Proyectos 3 y 4 cerrados (operación del trailer y medición; motor de capacidad y reglas): ver las subsecciones del 2026-10-28 y 2026-10-29 en cada sección._
+_Proyectos 3, 4 y 5 cerrados (operación del trailer y medición; motor de capacidad y reglas; jornadas de delivery): ver las subsecciones del 2026-10-28 y 2026-10-29 en cada sección._
 
 Ejecutar `docs/superpowers/plan-desarrollo.md` fase por fase, sin adelantar
 trabajo de fases posteriores. Sesión 1: roadmap completo (Fases 1-8) +
@@ -69,6 +69,9 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 
 ### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
 Meta: que la entrega a domicilio respete topes por producto (se vende en línea, cantidad máxima, antelación mínima) y límites de preparación/traslado, con estimaciones calibradas contra los tiempos medidos del proyecto 3. El retiro en la parada nunca se limita. Interruptor `capacityEngineEnabled` **apagado por defecto**. Spec: `docs/superpowers/specs/2026-10-29-motor-capacidad-reglas-design.md`; plan: `docs/superpowers/plans/2026-10-29-motor-capacidad-reglas.md`; ledger: `.superpowers/sdd/2026-10-29-motor-capacidad-reglas/progress.md`. Lo siguiente es el proyecto 5 (jornadas de delivery).
+
+### Proyecto 5: jornadas de delivery (2026-10-29)
+Meta: que las entregas a domicilio descuenten stock de una jornada abierta por el admin (`separate`) o de la parada trailer activa (`shared`), con rechazo y salida por WhatsApp si no hay jornada. Interruptor `deliveryStockControlEnabled` apagado por defecto (sin él, todo igual que antes). Implementado y verificado con tests, typecheck y build; no probado en navegador.
 
 ## Estado actual
 
@@ -460,6 +463,13 @@ Tareas 1-6 hechas y en `main` (commits `df6d3a9` a `f423681`, base `93179f5`); l
 - **Pública (T6):** la acción pública expone solo 4 campos (`soldOnline`, `deliveryMaxQty`, `leadTimeMinutes`, `showEstimateToCustomer`); por eso la "estimación aproximada" al cliente se limita a la antelación mínima y el tiempo de preparación real no se expone. El número de WhatsApp vive en `apps/web/src/lib/business-contact.ts`.
 - **Limitaciones aceptadas (spec §9):** cada pedido se evalúa aislado (no sabe cuántos pedidos grandes hay en cola; la carga conjunta queda para cuando haya datos de medición); la estimación suma productos en secuencia (conservadora, saldrá alta si el negocio trabaja en paralelo); sin horario de atención (`scheduled_for` solo valida antelación mínima y un máximo de 60 días).
 - **Limpieza de datos de prueba ejecutada el 2026-10-29:** 143 pedidos, 65 productos y 209 usuarios de prueba borrados de la DB compartida, con respaldo fuera del repo (`backup-pre-limpieza.json` en el scratchpad de la sesión). Esto resuelve el pendiente de limpieza anotado en el proyecto 3.
+
+### Proyecto 5: jornadas de delivery (2026-10-29)
+- Commits: `bee2e67` (esquema), `2190a9e` y `d89f8ba` (dominio e índice único), `71e1deb` (checkout), `44785d0` y `01fe674` (admin y arreglos).
+- Esquema (aplicado con `db push`, solo aditivo): enum `trailer_stop_kind`, `trailer_stops.kind`, índice único parcial `trailer_stops_one_open_jornada_idx`, `settings.delivery_stock_control_enabled` y `settings.delivery_stock_mode`.
+- Dominio: `packages/domain/src/delivery-jornadas/**` (`openJornada`, `closeJornada`, `discardJornada`, `findDeliveryStop`, `DeliveryRejectedError`; export `./delivery-jornadas`); `createOrder` con `settings` opcional; `requireStop` de paradas rechaza jornadas.
+- Web: `app/actions/checkout.ts` (`deliveryRejected`), `app/actions/delivery-availability.ts`, `cart-store`/`checkout-modal`/`menu-grid`, `app/api/admin/jornadas/**`, `lib/jornadas.ts`, `app/actions/admin-jornadas.ts`, páginas `/admin/jornadas` y `[id]`, `StockPicker` extraído, sección de entrega en `/admin/settings` (más el arreglo del formulario), i18n EN/ES.
+- `CLAUDE.md`: bullet del proyecto 5 en Architecture decisions.
 
 ## Archivos y cambios
 
@@ -880,6 +890,11 @@ Commits `git log --oneline fab1603..HEAD`. Esquema (aplicado con `db push`): tab
 - Dominio: `packages/domain/src/capacity/**` (export `./capacity`); `createOrder` recibe `capacity` opcional; `AppSettings` ampliado.
 - Web: `apps/web/src/app/api/admin/capacity/**` (`settings`, `products/[id]`, `simulate`, `calibration`) con esquemas en `api/admin/_lib/capacity-body.ts`; `lib/capacity-simulate.ts`, `lib/capacity-calibration.ts`, `lib/capacity-public.ts` y `lib/business-contact.ts`; acciones `admin-capacity.ts` y `capacity-public.ts`; página `/admin/capacity`; `checkout.ts` (`toRejectionReasons`), `checkout-modal.tsx`, `menu-grid.tsx`, `cart-store.tsx`, `footer.tsx`, `events.tsx`; claves `cart.*` y de capacidad en `packages/i18n` (en/es con paridad).
 - `CLAUDE.md`: bullet del proyecto 4 en Architecture decisions.
+
+### Proyecto 5: jornadas de delivery (2026-10-29)
+- Carrera al abrir jornadas (dos aperturas simultáneas): corregida con el índice único parcial y la traducción del error `23505` en el repositorio. Líneas repetidas de un producto no se sumaban al validar stock: corregido en `assertStockLines`.
+- Las operaciones de paradas aceptaban ids de jornadas: ahora lanzan `Stop not found`. Abrir una jornada cuyo stock fallaba dejaba una jornada a medias: ahora se descarta (`discardJornada`). `closeJornadaAction` con id no UUID consultaba la base: ahora responde sin consultarla.
+- El formulario de `/admin/settings` fallaba con "inválido" desde el proyecto 4 (enviaba todos los `AppSettings` a un esquema estricto): corregido.
 
 ## Intentos fallidos
 
@@ -1814,6 +1829,29 @@ Sin intentos fallidos en la tarea de cierre. Rondas de corrección durante la ej
 - Diferidos (APK): enviar `occurredAt` en la cola offline de "Marcar entregada"; "Entregado al cliente" para retiros en la pantalla del despachador; rama 404 del despachador.
 - Diferidos (web): salida para pedido cancelado y pagado con atención (reembolso manual), reversa+estado atómicos al cancelar, cancelar parada activa y número de pedidos en el rechazo, cuerpo de `open` con ajustes de stock, reporte por semana/monto y filtros por tipo/canal, `updatePaymentStatus` sin evento, `early_sellout` con `autoSoldOutEnabled` apagado.
 - Sin probar en navegador; filas de prueba en la DB compartida pendientes de decisión del owner.
+
+### Próximos pasos: proyecto 5 (2026-10-29)
+**Guía de prueba manual en navegador:**
+1. En `/admin/settings`, encender "Entrega a domicilio" (control de stock) y dejar el modo `separate`.
+2. En `/admin/jornadas`, abrir una jornada con stock 5 de un producto.
+3. En el sitio público elegir entrega a domicilio y pedir 6 unidades: el carrito se limita a 5 (el menú muestra "Quedan 5 a domicilio"); un pedido por 5 pasa y descuenta de la jornada.
+4. Cerrar la jornada (o no abrir ninguna) y enviar una entrega: debe rechazar con el panel y el botón de WhatsApp, sin vaciar el carrito.
+5. Con el mismo carrito elegir **retiro**: debe seguir funcionando como antes (stock de la parada).
+6. Cambiar a modo `shared` con una parada trailer activa: la entrega descuenta de esa parada; revisar el aviso en `/admin/jornadas`.
+7. Apagar el interruptor y confirmar que la entrega pasa sin reglas de stock.
+
+**Diferidos:**
+- El sobrante de una jornada cerrada es solo informativo (no vuelve a ningún lado).
+- Una sola jornada abierta a la vez.
+- En `shared`, las ventas de entrega se mezclan con las del retiro en la misma parada (con varias paradas activas se usa la más antigua, provisional).
+- Tras un `deliveryRejected` el estado `delivery` del cliente queda obsoleto hasta recargar.
+- Doble `role=alert` en el panel de rechazo; la URL de WhatsApp está duplicada en el cliente.
+- Etiquetas "Activa"/"Completada" en vez de "Abierta"/"Cerrada" para jornadas.
+- Menores por tamaño: falta el assert del default (`kind`) y `listVisible('delivery')` no tiene test; la validación de productos al abrir usa `findById` por producto.
+- "Product not available" (producto desactivado) en una entrega con control encendido y sin jornada responde `deliveryRejected`.
+- `/api/admin/trailer-stops/[id]/stock/**` siguen aceptando el id de una jornada (a propósito, se reutilizan).
+
+**Siguiente:** auth por token para la APK admin y ejercitar todo en un navegador.
 
 ## Sesión: foto con cámara e idioma del staff (app mobile)
 - Foto de perfil desde la app: `CredentialScreen` (cámara frontal/trasera con `expo-image-picker`, recorte cuadrado, calidad 0.4) sube a `POST/DELETE /api/mobile/account/photo` (mismo almacén R2 y reglas que el admin; tope 2 MB → 413 "foto pesada"). Sin módulo nativo nuevo. `cameraType` es una sugerencia en Android: algunos teléfonos la ignoran.
