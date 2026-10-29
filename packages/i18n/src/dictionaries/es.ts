@@ -170,7 +170,7 @@ export const es: Dictionary = {
     scheduleHint: "Algunos productos de tu carrito necesitan al menos {time} de antelación. La hora es la de Adelaida.",
     scheduleRequired: "Elige la fecha y la hora de entrega.",
     scheduleTooSoon: "Elige una hora con al menos {time} de antelación.",
-    scheduleEstimate: "Aproximado: necesitamos cerca de {time} para preparar tu pedido.",
+    addressWarningsTitle: "Ojo: esto no se podrá entregar a domicilio tal como está",
     leadMinutes: "{count} min",
     leadHours: "{count} h",
   },

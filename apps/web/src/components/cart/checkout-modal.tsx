@@ -17,6 +17,7 @@ import {
   deliveryBlockers,
   earliestScheduleAt,
   leadParts,
+  MAX_SCHEDULE_DAYS,
   requiredLeadMinutes,
 } from "@/lib/capacity-public";
 
@@ -122,6 +123,7 @@ export function CheckoutModal() {
 
   function chooseFulfillment(choice: Fulfillment) {
     setFulfillment(choice);
+    clearRejection();
     setStep(choice === "pickup" ? "contact" : "address");
   }
 
@@ -135,6 +137,10 @@ export function CheckoutModal() {
         setAddressError(t("scheduleRequired"));
         return;
       }
+      if (parseAdelaideLocal(scheduledAt).getTime() > earliestScheduleAt(new Date(), MAX_SCHEDULE_DAYS * 24 * 60).getTime()) {
+        setAddressError(t("capacity_scheduled_for_invalid"));
+        return;
+      }
       // Mismo corte que el servidor, con un minuto de margen por el redondeo del selector.
       if (parseAdelaideLocal(scheduledAt).getTime() < earliestScheduleAt(new Date(), leadMinutes).getTime() - 60_000) {
         setAddressError(t("scheduleTooSoon", { time: leadLabel }));
@@ -142,6 +148,7 @@ export function CheckoutModal() {
       }
     }
     setAddressError("");
+    clearRejection();
     setStep("contact");
   }
 
@@ -151,10 +158,17 @@ export function CheckoutModal() {
       return;
     }
     setContactError("");
+    clearRejection();
     setStep("payment");
   }
 
+  function clearRejection() {
+    setRejection(null);
+    setOrderError("");
+  }
+
   function goBack() {
+    clearRejection();
     if (step === "address") setStep("fulfillment");
     else if (step === "contact") setStep(fulfillment === "pickup" ? "fulfillment" : "address");
     else if (step === "payment") setStep("contact");
@@ -393,22 +407,23 @@ export function CheckoutModal() {
                     type="datetime-local"
                     value={scheduledAt}
                     min={toAdelaideLocalInput(earliestScheduleAt(new Date(), leadMinutes))}
+                    max={toAdelaideLocalInput(earliestScheduleAt(new Date(), MAX_SCHEDULE_DAYS * 24 * 60))}
                     onChange={(e) => setScheduledAt(e.target.value)}
                     aria-label={t("scheduleTitle")}
                     className={inputClass}
                   />
                   <p className="text-[12px] text-navy/60">{t("scheduleHint", { time: leadLabel })}</p>
-                  {capacity.showEstimateToCustomer && (
-                    <p className="text-[12px] text-navy/60">{t("scheduleEstimate", { time: leadLabel })}</p>
-                  )}
                 </div>
               )}
               {addressWarnings.length > 0 && (
-                <ul className="list-disc pl-5 space-y-1 text-[12px] text-sin-red mb-4">
-                  {addressWarnings.map((r, i) => (
-                    <ReasonItem key={i} reason={r} locale={locale} />
-                  ))}
-                </ul>
+                <div className="mb-4">
+                  <p className="text-[12px] font-medium text-sin-red mb-1">{t("addressWarningsTitle")}</p>
+                  <ul className="list-disc pl-5 space-y-1 text-[12px] text-sin-red">
+                    {addressWarnings.map((r, i) => (
+                      <ReasonItem key={i} reason={r} locale={locale} />
+                    ))}
+                  </ul>
+                </div>
               )}
               {addressError && <p className="text-sin-red text-[12px] mb-4">{addressError}</p>}
               <button

@@ -13,6 +13,9 @@ export interface PublicCapacityData {
   showEstimateToCustomer: boolean;
 }
 
+/** Máximo de días a futuro para pedir hora; igual que el servidor (domain evaluate.ts). */
+export const MAX_SCHEDULE_DAYS = 60;
+
 /** Motor apagado: sin reglas, la UI queda igual que antes. */
 export const EMPTY_PUBLIC_CAPACITY: PublicCapacityData = { rules: [], showEstimateToCustomer: false };
 

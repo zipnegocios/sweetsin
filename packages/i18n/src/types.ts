@@ -167,7 +167,7 @@ export interface Dictionary {
     scheduleHint: string;
     scheduleRequired: string;
     scheduleTooSoon: string;
-    scheduleEstimate: string;
+    addressWarningsTitle: string;
     leadMinutes: string;
     leadHours: string;
   };
