@@ -102,6 +102,7 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (stopId && STOP_UNAVAILABLE_ERRORS.includes(message)) return { ok: false, error: "stopUnavailable" };
+    if (message === "Product not available" && !stopId) return { ok: false, error: "stockChanged", available: [] };
     if (stopId && STOCK_CHANGED_ERRORS.includes(message)) {
       // El dominio no dice qué línea falló: se devuelve el disponible actual de cada producto pedido
       // que tiene fila en la parada (los que no aparecen ya no se venden ahí).

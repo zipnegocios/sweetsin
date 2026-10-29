@@ -117,6 +117,11 @@ describe("placeOrderAction - stopId", () => {
     expect(result).toEqual({ ok: false, error: "stockChanged", available: [{ productId: P1, available: 3 }] });
   });
 
+  it("producto no disponible sin parada devuelve stockChanged controlado", async () => {
+    state.createError = new Error("Product not available");
+    expect(await placeOrderAction(pickup)).toEqual({ ok: false, error: "stockChanged", available: [] });
+  });
+
   it("pickup sin parada sigue mandando stopId null", async () => {
     await placeOrderAction(pickup);
     expect(state.created[0].stopId).toBeNull();

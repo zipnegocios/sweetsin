@@ -505,6 +505,7 @@ export const en: Dictionary = {
     orderAttentionBadge: "Requires attention",
     orderAttentionInsufficientStock: "Not enough stock of {product}",
     orderAttentionStopCancelled: "The stop was cancelled",
+    orderAttentionOrderCancelled: "Payment received for a cancelled order, refund it manually",
     orderAttentionUnknown: "Reason: {reason}",
     orderRetryStock: "Retry stock",
     orderResolveAttention: "Mark resolved",

@@ -1,3 +1,4 @@
+import { hasAttentionActions } from "@/lib/order-attention";
 import { notFound } from "next/navigation";
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
@@ -50,7 +51,7 @@ export default async function AdminOrderDetailPage({
         {order.attentionReason && <AttentionBadge reason={order.attentionReason} />}
         <OrderAttentionActions
           orderId={order.id}
-          requiresAttention={Boolean(order.attentionReason)}
+          requiresAttention={hasAttentionActions(order.attentionReason)}
           canHandOver={order.fulfillmentType === "pickup" && order.fulfillmentStatus === "ready_for_pickup"}
         />
         <OrderStatusForm

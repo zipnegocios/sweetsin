@@ -1,3 +1,4 @@
+import { hasAttentionActions } from "@/lib/order-attention";
 import type { Locale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
@@ -97,7 +98,7 @@ export default async function AdminOrdersPage({
                     <Link href={`/admin/orders/${order.id}`} className="admin-link">{t("viewDetail")} →</Link>
                     <OrderAttentionActions
                       orderId={order.id}
-                      requiresAttention={Boolean(order.attentionReason)}
+                      requiresAttention={hasAttentionActions(order.attentionReason)}
                       canHandOver={order.fulfillmentType === "pickup" && order.fulfillmentStatus === "ready_for_pickup"}
                     />
                   </div>

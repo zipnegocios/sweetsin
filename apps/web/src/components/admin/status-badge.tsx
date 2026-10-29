@@ -91,6 +91,8 @@ export async function AttentionBadge({ reason }: { reason: string }) {
     text = t("orderAttentionInsufficientStock", { product: product?.nameEn ?? parsed.productId });
   } else if (parsed.kind === "stop_cancelled") {
     text = t("orderAttentionStopCancelled");
+  } else if (parsed.kind === "order_cancelled") {
+    text = t("orderAttentionOrderCancelled");
   } else {
     text = t("orderAttentionUnknown", { reason: parsed.raw });
   }

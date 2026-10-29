@@ -503,6 +503,7 @@ export interface Dictionary {
     orderAttentionBadge: string;
     orderAttentionInsufficientStock: string;
     orderAttentionStopCancelled: string;
+    orderAttentionOrderCancelled: string;
     orderAttentionUnknown: string;
     orderRetryStock: string;
     orderResolveAttention: string;
