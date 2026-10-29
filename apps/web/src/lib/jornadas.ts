@@ -5,7 +5,7 @@ import {
   DrizzleStockTemplateRepository,
   DrizzleTrailerStopRepository,
 } from "@workspace/db/repositories";
-import { openJornada } from "@workspace/domain/delivery-jornadas";
+import { discardJornada, openJornada } from "@workspace/domain/delivery-jornadas";
 import { initializeStopStock } from "@workspace/domain/stock";
 import { getStockTemplate } from "@workspace/domain/stock-templates";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
@@ -45,7 +45,14 @@ export async function openJornadaWithStock(body: z.output<typeof openJornadaBody
   for (const item of items) {
     if (!(await products.findById(item.productId))) throw new Error("Product not found");
   }
-  const jornada = await openJornada({ stops: new DrizzleTrailerStopRepository() }, { name: body.name }, new Date());
-  if (items.length > 0) await initializeStopStock(new DrizzleStockRepository(), jornada.id, items);
+  const stops = new DrizzleTrailerStopRepository();
+  const jornada = await openJornada({ stops }, { name: body.name }, new Date());
+  try {
+    if (items.length > 0) await initializeStopStock(new DrizzleStockRepository(), jornada.id, items);
+  } catch (error) {
+    // Compensación: una jornada abierta con stock a medias bloquearía abrir otra; se descarta y se relanza.
+    await discardJornada({ stops }, jornada.id).catch((e) => console.error(e));
+    throw error;
+  }
   return jornada;
 }

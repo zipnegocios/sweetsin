@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { openJornada, closeJornada, findDeliveryStop } from "./use-cases";
+import { openJornada, closeJornada, findDeliveryStop, discardJornada } from "./use-cases";
 import { isStopConflictMessage } from "../trailer-stops/use-cases";
 import type { TrailerStop, NewTrailerStop } from "../trailer-stops/entities";
 import type { TrailerStopRepository } from "../trailer-stops/ports";
@@ -23,10 +23,15 @@ function stop(overrides: Partial<TrailerStop> = {}): TrailerStop {
   };
 }
 
-function fakeStops(stops: TrailerStop[]): TrailerStopRepository & { created: NewTrailerStop[] } {
+function fakeStops(
+  stops: TrailerStop[],
+  orderCount = 0,
+): TrailerStopRepository & { created: NewTrailerStop[]; deleted: string[] } {
   const created: NewTrailerStop[] = [];
+  const deleted: string[] = [];
   return {
     created,
+    deleted,
     listVisible: async (kind) => stops.filter((s) => !kind || s.kind === kind),
     listAll: async (kind) => stops.filter((s) => !kind || s.kind === kind),
     create: async (s) => {
@@ -41,8 +46,10 @@ function fakeStops(stops: TrailerStop[]): TrailerStopRepository & { created: New
       if (s) s.status = status;
     },
     update: async () => {},
-    countOrders: async () => 0,
-    deleteWithStock: async () => {},
+    countOrders: async () => orderCount,
+    deleteWithStock: async (id) => {
+      deleted.push(id);
+    },
   };
 }
 
@@ -122,5 +129,23 @@ describe("findDeliveryStop", () => {
     expect((await findDeliveryStop(stops, "shared"))?.id).toBe("t1");
     expect(await findDeliveryStop(fakeStops([stop({ status: "completed" })]), "separate")).toBeNull();
     expect(await findDeliveryStop(fakeStops([stop()]), "shared")).toBeNull();
+  });
+});
+
+describe("discardJornada", () => {
+  it("borra una jornada sin pedidos", async () => {
+    const stops = fakeStops([stop()]);
+    await discardJornada({ stops }, "j1");
+    expect(stops.deleted).toEqual(["j1"]);
+  });
+
+  it("no borra una parada del trailer, una inexistente ni una jornada con pedidos", async () => {
+    const trailer = fakeStops([stop({ id: "t1", kind: "trailer" })]);
+    await expect(discardJornada({ stops: trailer }, "t1")).rejects.toThrow("Stop not found");
+    await expect(discardJornada({ stops: trailer }, "nope")).rejects.toThrow("Stop not found");
+    const withOrders = fakeStops([stop()], 1);
+    await expect(discardJornada({ stops: withOrders }, "j1")).rejects.toThrow("Stop has orders");
+    expect(trailer.deleted).toEqual([]);
+    expect(withOrders.deleted).toEqual([]);
   });
 });

@@ -33,7 +33,7 @@ const ctx = { params: Promise.resolve({ id: ID }) };
 const body = (b: unknown) =>
   new Request("http://localhost/x", { method: "PATCH", body: JSON.stringify(b), headers: { "content-type": "application/json" } });
 const valid = { location: "Rundle", lat: -34.9, lng: 138.6, startTime: "2026-11-01T01:00:00.000Z", endTime: "2026-11-01T05:00:00.000Z" };
-const stop = { id: ID, status: "scheduled", location: "A", lat: 1, lng: 2, startTime: new Date("2026-10-01T01:00:00Z"), endTime: new Date("2026-10-01T05:00:00Z"), originalLocation: null };
+const stop = { id: ID, kind: "trailer", status: "scheduled", location: "A", lat: 1, lng: 2, startTime: new Date("2026-10-01T01:00:00Z"), endTime: new Date("2026-10-01T05:00:00Z"), originalLocation: null };
 
 beforeEach(() => {
   state.session = { user: { role: "admin" } };
@@ -63,6 +63,13 @@ describe("/api/admin/trailer-stops/[id]", () => {
 
   it("PATCH con cuerpo invalido responde 400", async () => {
     expect((await PATCH(body({ location: "" }), ctx)).status).toBe(400);
+  });
+
+  it("una jornada de delivery responde 404 en PATCH y DELETE sin tocarla", async () => {
+    state.stop = { ...stop, kind: "delivery", status: "active" };
+    expect((await PATCH(body(valid), ctx)).status).toBe(404);
+    expect((await DELETE(new Request("http://x"), ctx)).status).toBe(404);
+    expect(state.deleted).toEqual([]);
   });
 
   it("DELETE de parada con pedidos responde 409", async () => {

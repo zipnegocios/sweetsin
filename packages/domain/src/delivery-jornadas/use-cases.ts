@@ -36,6 +36,17 @@ export async function closeJornada(deps: { stops: TrailerStopRepository }, id: s
 }
 
 /**
+ * Descarta una jornada recién abierta cuya carga de stock falló (compensación: abrir y cargar
+ * stock no son una transacción). Solo una jornada sin pedidos; borra también su stock parcial.
+ */
+export async function discardJornada(deps: { stops: TrailerStopRepository }, id: string): Promise<void> {
+  const stop = await deps.stops.findById(id);
+  if (!stop || stop.kind !== "delivery") throw new Error("Stop not found");
+  if ((await deps.stops.countOrders(id)) > 0) throw new Error("Stop has orders");
+  await deps.stops.deleteWithStock(id);
+}
+
+/**
  * Parada de la que descuenta una entrega con el control de stock a domicilio encendido:
  * `separate` = la jornada activa; `shared` = la parada del trailer activa. null si no hay.
  * Decisión provisional: en `shared` con varias activas (allowMultipleActiveStops) se usa la

@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   liveStock: true,
   increments: [] as [string, number][],
   waste: [] as unknown[][],
+  failStockCreate: false,
 }));
 
 vi.mock("@/auth", () => ({ auth: async () => state.session }));
@@ -33,9 +34,17 @@ vi.mock("@workspace/db/repositories", () => ({
     async updateStatus(id: string, status: string) {
       state.stops.find((s) => s.id === id)!.status = status;
     }
+    async countOrders() {
+      return 0;
+    }
+    async deleteWithStock(id: string) {
+      state.stops = state.stops.filter((s) => s.id !== id);
+      state.stock = state.stock.filter((r) => r.stopId !== id);
+    }
   },
   DrizzleStockRepository: class {
     async create(row: { stopId: string; productId: string; maxStock: number }) {
+      if (state.failStockCreate) throw new Error("boom");
       state.stock.push(row);
       return { ...row, id: `r-${state.stock.length}` };
     }
@@ -94,6 +103,7 @@ beforeEach(() => {
   state.liveStock = true;
   state.increments = [];
   state.waste = [];
+  state.failStockCreate = false;
 });
 
 describe("/api/admin/jornadas", () => {
@@ -159,6 +169,16 @@ describe("/api/admin/jornadas", () => {
     const { jornada } = await res.json();
     expect(jornada.location).toBe("Delivery");
     expect(state.stock.find((r) => r.stopId === jornada.id)).toMatchObject({ productId: P, maxStock: 7 });
+  });
+
+  it("POST: si falla la carga de stock tras abrir, descarta la jornada y responde error", async () => {
+    state.stops[0].status = "completed";
+    state.failStockCreate = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await open(post({ products: [{ productId: P, maxStock: 2 }] }))).status).toBe(500);
+    expect(state.stops.map((s) => s.id)).toEqual([J, T]);
+    state.failStockCreate = false;
+    expect((await open(post({ products: [{ productId: P, maxStock: 2 }] }))).status).toBe(201);
   });
 
   it("POST 400 con cuerpo inválido", async () => {

@@ -6,6 +6,7 @@ import { isStopConflictMessage } from "@workspace/domain/trailer-stops";
 import { requireAdmin } from "@/lib/require-admin";
 import { runAdminAction, type AdminActionResult } from "@/lib/run-admin-action";
 import { openJornadaBodySchema, openJornadaWithStock, type OpenJornadaBody } from "@/lib/jornadas";
+import { isUuid } from "@/app/api/admin/_lib/domain-error-response";
 
 // Reposición y merma de una jornada usan las acciones de paradas (restockStopProductAction / wasteStopProductAction).
 const isJornadaMessage = (m: string) =>
@@ -26,5 +27,9 @@ export async function openJornadaAction(
 }
 
 export async function closeJornadaAction(id: string): Promise<AdminActionResult> {
-  return runAdminAction(() => closeJornada({ stops: new DrizzleTrailerStopRepository() }, id), isJornadaMessage);
+  // Un id que no es UUID nunca existe (y Postgres lo rechazaría con un error genérico).
+  return runAdminAction(async () => {
+    if (!isUuid(id)) throw new Error("Stop not found");
+    await closeJornada({ stops: new DrizzleTrailerStopRepository() }, id);
+  }, isJornadaMessage);
 }

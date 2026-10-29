@@ -11,7 +11,8 @@ vi.mock("@/auth", () => ({ auth: async () => state.session }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {
     async findById(id: string) {
-      return state.stops.find((s) => s.id === id) ?? null;
+      const s = state.stops.find((x) => x.id === id);
+      return s ? { kind: "trailer", ...s } : null;
     }
     async listAll() {
       return state.stops;

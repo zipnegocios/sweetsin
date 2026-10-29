@@ -72,6 +72,10 @@ describe("admin-jornadas actions", () => {
     expect(await openJornadaAction({ products: [{ productId: P, maxStock: 0 }] })).toEqual({ ok: false, error: "Invalid body" });
   });
 
+  it("cerrar con un id no UUID -> Stop not found sin consultar", async () => {
+    expect(await closeJornadaAction("nope")).toEqual({ ok: false, error: "Stop not found" });
+  });
+
   it("cerrar: jornada abierta ok; parada del trailer -> Stop not found", async () => {
     expect(await closeJornadaAction(T)).toEqual({ ok: false, error: "Stop not found" });
     expect(state.stops[1].status).toBe("active");

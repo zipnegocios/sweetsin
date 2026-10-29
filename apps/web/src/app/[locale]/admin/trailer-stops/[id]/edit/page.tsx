@@ -11,7 +11,7 @@ export default async function EditTrailerStopPage({ params }: { params: Promise<
   const t = await getTranslations("admin");
 
   const stop = await new DrizzleTrailerStopRepository().findById(id);
-  if (!stop || stop.status === "completed") notFound();
+  if (!stop || stop.kind !== "trailer" || stop.status === "completed") notFound();
 
   return (
     <div>

@@ -32,7 +32,8 @@ export default async function TrailerStopDetailPage({
   await requireAdmin();
 
   const stop = await new DrizzleTrailerStopRepository().findById(id);
-  if (!stop) notFound();
+  // Una jornada de delivery se ve en /admin/jornadas/[id], no acá.
+  if (!stop || stop.kind !== "trailer") notFound();
 
   const settings = await new DrizzleSettingsRepository().get();
   const stockRepo = new DrizzleStockRepository();

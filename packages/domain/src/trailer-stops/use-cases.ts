@@ -56,9 +56,11 @@ export async function createTrailerStop(repo: TrailerStopRepository, input: Stop
   return repo.create({ ...input, status: "scheduled" });
 }
 
+// Una jornada de delivery (kind "delivery") no es una parada del trailer: para estos casos de uso no existe.
+// Las funciones de stock no lo usan porque se reutilizan para las jornadas.
 async function requireStop(repo: TrailerStopRepository, id: string): Promise<TrailerStop> {
   const stop = await repo.findById(id);
-  if (!stop) throw new Error("Stop not found");
+  if (!stop || stop.kind !== "trailer") throw new Error("Stop not found");
   return stop;
 }
 
@@ -166,6 +168,7 @@ export async function reactivateTrailerStop(repo: TrailerStopRepository, id: str
 }
 
 export async function deleteTrailerStop(repo: TrailerStopRepository, id: string): Promise<void> {
+  await requireStop(repo, id);
   if ((await repo.countOrders(id)) > 0) throw new Error("Stop has orders");
   await repo.deleteWithStock(id);
 }

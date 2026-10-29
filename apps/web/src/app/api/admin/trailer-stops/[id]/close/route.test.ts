@@ -11,7 +11,7 @@ vi.mock("@/auth", () => ({ auth: async () => state.session }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {
     async findById() {
-      return state.stop;
+      return state.stop && { kind: "trailer", ...state.stop };
     }
     async updateStatus(id: string, status: string) {
       state.updates.push([id, status]);

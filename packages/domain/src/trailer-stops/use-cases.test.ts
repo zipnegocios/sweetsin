@@ -43,6 +43,7 @@ function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
     startTime: new Date("2026-09-18T06:30:00Z"),
     endTime: new Date("2026-09-18T10:30:00Z"),
     status: "scheduled",
+    kind: "trailer",
     originalLocation: null,
     originalLat: null,
     originalLng: null,
@@ -416,5 +417,41 @@ describe("cancelTrailerStop with orders", () => {
     await cancelTrailerStop({ stops: repo, orders: o.repo }, "stop1");
     expect(o.cancelled).toEqual(["stop1"]);
     expect((await repo.findById("stop1"))?.status).toBe("cancelled");
+  });
+});
+
+describe("una jornada de delivery no es una parada del trailer", () => {
+  const input = {
+    location: "X",
+    lat: 0,
+    lng: 0,
+    startTime: new Date("2026-09-18T06:30:00Z"),
+    endTime: new Date("2026-09-18T10:30:00Z"),
+  };
+  const ops: [string, (repo: ReturnType<typeof fakeRepo>) => Promise<unknown>][] = [
+    ["update", (r) => updateTrailerStop(r, "j", input)],
+    ["delete", (r) => deleteTrailerStop(r, "j")],
+    ["cancel", (r) => cancelTrailerStop({ stops: r, orders: fakeOrders().repo }, "j")],
+    ["reactivate", (r) => reactivateTrailerStop(r, "j")],
+    ["open", (r) => openTrailerStop({ stops: r }, "j", { allowMultipleActive: true })],
+    ["complete", (r) => completeTrailerStop(r, "j")],
+    ["close", (r) => closeTrailerStop({ stops: r, orders: fakeOrders().repo }, "j", { confirmUndelivered: true })],
+  ];
+
+  for (const [name, op] of ops) {
+    it(`${name} sobre una jornada lanza Stop not found sin tocarla`, async () => {
+      for (const status of ["scheduled", "active", "cancelled"] as const) {
+        const jornada = fakeStop({ id: "j", kind: "delivery", status });
+        const repo = fakeRepo([jornada]);
+        await expect(op(repo)).rejects.toThrow("Stop not found");
+        expect(jornada.status).toBe(status);
+        expect(jornada.location).toBe("Central Market, Adelaide CBD");
+        expect(repo.deleted).toEqual([]);
+      }
+    });
+  }
+
+  it("delete de una parada inexistente lanza Stop not found", async () => {
+    await expect(deleteTrailerStop(fakeRepo([]), "nope")).rejects.toThrow("Stop not found");
   });
 });

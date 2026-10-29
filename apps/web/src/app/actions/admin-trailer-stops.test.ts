@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const state = vi.hoisted(() => ({
   admin: true,
-  stops: [] as { id: string; status: string; location: string }[],
+  stops: [] as { id: string; status: string; location: string; kind?: string }[],
   settings: { allowMultipleActiveStops: false, liveStockEnabled: true },
   undelivered: 0,
   updates: [] as [string, string][],
@@ -20,7 +20,8 @@ vi.mock("@/lib/require-admin", () => ({
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleTrailerStopRepository: class {
     async findById(id: string) {
-      return state.stops.find((s) => s.id === id) ?? null;
+      const s = state.stops.find((x) => x.id === id);
+      return s ? { kind: "trailer", ...s } : null;
     }
     async listAll() {
       return state.stops;
