@@ -87,7 +87,7 @@ export class DrizzleCapacityRepository implements CapacityRepository {
     const [row] = await db
       .insert(productCapacityRulesTable)
       .values(valid)
-      .onConflictDoUpdate({ target: productCapacityRulesTable.productId, set: values })
+      .onConflictDoUpdate({ target: productCapacityRulesTable.productId, set: { ...values, updatedAt: new Date() } })
       .returning();
     return toRule(row);
   }

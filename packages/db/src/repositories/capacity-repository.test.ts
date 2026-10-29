@@ -37,7 +37,11 @@ describe("DrizzleCapacityRepository", () => {
     const updated = await repo.saveRule({ ...base, soldOnline: false, deliveryMaxQty: 12 });
     expect(updated).toEqual({ ...base, soldOnline: false, deliveryMaxQty: 12 });
     expect((await repo.listRules()).filter((r) => r.productId === productId)).toHaveLength(1);
-    expect(await repo.lastModifiedAt()).toBeInstanceOf(Date);
+    const before = await repo.lastModifiedAt();
+    expect(before).toBeInstanceOf(Date);
+    await new Promise((r) => setTimeout(r, 20));
+    await repo.saveRule({ ...base, deliveryMaxQty: 13 });
+    expect((await repo.lastModifiedAt())!.getTime()).toBeGreaterThan(before!.getTime());
   }, 15000);
 
   it("replaceSteps reemplaza todo o nada y respeta position", async () => {
