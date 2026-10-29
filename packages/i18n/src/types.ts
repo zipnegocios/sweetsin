@@ -149,6 +149,7 @@ export interface Dictionary {
     trimNoticeDismiss: string;
     errorStopUnavailable: string;
     errorStockChanged: string;
+    errorCapacityRejected: string;
     availableCount: string;
     soldOut: string;
     notAtStop: string;

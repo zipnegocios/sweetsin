@@ -5,11 +5,14 @@ import { getDiscountedUnitPriceCents } from "../pricing/volume-discount";
 import type { StockRepository } from "../stock/ports";
 import type { TrailerStopRepository } from "../trailer-stops/ports";
 import type { StaffNotificationPort } from "../notifications";
+import type { CapacityRepository } from "../capacity/ports";
+import { CapacityRejectedError } from "../capacity/errors";
+import { evaluateDeliveryOrder } from "../capacity/evaluate";
 import type { UserRepository } from "../users/ports";
 import { listActiveStaff } from "../users/use-cases";
 
 export async function createOrder(
-  deps: { products: ProductRepository; orders: OrderRepository; stops?: TrailerStopRepository; stock?: StockRepository },
+  deps: { products: ProductRepository; orders: OrderRepository; stops?: TrailerStopRepository; stock?: StockRepository; capacity?: CapacityRepository },
   input: NewOrderInput,
   /** `enforceAvailability: false` (Settings.autoSoldOutEnabled apagado) no limita la cantidad al stock. */
   options: { enforceAvailability?: boolean } = {},
@@ -45,6 +48,10 @@ export async function createOrder(
     discountCents += lineDiscountCents;
   }
 
+  if (input.fulfillmentType === "self_delivery" && deps.capacity) {
+    await assertDeliveryCapacity(deps.capacity, input);
+  }
+
   const totalCents = subtotalCents - discountCents + input.deliveryFeeCents;
 
   return deps.orders.create({
@@ -65,8 +72,27 @@ export async function createOrder(
     channel: input.channel,
     stripePaymentIntentId: null,
     assignedDeliveryUserId: null,
+    scheduledFor: input.scheduledFor ?? null,
     items,
   });
+}
+
+// El servidor es la autoridad: con el motor apagado no se evalúa nada.
+async function assertDeliveryCapacity(capacity: CapacityRepository, input: NewOrderInput): Promise<void> {
+  const settings = await capacity.getSettings();
+  if (!settings.capacityEngineEnabled) return;
+  const [rules, steps] = await Promise.all([capacity.listRules(), capacity.listSteps()]);
+  const stepsByProduct = new Map<string, typeof steps>();
+  for (const step of steps) stepsByProduct.set(step.productId, [...(stepsByProduct.get(step.productId) ?? []), step]);
+  const result = evaluateDeliveryOrder({
+    lines: input.items,
+    rules: new Map(rules.map((r) => [r.productId, r])),
+    steps: stepsByProduct,
+    settings,
+    now: new Date(),
+    scheduledFor: input.scheduledFor ?? null,
+  });
+  if (!result.ok) throw new CapacityRejectedError(result.reasons);
 }
 
 // Valida un pedido de retiro contra la parada elegida: tipo, estado, vigencia, fila de stock y (si se exige) cantidad.

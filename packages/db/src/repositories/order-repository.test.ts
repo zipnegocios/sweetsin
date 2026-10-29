@@ -48,6 +48,29 @@ describe("DrizzleOrderRepository", () => {
     productId = product.id;
   });
 
+  it("persiste scheduledFor y lo devuelve al leer el pedido", async () => {
+    const orders = new DrizzleOrderRepository();
+    const scheduledFor = new Date(Date.now() + 3_600_000);
+    const order = await createOrder(
+      { products: new DrizzleProductRepository(), orders },
+      {
+        customerId: null,
+        customerName: "Jane Doe",
+        customerEmail: "jane@example.com",
+        customerPhone: "+61400000000",
+        fulfillmentType: "self_delivery",
+        deliveryAddress: "1 Test St",
+        deliveryNotes: null,
+        stopId: null,
+        deliveryFeeCents: 500,
+        channel: "web",
+        items: [{ productId, quantity: 1 }],
+        scheduledFor,
+      },
+    );
+    expect((await orders.findById(order.id))?.scheduledFor).toEqual(scheduledFor);
+  });
+
   it("creates an order end-to-end against the real database", async () => {
     const products = new DrizzleProductRepository();
     const orders = new DrizzleOrderRepository();

@@ -14,6 +14,8 @@ import {
   resolveOrderAttention,
   isOrderConflictMessage,
 } from "./use-cases";
+import { CapacityRejectedError } from "../capacity";
+import type { CapacityRepository } from "../capacity";
 import type { Order } from "./entities";
 import type { OrderRepository, OrderFilters, TransitionContext } from "./ports";
 import type { TrailerStop } from "../trailer-stops/entities";
@@ -1457,5 +1459,76 @@ describe("revisión final: pago tardío, reversa, producto no disponible, parada
       retryOrderStock({ orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop({ status: "cancelled" })]) }, "order-1"),
     ).rejects.toThrow("Stop is cancelled");
     expect(rows.map((r) => r.currentStock)).toEqual([5, 5]);
+  });
+});
+
+describe("createOrder con motor de capacidad", () => {
+  type Input = Parameters<typeof createOrder>[1];
+  const input = (overrides: Partial<Input> = {}): Input => ({
+    customerId: null,
+    customerName: "Jane",
+    customerEmail: "jane@example.com",
+    customerPhone: "+61400000000",
+    fulfillmentType: "self_delivery",
+    deliveryAddress: "1 Test St",
+    deliveryNotes: null,
+    stopId: null,
+    deliveryFeeCents: 500,
+    channel: "web",
+    items: [{ productId: "p1", quantity: 5 }],
+    ...overrides,
+  });
+  const settings = (enabled: boolean) => ({
+    capacityEngineEnabled: enabled,
+    workAreaUnits: null,
+    vehicleCapacityUnits: null,
+    tripMinutes: null,
+    maxDeliveryTrips: null,
+    showEstimateToCustomer: false,
+  });
+  const capacity = (enabled: boolean, deliveryMaxQty: number | null = 2) =>
+    ({
+      getSettings: async () => settings(enabled),
+      listRules: async () => [
+        { productId: "p1", soldOnline: true, deliveryMaxQty, leadTimeMinutes: null, batchUnits: null, batchSeconds: null },
+      ],
+      listSteps: async () => [],
+    }) as unknown as CapacityRepository;
+  const products = () => fakeProductRepo([fakeProduct({ id: "p1" })]);
+
+  it("motor apagado: crea el pedido sin evaluar", async () => {
+    const orders = fakeOrderRepo();
+    await createOrder({ products: products(), orders, capacity: capacity(false) }, input());
+    expect(orders.created).toHaveLength(1);
+  });
+
+  it("sin repositorio de capacidad: crea el pedido", async () => {
+    const orders = fakeOrderRepo();
+    await createOrder({ products: products(), orders }, input());
+    expect(orders.created).toHaveLength(1);
+  });
+
+  it("retiro grande no se rechaza aunque el motor esté encendido", async () => {
+    const orders = fakeOrderRepo();
+    await createOrder(
+      { products: products(), orders, capacity: capacity(true) },
+      input({ fulfillmentType: "pickup", deliveryAddress: null, deliveryFeeCents: 0 }),
+    );
+    expect(orders.created).toHaveLength(1);
+  });
+
+  it("entrega sobre el tope lanza CapacityRejectedError con razones y no crea el pedido", async () => {
+    const orders = fakeOrderRepo();
+    const err = await createOrder({ products: products(), orders, capacity: capacity(true) }, input()).catch((e) => e);
+    expect(err).toBeInstanceOf(CapacityRejectedError);
+    expect(err.reasons).toEqual([{ code: "over_delivery_cap", productId: "p1", allowedQty: 2 }]);
+    expect(orders.created).toHaveLength(0);
+  });
+
+  it("entrega dentro del tope se acepta y guarda scheduledFor", async () => {
+    const orders = fakeOrderRepo();
+    const scheduledFor = new Date(Date.now() + 3_600_000);
+    await createOrder({ products: products(), orders, capacity: capacity(true, 10) }, input({ scheduledFor }));
+    expect(orders.created[0]?.scheduledFor).toEqual(scheduledFor);
   });
 });

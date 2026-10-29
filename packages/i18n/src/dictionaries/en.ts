@@ -151,6 +151,7 @@ export const en: Dictionary = {
     trimNoticeDismiss: "Got it",
     errorStopUnavailable: "That stop is no longer taking orders. Choose another stop and try again.",
     errorStockChanged: "Stock changed while you were ordering. Your cart now has the most we can offer; review it and try again.",
+    errorCapacityRejected: "Delivery is not available for this order as it is. Adjust your cart or contact us on WhatsApp and we will sort it out.",
     availableCount: "{count} left",
     soldOut: "Sold out",
     notAtStop: "Not at this stop",

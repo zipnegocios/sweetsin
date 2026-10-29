@@ -47,5 +47,7 @@ export interface Order {
   // Motivo por el que un pedido pagado quedó fuera de la cola ("insufficient_stock:<productId>",
   // "stop_cancelled"). null o ausente = no requiere atención.
   attentionReason?: string | null;
+  // Hora pedida por el cliente para entregas con antelación mínima.
+  scheduledFor?: Date | null;
   items: OrderItem[];
 }

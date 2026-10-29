@@ -12,6 +12,8 @@ export interface NewOrderInput {
   deliveryFeeCents: number;
   channel: OrderChannel;
   items: { productId: string; quantity: number }[];
+  /** Hora pedida por el cliente (entrega con antelación); null/ausente = lo antes posible. */
+  scheduledFor?: Date | null;
 }
 
 export interface OrderFilters {

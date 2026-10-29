@@ -78,6 +78,7 @@ export class DrizzleOrderRepository implements OrderRepository {
           totalCents: order.totalCents,
           channel: order.channel,
           stripePaymentIntentId: order.stripePaymentIntentId,
+          scheduledFor: order.scheduledFor ?? null,
         })
         .returning();
 

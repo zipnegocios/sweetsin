@@ -23,7 +23,12 @@ vi.mock("@workspace/domain/orders", () => ({
 }));
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {},
-  DrizzleProductRepository: class {},
+  DrizzleProductRepository: class {
+    async findById(id: string) {
+      return { id, nameEn: "Gluttony", nameEs: "Gula" };
+    }
+  },
+  DrizzleCapacityRepository: class {},
   DrizzleStockRepository: class {
     async listByStop() {
       return state.stopStock;
@@ -51,6 +56,7 @@ vi.mock("@workspace/notifications", () => ({
 }));
 vi.mock("@/auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
+import { CapacityRejectedError } from "@workspace/domain/capacity";
 import { placeOrderAction, type PlaceOrderInput } from "./checkout";
 
 const base: PlaceOrderInput = {
@@ -186,5 +192,43 @@ describe("placeOrderAction - deliveryNotes", () => {
   it("rechaza notas de más de 500 caracteres", async () => {
     await expect(placeOrderAction({ ...base, deliveryNotes: "x".repeat(501) })).rejects.toThrow();
     expect(state.created).toHaveLength(0);
+  });
+});
+
+describe("placeOrderAction - capacidad", () => {
+  const earliestAt = new Date("2026-11-01T01:00:00.000Z");
+
+  it("pasa el repositorio de capacidad y scheduledFor (Date) solo en entrega a domicilio", async () => {
+    await placeOrderAction({ ...base, scheduledFor: "2026-11-01T02:00:00.000Z" });
+    expect(state.deps[0]).toHaveProperty("capacity");
+    expect(state.created[0]?.scheduledFor).toEqual(new Date("2026-11-01T02:00:00.000Z"));
+  });
+
+  it("rechaza scheduledFor con retiro", async () => {
+    await expect(
+      placeOrderAction({ ...base, fulfillmentType: "pickup", deliveryAddress: undefined, scheduledFor: "2026-11-01T02:00:00.000Z" }),
+    ).rejects.toThrow();
+  });
+
+  it("devuelve capacityRejected con razones serializables, nombre según locale y WhatsApp", async () => {
+    state.createError = new CapacityRejectedError([
+      { code: "over_delivery_cap", productId: P1, allowedQty: 2 },
+      { code: "lead_time", productId: P1, earliestAt },
+      { code: "over_vehicle_trips", maxTrips: 1, neededTrips: 3 },
+    ]);
+    const es = await placeOrderAction(base);
+    expect(es).toEqual({
+      ok: false,
+      error: "capacityRejected",
+      whatsappUrl: expect.stringContaining("https://wa.me/61433508831"),
+      reasons: [
+        { code: "over_delivery_cap", productId: P1, productName: "Gula", allowedQty: 2 },
+        { code: "lead_time", productId: P1, productName: "Gula", earliestAt: earliestAt.toISOString() },
+        { code: "over_vehicle_trips", maxTrips: 1, neededTrips: 3 },
+      ],
+    });
+    JSON.stringify(es);
+    const en = await placeOrderAction({ ...base, locale: "en" });
+    expect(en.ok === false && en.error === "capacityRejected" && en.reasons[0]?.productName).toBe("Gluttony");
   });
 });

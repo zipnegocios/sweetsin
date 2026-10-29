@@ -10,6 +10,7 @@ import { placeOrderAction, type PlaceOrderResult } from "@/app/actions/checkout"
 import { StopSelector } from "./stop-selector";
 import type { Fulfillment } from "@/lib/cart-availability";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
+import { BUSINESS_WHATSAPP } from "@/lib/business-contact";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -146,6 +147,9 @@ export function CheckoutModal() {
     if (result.error === "stockChanged") {
       applyStockConflict(result.available);
       setOrderError(t("errorStockChanged"));
+    } else if (result.error === "capacityRejected") {
+      // El carrito no se toca: el cliente puede ajustar o negociar por WhatsApp.
+      setOrderError(t("errorCapacityRejected"));
     } else {
       await refreshPickupStops();
       setOrderError(t("errorStopUnavailable"));
@@ -200,7 +204,7 @@ export function CheckoutModal() {
         `Phone: ${contact.phone}`,
       ].join("\n");
 
-      const whatsappUrl = `https://wa.me/61433508831?text=${encodeURIComponent(text)}`;
+      const whatsappUrl = `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(text)}`;
       if (whatsappTab) {
         whatsappTab.location.href = whatsappUrl;
       } else {

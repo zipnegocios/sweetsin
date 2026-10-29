@@ -2,17 +2,20 @@
 
 import { z } from "zod";
 import { createOrder } from "@workspace/domain/orders";
+import { CapacityRejectedError, type CapacityReason } from "@workspace/domain/capacity";
 import {
   DrizzleOrderRepository,
   DrizzleProductRepository,
   DrizzleSettingsRepository,
   DrizzleEmailLogRepository,
   DrizzleStockRepository,
+  DrizzleCapacityRepository,
   DrizzleTrailerStopRepository,
 } from "@workspace/db/repositories";
 import { SmtpNotificationAdapter, SmtpNotConfiguredError } from "@workspace/notifications";
 import { auth } from "@/auth";
 import { eligiblePickupStops } from "@/lib/pickup-stops";
+import { BUSINESS_WHATSAPP } from "@/lib/business-contact";
 
 const checkoutSchema = z
   .object({
@@ -26,6 +29,12 @@ const checkoutSchema = z
     channel: z.enum(["web", "whatsapp"]),
     items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1),
     locale: z.enum(["en", "es"]),
+    /** Hora pedida (ISO); solo para entrega a domicilio. */
+    scheduledFor: z.string().datetime().optional(),
+  })
+  .refine((d) => d.fulfillmentType === "self_delivery" || !d.scheduledFor, {
+    path: ["scheduledFor"],
+    message: "Only delivery orders can be scheduled",
   })
   .refine((d) => d.fulfillmentType === "pickup" || !d.stopId, {
     path: ["stopId"],
@@ -44,6 +53,21 @@ export interface PlaceOrderInput {
   channel: "web" | "whatsapp";
   items: { productId: string; quantity: number }[];
   locale: "en" | "es";
+  /** ISO 8601; solo con `self_delivery`. */
+  scheduledFor?: string;
+}
+
+/** Razón de rechazo del motor de capacidad, lista para serializar al cliente. */
+export interface CapacityRejectionReason {
+  code: CapacityReason["code"];
+  productId?: string;
+  /** Nombre del producto en el idioma del pedido. */
+  productName?: string;
+  allowedQty?: number;
+  /** ISO 8601. */
+  earliestAt?: string;
+  maxTrips?: number;
+  neededTrips?: number;
 }
 
 export type PlaceOrderResult =
@@ -51,7 +75,9 @@ export type PlaceOrderResult =
   /** La parada ya no acepta pedidos (no existe, terminó, se canceló o cerró). */
   | { ok: false; error: "stopUnavailable" }
   /** El stock cambió: disponible ahora por producto pedido con fila en la parada (ausente = no se vende ahí). */
-  | { ok: false; error: "stockChanged"; available: { productId: string; available: number }[] };
+  | { ok: false; error: "stockChanged"; available: { productId: string; available: number }[] }
+  /** El motor de capacidad rechazó la entrega a domicilio; el carrito no se toca. */
+  | { ok: false; error: "capacityRejected"; reasons: CapacityRejectionReason[]; whatsappUrl: string };
 
 const STOP_UNAVAILABLE_ERRORS = ["Only pickup orders can target a stop", "Stop not found", "Stop not available"];
 const STOCK_CHANGED_ERRORS = [
@@ -74,14 +100,16 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
     return { ok: false, error: "stopUnavailable" };
   }
 
+  const products = new DrizzleProductRepository();
   let order;
   try {
     order = await createOrder(
       {
-        products: new DrizzleProductRepository(),
+        products,
         orders: new DrizzleOrderRepository(),
         stops,
         stock,
+        capacity: new DrizzleCapacityRepository(),
       },
       {
         customerId: null,
@@ -95,11 +123,20 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
         deliveryFeeCents,
         channel: parsed.channel,
         items: parsed.items,
+        scheduledFor: parsed.scheduledFor ? new Date(parsed.scheduledFor) : null,
       },
       // "Agotado" apagado: la parada y su fila de stock se validan igual, la cantidad no se limita.
       { enforceAvailability: settings.autoSoldOutEnabled },
     );
   } catch (err) {
+    if (err instanceof CapacityRejectedError) {
+      return {
+        ok: false,
+        error: "capacityRejected",
+        reasons: await toRejectionReasons(err.reasons, products, parsed.locale),
+        whatsappUrl: `https://wa.me/${BUSINESS_WHATSAPP}`,
+      };
+    }
     const message = err instanceof Error ? err.message : "";
     if (stopId && STOP_UNAVAILABLE_ERRORS.includes(message)) return { ok: false, error: "stopUnavailable" };
     if (message === "Product not available" && !stopId) return { ok: false, error: "stockChanged", available: [] };
@@ -121,6 +158,24 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   await notifyOrderConfirmation(order, parsed.locale);
 
   return { ok: true, orderId: order.id, totalCents: order.totalCents };
+}
+
+async function toRejectionReasons(
+  reasons: CapacityReason[],
+  products: { findById(id: string): Promise<{ nameEn: string; nameEs: string } | null> },
+  locale: "en" | "es",
+): Promise<CapacityRejectionReason[]> {
+  return Promise.all(
+    reasons.map(async ({ earliestAt, productId, ...rest }) => {
+      const product = productId ? await products.findById(productId) : null;
+      return {
+        ...rest,
+        ...(productId ? { productId } : {}),
+        ...(product ? { productName: locale === "es" ? product.nameEs : product.nameEn } : {}),
+        ...(earliestAt ? { earliestAt: earliestAt.toISOString() } : {}),
+      };
+    }),
+  );
 }
 
 async function notifyOrderConfirmation(
