@@ -31,6 +31,7 @@ export default async function AdminLayout({
     { href: "/admin/email-logs", label: t("navEmailLogs"), icon: "emails" },
     { href: "/admin/staff", label: t("navStaff"), icon: "staff" },
     { href: "/admin/reports/fulfillment", label: t("navReports"), icon: "reports" },
+    { href: "/admin/capacity", label: t("navCapacity"), icon: "capacity" },
     { href: "/admin/settings", label: t("navSettings"), icon: "settings" },
   ];
 

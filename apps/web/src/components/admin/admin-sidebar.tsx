@@ -14,6 +14,7 @@ import {
   StaffIcon,
   SettingsIcon,
   ReportIcon,
+  ChefIcon,
   ChevronIcon,
   MenuIcon,
   CloseIcon,
@@ -30,6 +31,7 @@ const ICONS = {
   staff: StaffIcon,
   settings: SettingsIcon,
   reports: ReportIcon,
+  capacity: ChefIcon,
 };
 
 export type AdminNavItem = { href: string; label: string; icon: keyof typeof ICONS };
