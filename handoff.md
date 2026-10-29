@@ -2,6 +2,8 @@
 
 ## Objetivo
 
+_Proyecto 3 (operación del trailer y medición) cerrado: ver las subsecciones del 2026-10-28 en cada sección._
+
 Ejecutar `docs/superpowers/plan-desarrollo.md` fase por fase, sin adelantar
 trabajo de fases posteriores. Sesión 1: roadmap completo (Fases 1-8) +
 Fase 1 (Cimientos) de punta a punta. Sesión 2: plan bite-sized de Fase 2
@@ -440,6 +442,11 @@ corrida tarea por tarea durante la ejecución).
 - **Los pedidos aún no se ligan a una parada** (`orders.stopId` no se asigna en el checkout), así que hoy casi no existen eventos `sale`: la guarda "no bajar por debajo de lo vendido" se ejercita por tests (dominio y db), no a mano en el panel. Se podrá probar a mano en el proyecto 3.
 - **Esquema:** dos tablas nuevas `stock_templates` y `stock_template_items`, ya aplicadas a la DB compartida con `db push` (solo aditivo).
 
+### Proyecto 3: operación del trailer y medición (2026-10-28)
+Entregado: apertura/cierre de paradas, stock en vivo (reposición/merma), pedidos de retiro ligados a parada con descuento todo o nada, "requiere atención" (reintentar/resolver/cancelar), `sale_reversal`, entrega de retiro, `order_status_events`, reporte `/admin/reports/fulfillment` con CSV, `/admin/settings` con seis interruptores, Agotado automático y paradas activas pedibles hasta cerrarse. Verificación: typecheck OK; tests i18n 1, domain 296, notifications 9, mobile 275, db 60, web 287 (todos pasan); build OK. **Nada de este proyecto se ejercitó en un navegador.**
+
+**Filas de prueba sobrantes en la DB compartida (inventario solo lectura, sin borrar nada):** 99 pedidos, todos de pruebas (Test 45, Jane Doe 18, List Test A/B 9+9, Status Test 9, Customer History Test 9); 106 productos "Test Product" de 122 (16 reales); usuarios de prueba: Test Customer 45, Customer History Test 45, Auth Test Customer 44, Locale Test User 30, Delivery Test 10, Test Staff 10 (`@sweetsin.test`), Qa test2 1. Limpias: plantillas de stock (0), `stop_product_stock` (0), `stock_events` (0), `order_status_events` (0), sin huérfanos. Las 3 paradas son reales. Ambiguo: 31 `event_bookings` (no se inspeccionó su origen), usuarios Gustavo Amarista (customer y delivery `gus1@zipnegocios.com`), Charles Dispatcher y Steve Prep (parecen cuentas de trabajo reales). Pendiente decisión del owner sobre limpieza.
+
 
 ## Archivos y cambios
 
@@ -850,6 +857,9 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - Archivos (staged): `apps/web/src/app/[locale]/admin/trailer-stops/[id]/edit/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/[id]/page.tsx`, `apps/web/src/app/[locale]/admin/trailer-stops/page.tsx`, `apps/web/src/app/actions/admin-trailer-stops.ts`, `apps/web/src/app/api/admin/_lib/authorize-admin.ts`, `apps/web/src/app/api/admin/_lib/domain-error-response.ts`, `apps/web/src/app/api/admin/_lib/trailer-stop-body.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/cancel/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/complete/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/reactivate/route.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/[id]/route.ts`, `apps/web/src/app/api/admin/trailer-stops/route.test.ts`, `apps/web/src/app/api/admin/trailer-stops/route.ts`, `apps/web/src/components/admin/delete-stop-button.tsx`, `apps/web/src/components/admin/trailer-stop-form.tsx`, `apps/web/src/components/admin/trailer-stop-row-actions.tsx`, `apps/web/src/components/sections/find-us-client.tsx`, `apps/web/src/components/sections/find-us.tsx`, `apps/web/src/lib/adelaide-time.test.ts`, `apps/web/src/lib/adelaide-time.ts`, `packages/db/src/repositories/trailer-stop-repository.test.ts`, `packages/db/src/repositories/trailer-stop-repository.ts`, `packages/db/src/schema/trailer-stops.ts`, `packages/domain/src/trailer-stops/entities.ts`, `packages/domain/src/trailer-stops/ports.ts`, `packages/domain/src/trailer-stops/use-cases.test.ts`, `packages/domain/src/trailer-stops/use-cases.ts`, `packages/i18n/src/dictionaries/en.ts`, `packages/i18n/src/dictionaries/es.ts`, `packages/i18n/src/types.ts`. Plan y spec en `docs/superpowers/plans|specs/2026-10-28-paradas-crud-completo*`.
 ### Sesión plantillas de stock (2026-10-28)
 - Archivos: dominio `packages/domain/src/stock-templates/**` (entidades, puertos, casos de uso + tests) y `stock/{ports,use-cases}.ts` (edición de stock con piso de vendido); db `schema/stock-templates.ts`, `repositories/stock-template-repository.ts` (+ test), `stock-repository.ts` (+ test, `sumSold`); web `api/admin/stock-templates/**`, `api/admin/trailer-stops/[id]/{stock,stock/[productId],save-as-template}/route.ts`, `api/admin/_lib/{stock-body,require-stop,domain-error-response}.ts`, `actions/admin-stock-templates.ts`, `actions/admin-trailer-stops.ts`, `[locale]/admin/stock-templates/**` (lista, nueva, editar), `[locale]/admin/trailer-stops/{new,[id]}/page.tsx`, `components/admin/{stock-template-form,stock-template-row-actions,stock-row,stop-stock-editor,trailer-stop-form,admin-sidebar}.tsx`, `lib/{run-admin-action,stock-template-error}.ts`; i18n `types.ts`, `en.ts`, `es.ts`. Doc: spec y plan en `docs/superpowers/`.
+
+### Proyecto 3: operación del trailer y medición (2026-10-28)
+Commits `git log --oneline fab1603..HEAD`. Esquema (aplicado con `db push`): tabla `order_status_events`, `stock_events.order_id`, enum `sale_reversal`, `orders.attention_reason`, seis columnas en `settings`. Dominio en `packages/domain` (stock, órdenes, reporte), repositorios en `packages/db`, Route Handlers/Server Actions y páginas `/admin/reports/fulfillment`, `/admin/settings` en `apps/web`. Detalle por tarea en `.superpowers/sdd/2026-10-28-operacion-trailer-medicion/task-N-report.md`. Este cierre solo tocó `CLAUDE.md` y `handoff.md`.
 
 
 ## Intentos fallidos
@@ -1484,6 +1494,9 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 - `stock-repository.test.ts` y los tests de plantillas deben limpiar sus filas; la verificación final confirmó 0 filas de prueba restantes.
 - La UI de plantillas y de edición de stock no se probó en navegador (solo typecheck, tests y revisión).
 
+### Proyecto 3: operación del trailer y medición (2026-10-28)
+Sin intentos fallidos en la tarea de cierre. Se anotó que el seguimiento de pedidos de prueba acumulados en la DB compartida es un problema recurrente (los tests de `packages/db` no limpian todo lo que crean).
+
 
 ## Próximos pasos
 
@@ -1785,3 +1798,18 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 1. Verificación manual en navegador: sitio EN `/` y ES `/es` (etiquetas, aviso, paradas canceladas hasta su endTime) y admin (crear, editar, cancelar, reactivar, borrar incl. advertencia de stock y rechazo si hay pedidos).
 2. Los 4 proyectos restantes: plantillas de stock; abrir/cerrar trailer + pedidos ligados a la parada; jornadas de delivery + stock compartido/separado; auth por token para la APK admin.
 3. Menores diferidos (ver `.superpowers/sdd/2026-10-28-paradas-crud-completo/progress.md`): guardas de tests sin mensaje, DELETE de id inexistente devuelve 200, `[id]/edit` sin verificar status, botón "Create stop" en edición, tests de cancel/complete/reactivate, hora inexistente/ambigua de transición DST sin documentar, timeouts de tests db por latencia remota.
+
+### Próximos pasos: proyecto 3 (2026-10-28)
+**Guía de prueba manual en navegador:**
+1. Crear una parada con stock (o desde plantilla) y abrirla (con confirmación de stock si está activa).
+2. Hacer un pedido de retiro que agote un producto y ver "Agotado" en el menú.
+3. Pagar el pedido desde el panel; reponer stock en vivo.
+4. Cerrar la parada con pedidos pendientes y revisar el resumen de cierre.
+5. Recorrer un pedido por todos los estados, incluido retiro entregado.
+6. Abrir `/admin/reports/fulfillment` y exportar CSV.
+7. En `/admin/settings` apagar `timingEnabled` y confirmar que no se registran eventos nuevos.
+8. Provocar un pedido "requiere atención": probar reintentar, resolver y cancelar.
+
+**Menores diferidos (ledger `progress.md`):** sin índice en `stock_events.order_id`; tests de concurrencia/restock débiles; `resolveAttention` sin guarda SQL de estado (TOCTOU) y `markAsPaid` pisa `attentionReason`; `decrementForOrder` tras reversa vuelve a descontar; TOCTOU parked en `cancelTrailerStop` (ventana de ms, solo admin); reporte: tamaños ordenados como string, suma por staff excede el total, sin tope de rango ni zona en datetimes; UI: id de 8 chars, contraste 11px, N+1 en `AttentionBadge`, nombre solo en inglés, `cancelArmed` sin reinicio; carrito: ids duplicados no se suman, errores por string exacto, sin refresco de disponibilidad, `listAll()` crece, textos con voseo, `zod` en vez de `zod/v4` en assign/route.
+
+**Siguientes proyectos:** proyecto 4 (motor de capacidad/reglas calibrado con tiempos medidos); proyecto 5 (jornadas de delivery); rama 404 del despachador en la APK mobile (hoy se muestra como conflicto); ejercitar todo lo anterior en un navegador; decidir con el owner la limpieza de filas de prueba.
