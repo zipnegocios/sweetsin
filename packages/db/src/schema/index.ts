@@ -12,3 +12,4 @@ export * from "./push-tokens";
 export * from "./push-logs";
 export * from "./delivery-locations";
 export * from "./stock-templates";
+export * from "./capacity";

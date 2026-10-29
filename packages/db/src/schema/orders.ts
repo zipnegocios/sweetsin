@@ -27,6 +27,7 @@ export const ordersTable = pgTable("orders", {
   fulfillmentType: fulfillmentTypeEnum("fulfillment_type").notNull(),
   deliveryAddress: text("delivery_address"),
   deliveryNotes: text("delivery_notes"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
   attentionReason: text("attention_reason"),
   stopId: uuid("stop_id").references(() => trailerStopsTable.id),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),

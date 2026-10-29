@@ -14,6 +14,12 @@ export const settingsTable = pgTable("settings", {
   autoSoldOutEnabled: boolean("auto_sold_out_enabled").notNull().default(true),
   timingEnabled: boolean("timing_enabled").notNull().default(true),
   showPerStaffBreakdown: boolean("show_per_staff_breakdown").notNull().default(true),
+  capacityEngineEnabled: boolean("capacity_engine_enabled").notNull().default(false),
+  workAreaUnits: integer("work_area_units"),
+  vehicleCapacityUnits: integer("vehicle_capacity_units"),
+  tripMinutes: integer("trip_minutes"),
+  maxDeliveryTrips: integer("max_delivery_trips"),
+  showEstimateToCustomer: boolean("show_estimate_to_customer").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

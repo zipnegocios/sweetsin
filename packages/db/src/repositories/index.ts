@@ -12,3 +12,4 @@ export * from "./push-token-repository";
 export * from "./push-log-repository";
 export * from "./delivery-location-repository";
 export * from "./stock-template-repository";
+export * from "./capacity-repository";

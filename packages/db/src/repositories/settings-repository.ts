@@ -15,6 +15,12 @@ function toSettings(row: typeof settingsTable.$inferSelect): AppSettings {
     autoSoldOutEnabled: row.autoSoldOutEnabled,
     timingEnabled: row.timingEnabled,
     showPerStaffBreakdown: row.showPerStaffBreakdown,
+    capacityEngineEnabled: row.capacityEngineEnabled,
+    workAreaUnits: row.workAreaUnits,
+    vehicleCapacityUnits: row.vehicleCapacityUnits,
+    tripMinutes: row.tripMinutes,
+    maxDeliveryTrips: row.maxDeliveryTrips,
+    showEstimateToCustomer: row.showEstimateToCustomer,
   };
 }
 
