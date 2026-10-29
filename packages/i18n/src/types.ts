@@ -153,6 +153,23 @@ export interface Dictionary {
     availableCount: string;
     soldOut: string;
     notAtStop: string;
+    onlyAtTrailer: string;
+    deliveryCapLabel: string;
+    deliveryLeadLabel: string;
+    capacityRejectedTitle: string;
+    capacity_not_sold_online: string;
+    capacity_over_delivery_cap: string;
+    capacity_lead_time: string;
+    capacity_over_vehicle_trips: string;
+    capacity_scheduled_for_invalid: string;
+    capacityWhatsappButton: string;
+    scheduleTitle: string;
+    scheduleHint: string;
+    scheduleRequired: string;
+    scheduleTooSoon: string;
+    scheduleEstimate: string;
+    leadMinutes: string;
+    leadHours: string;
   };
   auth: {
     loginTitle: string;

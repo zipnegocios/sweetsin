@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { isMotionOk } from "@/lib/animations";
 import { useCart } from "@/lib/cart-store";
 import { StopSelector } from "@/components/cart/stop-selector";
+import { leadParts } from "@/lib/capacity-public";
 
 type Filter = "all" | ProductCategory;
 
@@ -108,7 +109,15 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
   const description = locale === "en" ? product.descriptionEn : product.descriptionEs;
   const price = (product.priceCents / 100).toFixed(2);
   const t = useTranslations("cart");
-  const { items, add, remove, selectedStop, autoSoldOutEnabled, limitOf } = useCart();
+  const { items, add, remove, selectedStop, autoSoldOutEnabled, limitOf, capacity } = useCart();
+  // Motor apagado = sin reglas = ninguna etiqueta. Texto (no solo color) para cada restricción de entrega.
+  const rule = capacity.rules.find((r) => r.productId === product.id);
+  const lead = rule?.leadTimeMinutes ? leadParts(rule.leadTimeMinutes) : null;
+  const deliveryNotes = [
+    rule && !rule.soldOnline ? t("onlyAtTrailer") : null,
+    rule?.soldOnline && rule.deliveryMaxQty !== null ? t("deliveryCapLabel", { count: rule.deliveryMaxQty }) : null,
+    rule?.soldOnline && lead ? t("deliveryLeadLabel", { time: t(lead.key, { count: lead.count }) }) : null,
+  ].filter(Boolean);
   const quantity = items.find((i) => i.productId === product.id)?.quantity ?? 0;
   const canAddMore = quantity < limitOf(product.id);
   const stockRow = selectedStop?.availability.find((a) => a.productId === product.id);
@@ -156,6 +165,11 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
               {availabilityText}
             </p>
           )}
+          {deliveryNotes.map((note) => (
+            <p key={note} className="font-mono text-[10px] md:text-[11px] uppercase tracking-wider text-sin-red mt-1">
+              {note}
+            </p>
+          ))}
         </div>
 
         <div className="flex items-center justify-between mt-auto pt-2">

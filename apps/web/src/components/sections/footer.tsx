@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { BUSINESS_WHATSAPP } from "@/lib/business-contact";
 
 export function Footer() {
   const t = useTranslations("footer");
@@ -16,7 +17,7 @@ export function Footer() {
             <div className="flex gap-4">
               <SocialIcon icon="Ig" />
               <SocialIcon icon="Tk" />
-              <SocialIcon icon="Wa" href="https://wa.me/61433508831" />
+              <SocialIcon icon="Wa" href={`https://wa.me/${BUSINESS_WHATSAPP}`} />
             </div>
           </div>
 
@@ -42,7 +43,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li><a href="#story" className="text-[13px] text-cream/60 hover:text-sin-red transition-colors">{t("ourStory")}</a></li>
               <li><a href="#find-us" className="text-[13px] text-cream/60 hover:text-sin-red transition-colors">{t("schedule")}</a></li>
-              <li><a href="https://wa.me/61433508831" target="_blank" rel="noopener noreferrer" className="text-[13px] text-cream/60 hover:text-sin-red transition-colors">{t("whatsapp")}</a></li>
+              <li><a href={`https://wa.me/${BUSINESS_WHATSAPP}`} target="_blank" rel="noopener noreferrer" className="text-[13px] text-cream/60 hover:text-sin-red transition-colors">{t("whatsapp")}</a></li>
             </ul>
           </div>
         </div>
@@ -53,7 +54,7 @@ export function Footer() {
           <div className="flex gap-4">
             <SocialIcon icon="Ig" />
             <SocialIcon icon="Tk" />
-            <SocialIcon icon="Wa" href="https://wa.me/61433508831" />
+            <SocialIcon icon="Wa" href={`https://wa.me/${BUSINESS_WHATSAPP}`} />
           </div>
           <div className="flex gap-6 flex-wrap justify-center">
             <a href="#menu" className="text-[12px] text-cream/50 hover:text-sin-red transition-colors font-mono uppercase tracking-wider">{tNav("menu")}</a>

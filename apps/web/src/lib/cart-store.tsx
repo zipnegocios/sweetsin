@@ -13,6 +13,7 @@ import {
   type ProductAvailability,
 } from "@/lib/cart-availability";
 import type { PickupStop, PickupStopsData } from "@/lib/pickup-stops";
+import { EMPTY_PUBLIC_CAPACITY, type PublicCapacityData } from "@/lib/capacity-public";
 
 export interface CartLine {
   productId: string;
@@ -27,6 +28,8 @@ interface CartContextValue {
   setQty: (productId: string, quantity: number) => void;
   clear: () => void;
   /** Paradas de retiro elegibles y la elegida (`null` = delivery o sin parada, como antes). */
+  /** Reglas públicas del motor de capacidad (vacías con el motor apagado). */
+  capacity: PublicCapacityData;
   pickupStops: PickupStop[];
   selectedStop: PickupStop | null;
   selectStop: (stopId: string | null) => void;
@@ -61,10 +64,12 @@ export function CartProvider({
   children,
   products,
   pickup,
+  capacity = EMPTY_PUBLIC_CAPACITY,
 }: {
   children: ReactNode;
   products: Product[];
   pickup: PickupStopsData;
+  capacity?: PublicCapacityData;
 }) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -206,6 +211,7 @@ export function CartProvider({
         remove,
         setQty,
         clear,
+        capacity,
         pickupStops,
         selectedStop,
         selectStop,

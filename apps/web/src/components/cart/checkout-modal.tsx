@@ -6,11 +6,19 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { useLocale, useTranslations } from "next-intl";
 import { useCart } from "@/lib/cart-store";
-import { placeOrderAction, type PlaceOrderResult } from "@/app/actions/checkout";
+import { placeOrderAction, type CapacityRejectionReason, type PlaceOrderResult } from "@/app/actions/checkout";
 import { StopSelector } from "./stop-selector";
 import type { Fulfillment } from "@/lib/cart-availability";
 import { ensureGoogleMapsOptionsSet } from "@/lib/google-maps";
 import { BUSINESS_WHATSAPP } from "@/lib/business-contact";
+import { formatAdelaide, parseAdelaideLocal, toAdelaideLocalInput } from "@/lib/adelaide-time";
+import {
+  capacityReasonMessage,
+  deliveryBlockers,
+  earliestScheduleAt,
+  leadParts,
+  requiredLeadMinutes,
+} from "@/lib/capacity-public";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -45,8 +53,11 @@ export function CheckoutModal() {
     // El tipo de entrega vive en el carrito: en delivery la parada no limita ni recorta.
     fulfillment,
     setFulfillment,
+    capacity,
   } = useCart();
   const [orderError, setOrderError] = useState("");
+  const [rejection, setRejection] = useState<{ reasons: CapacityRejectionReason[]; whatsappUrl: string } | null>(null);
+  const [scheduledAt, setScheduledAt] = useState("");
 
   const [step, setStep] = useState<Step>("fulfillment");
   const [address, setAddress] = useState({ line1: "", suburb: "" });
@@ -98,6 +109,8 @@ export function CheckoutModal() {
     setAddressError("");
     setContactError("");
     setOrderError("");
+    setRejection(null);
+    setScheduledAt("");
     setIsPlacing(false);
     setClientSecret(null);
   }
@@ -116,6 +129,17 @@ export function CheckoutModal() {
     if (!address.line1.trim() || !address.suburb.trim()) {
       setAddressError(t("addressError"));
       return;
+    }
+    if (leadMinutes > 0) {
+      if (!scheduledAt) {
+        setAddressError(t("scheduleRequired"));
+        return;
+      }
+      // Mismo corte que el servidor, con un minuto de margen por el redondeo del selector.
+      if (parseAdelaideLocal(scheduledAt).getTime() < earliestScheduleAt(new Date(), leadMinutes).getTime() - 60_000) {
+        setAddressError(t("scheduleTooSoon", { time: leadLabel }));
+        return;
+      }
     }
     setAddressError("");
     setStep("contact");
@@ -136,6 +160,15 @@ export function CheckoutModal() {
     else if (step === "payment") setStep("contact");
   }
 
+  // Solo la entrega a domicilio con algún producto que pide antelación exige fecha y hora.
+  const leadMinutes = fulfillment === "self_delivery" ? requiredLeadMinutes(capacity, items) : 0;
+  const lead = leadParts(leadMinutes);
+  const leadLabel = t(lead.key, { count: lead.count });
+  const scheduledFor = leadMinutes > 0 && scheduledAt ? parseAdelaideLocal(scheduledAt).toISOString() : undefined;
+  const nameOf = (id: string) => products.find((p) => p.id === id)?.[locale === "es" ? "nameEs" : "nameEn"];
+  const addressWarnings = (fulfillment === "self_delivery" ? deliveryBlockers(capacity, items) : []).map(
+    (b): CapacityRejectionReason => ({ ...b, productName: nameOf(b.productId) }),
+  );
   const orderItems = items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
   const deliveryAddress =
     fulfillment === "self_delivery" ? `${address.line1}, ${address.suburb}` : undefined;
@@ -149,6 +182,7 @@ export function CheckoutModal() {
       setOrderError(t("errorStockChanged"));
     } else if (result.error === "capacityRejected") {
       // El carrito no se toca: el cliente puede ajustar o negociar por WhatsApp.
+      setRejection({ reasons: result.reasons, whatsappUrl: result.whatsappUrl });
       setOrderError(t("errorCapacityRejected"));
     } else {
       await refreshPickupStops();
@@ -160,6 +194,7 @@ export function CheckoutModal() {
   async function payWithWhatsApp() {
     setIsPlacing(true);
     setOrderError("");
+    setRejection(null);
     // Se abre la pestaña en blanco de forma síncrona, dentro del gesto de
     // click original — Chrome descarta la activación de usuario apenas hay
     // un await de por medio, y bloquea en silencio cualquier window.open
@@ -178,6 +213,7 @@ export function CheckoutModal() {
         channel: "whatsapp",
         items: orderItems,
         locale,
+        scheduledFor: fulfillment === "self_delivery" ? scheduledFor : undefined,
       });
       if (!result.ok) {
         whatsappTab?.close();
@@ -220,6 +256,7 @@ export function CheckoutModal() {
   async function startCardPayment() {
     setIsPlacing(true);
     setOrderError("");
+    setRejection(null);
     try {
       const result = await placeOrderAction({
         fulfillmentType: fulfillment ?? "pickup",
@@ -232,6 +269,7 @@ export function CheckoutModal() {
         channel: "web",
         items: orderItems,
         locale,
+        scheduledFor: fulfillment === "self_delivery" ? scheduledFor : undefined,
       });
       if (!result.ok) {
         await handleRejection(result);
@@ -275,6 +313,25 @@ export function CheckoutModal() {
             <p role="alert" className="text-sin-red text-[13px] mb-4">
               {orderError}
             </p>
+          )}
+
+          {rejection && (
+            <div role="alert" className="border border-sin-red/30 rounded-2xl p-4 mb-4 space-y-2">
+              <p className="font-medium text-navy text-[14px]">{t("capacityRejectedTitle")}</p>
+              <ul className="list-disc pl-5 space-y-1 text-[13px] text-navy/70">
+                {rejection.reasons.map((r, i) => (
+                  <ReasonItem key={i} reason={r} locale={locale} />
+                ))}
+              </ul>
+              <a
+                href={rejection.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center bg-navy text-white py-3 rounded-xl font-bold text-[14px] tracking-wide hover:bg-navy-mid transition-colors"
+              >
+                {t("capacityWhatsappButton")}
+              </a>
+            </div>
           )}
 
           {step === "fulfillment" && (
@@ -329,6 +386,30 @@ export function CheckoutModal() {
                   className={inputClass}
                 />
               </div>
+              {leadMinutes > 0 && (
+                <div className="mb-4 space-y-2">
+                  <p className="font-medium text-navy text-[14px]">{t("scheduleTitle")}</p>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    min={toAdelaideLocalInput(earliestScheduleAt(new Date(), leadMinutes))}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    aria-label={t("scheduleTitle")}
+                    className={inputClass}
+                  />
+                  <p className="text-[12px] text-navy/60">{t("scheduleHint", { time: leadLabel })}</p>
+                  {capacity.showEstimateToCustomer && (
+                    <p className="text-[12px] text-navy/60">{t("scheduleEstimate", { time: leadLabel })}</p>
+                  )}
+                </div>
+              )}
+              {addressWarnings.length > 0 && (
+                <ul className="list-disc pl-5 space-y-1 text-[12px] text-sin-red mb-4">
+                  {addressWarnings.map((r, i) => (
+                    <ReasonItem key={i} reason={r} locale={locale} />
+                  ))}
+                </ul>
+              )}
               {addressError && <p className="text-sin-red text-[12px] mb-4">{addressError}</p>}
               <button
                 onClick={submitAddress}
@@ -434,6 +515,12 @@ export function CheckoutModal() {
       </div>
     </>
   );
+}
+
+function ReasonItem({ reason, locale }: { reason: CapacityRejectionReason; locale: "en" | "es" }) {
+  const t = useTranslations("cart");
+  const { key, values } = capacityReasonMessage(reason, (iso) => formatAdelaide(new Date(iso), locale));
+  return <li>{t(key, values)}</li>;
 }
 
 function StripeCardForm({ onSuccess }: { onSuccess: () => void }) {

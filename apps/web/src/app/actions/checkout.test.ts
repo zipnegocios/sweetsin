@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   createError: null as Error | null,
   stopStock: [] as Array<{ productId: string; currentStock: number }>,
   allStops: [] as Array<{ status: string; endTime: Date }>,
+  findByIdCalls: 0,
+  findByIdFails: false,
 }));
 
 vi.mock("@workspace/domain/orders", () => ({
@@ -25,6 +27,8 @@ vi.mock("@workspace/db/repositories", () => ({
   DrizzleOrderRepository: class {},
   DrizzleProductRepository: class {
     async findById(id: string) {
+      state.findByIdCalls++;
+      if (state.findByIdFails) throw new Error("db down");
       return { id, nameEn: "Gluttony", nameEs: "Gula" };
     }
   },
@@ -82,6 +86,8 @@ beforeEach(() => {
   state.createError = null;
   state.stopStock = [];
   state.allStops = [];
+  state.findByIdCalls = 0;
+  state.findByIdFails = false;
 });
 
 describe("placeOrderAction - stopId", () => {
@@ -230,5 +236,26 @@ describe("placeOrderAction - capacidad", () => {
     JSON.stringify(es);
     const en = await placeOrderAction({ ...base, locale: "en" });
     expect(en.ok === false && en.error === "capacityRejected" && en.reasons[0]?.productName).toBe("Gluttony");
+  });
+
+  it("lee cada producto una sola vez aunque varias razones lo nombren", async () => {
+    state.createError = new CapacityRejectedError([
+      { code: "over_delivery_cap", productId: P1, allowedQty: 2 },
+      { code: "lead_time", productId: P1, earliestAt },
+    ]);
+    await placeOrderAction(base);
+    expect(state.findByIdCalls).toBe(1);
+  });
+
+  it("si falla la lectura del catálogo responde igual, sin nombre de producto", async () => {
+    state.createError = new CapacityRejectedError([{ code: "over_delivery_cap", productId: P1, allowedQty: 2 }]);
+    state.findByIdFails = true;
+    const result = await placeOrderAction(base);
+    expect(result).toMatchObject({
+      ok: false,
+      error: "capacityRejected",
+      reasons: [{ code: "over_delivery_cap", productId: P1, allowedQty: 2 }],
+    });
+    expect(result.ok === false && result.error === "capacityRejected" && result.reasons[0]).not.toHaveProperty("productName");
   });
 });

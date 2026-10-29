@@ -4,6 +4,7 @@ import { useState, useRef, useLayoutEffect, useActionState } from "react";
 import gsap from "gsap";
 import { useLocale, useTranslations } from "next-intl";
 import { isMotionOk } from "@/lib/animations";
+import { BUSINESS_WHATSAPP } from "@/lib/business-contact";
 import { requestEventQuoteAction, type EventQuoteFormState } from "@/app/actions/event-bookings";
 
 export function Events() {
@@ -98,7 +99,7 @@ export function Events() {
           </button>
 
           <a
-            href="https://wa.me/61433508831?text=Hola%21%20Me%20interesa%20Sweet%20Sin%20para%20un%20evento.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F"
+            href={`https://wa.me/${BUSINESS_WHATSAPP}?text=Hola%21%20Me%20interesa%20Sweet%20Sin%20para%20un%20evento.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F`}
             target="_blank"
             rel="noreferrer"
             className="md:hidden border border-navy/20 text-navy px-8 py-4 rounded-full text-sm tracking-wide flex items-center justify-center gap-2 w-full"

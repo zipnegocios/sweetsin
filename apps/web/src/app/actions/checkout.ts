@@ -165,13 +165,28 @@ async function toRejectionReasons(
   products: { findById(id: string): Promise<{ nameEn: string; nameEs: string } | null> },
   locale: "en" | "es",
 ): Promise<CapacityRejectionReason[]> {
+  // Una lectura por producto (varias razones pueden nombrar el mismo) y, si falla, la razón
+  // sale sin nombre: un rechazo nunca debe convertirse en un 500 por no poder leer el catálogo.
+  const names = new Map<string, Promise<string | undefined>>();
+  const nameOf = (id: string) => {
+    if (!names.has(id)) {
+      names.set(
+        id,
+        products
+          .findById(id)
+          .then((p) => (p ? (locale === "es" ? p.nameEs : p.nameEn) : undefined))
+          .catch(() => undefined),
+      );
+    }
+    return names.get(id)!;
+  };
   return Promise.all(
     reasons.map(async ({ earliestAt, productId, ...rest }) => {
-      const product = productId ? await products.findById(productId) : null;
+      const productName = productId ? await nameOf(productId) : undefined;
       return {
         ...rest,
         ...(productId ? { productId } : {}),
-        ...(product ? { productName: locale === "es" ? product.nameEs : product.nameEn } : {}),
+        ...(productName ? { productName } : {}),
         ...(earliestAt ? { earliestAt: earliestAt.toISOString() } : {}),
       };
     }),
