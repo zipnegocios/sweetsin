@@ -1783,6 +1783,13 @@ Sin intentos fallidos en la tarea de cierre. Se anotó que el seguimiento de ped
    - Panel: mover `isUuid` fuera de `app/api/admin/_lib`; limpiar el error de cantidad al editar; default 10 como número mágico; `window.confirm` nativo para borrar; `maxRaw` de `StockRow` no se resincroniza tras refresh; Remove sin confirmación; select de plantilla no controlado; "Plantilla guardada" puede coexistir con error; "Guardar como plantilla" oculto en paradas completadas; renombrar `stockTemplateErrorKey`; restock/waste siguen lanzando y con `Number()`.
 
 
+### Proyecto 3: pendientes tras la revisión final (2026-10-28)
+
+- Corregidos en `2acb118` y `974d2c4`: pago tardío de pedido cancelado (queda en atención `order_cancelled`), reversa de stock al cancelar siempre, eventos al cancelar parada, retiro con parada obligatoria si hay elegibles, producto no disponible, carrera de `resolveAttention`, índice `stock_events.order_id`.
+- Diferidos (APK): enviar `occurredAt` en la cola offline de "Marcar entregada"; "Entregado al cliente" para retiros en la pantalla del despachador; rama 404 del despachador.
+- Diferidos (web): salida para pedido cancelado y pagado con atención (reembolso manual), reversa+estado atómicos al cancelar, cancelar parada activa y número de pedidos en el rechazo, cuerpo de `open` con ajustes de stock, reporte por semana/monto y filtros por tipo/canal, `updatePaymentStatus` sin evento, `early_sellout` con `autoSoldOutEnabled` apagado.
+- Sin probar en navegador; filas de prueba en la DB compartida pendientes de decisión del owner.
+
 ## Sesión: foto con cámara e idioma del staff (app mobile)
 - Foto de perfil desde la app: `CredentialScreen` (cámara frontal/trasera con `expo-image-picker`, recorte cuadrado, calidad 0.4) sube a `POST/DELETE /api/mobile/account/photo` (mismo almacén R2 y reglas que el admin; tope 2 MB → 413 "foto pesada"). Sin módulo nativo nuevo. `cameraType` es una sugerencia en Android: algunos teléfonos la ignoran.
 - Idioma: el campo `preferredLocale` que ya edita el admin en la ficha del staff es el idioma de la app. `GET /auth/me` devuelve `locale` y la app lo adopta (`useProfile`); `PUT /api/mobile/account/locale` lo guarda cuando el usuario lo cambia en la credencial. Se recuerda en SecureStore y `strings` es una vista viva (`i18n/live-strings.ts`); al cambiar, la navegación se remonta conservando la pantalla.
