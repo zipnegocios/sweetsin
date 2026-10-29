@@ -41,7 +41,11 @@ vi.mock("@workspace/db/repositories", () => ({
       return state.stockOk ? { ok: true } : { ok: false, productId: "p1" };
     }
   },
-  DrizzleTrailerStopRepository: class {},
+  DrizzleTrailerStopRepository: class {
+    async findById() {
+      return { status: "active" };
+    }
+  },
   DrizzleSettingsRepository: class {
     async get() {
       return { timingEnabled: true };

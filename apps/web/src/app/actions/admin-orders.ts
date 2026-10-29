@@ -69,7 +69,11 @@ const isOrderActionMessage = (m: string) => isOrderConflictMessage(m) || isStock
 export async function retryOrderStockAction(orderId: string): Promise<AdminActionResult> {
   return runAdminAction(async ({ userId }) => {
     const ctx = await buildTransitionContext({ actorUserId: userId, source: "web" });
-    await retryOrderStock({ orders: new DrizzleOrderRepository(), stock: new DrizzleStockRepository() }, orderId, ctx);
+    await retryOrderStock(
+      { orders: new DrizzleOrderRepository(), stock: new DrizzleStockRepository(), stops: new DrizzleTrailerStopRepository() },
+      orderId,
+      ctx,
+    );
   }, isOrderActionMessage);
 }
 

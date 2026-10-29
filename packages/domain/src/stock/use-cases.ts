@@ -1,57 +1,8 @@
 import type { StockRepository } from "./ports";
-import type { StockEventType, StopProductStock } from "./entities";
+import type { StopProductStock } from "./entities";
 import { createStockTemplate } from "../stock-templates";
 import type { StockTemplateRepository, StockTemplateWithItems } from "../stock-templates";
 import type { TrailerStopRepository } from "../trailer-stops";
-
-async function decrementWithEvent(
-  repo: StockRepository,
-  stopId: string,
-  productId: string,
-  quantity: number,
-  eventType: StockEventType,
-  reason: string | null,
-  reportedByUserId: string | null,
-): Promise<void> {
-  const stock = await repo.findByStopAndProduct(stopId, productId);
-  if (!stock) throw new Error(`No stock record for product ${productId} at stop ${stopId}`);
-  if (stock.currentStock < quantity) {
-    throw new Error(`Insufficient stock for product ${productId} at stop ${stopId}`);
-  }
-
-  await repo.decrementStock(stock.id, quantity);
-  await repo.recordEvent({
-    stopProductStockId: stock.id,
-    eventType,
-    quantity,
-    reason,
-    reportedByUserId,
-  });
-}
-
-export function decrementStockOnSale(
-  repo: StockRepository,
-  stopId: string,
-  productId: string,
-  quantity: number,
-): Promise<void> {
-  return decrementWithEvent(repo, stopId, productId, quantity, "sale", null, null);
-}
-
-export async function reportStockWaste(
-  repo: StockRepository,
-  stopId: string,
-  productId: string,
-  quantity: number,
-  reason: string | null,
-  reportedByUserId: string | null,
-): Promise<void> {
-  const stock = await repo.findByStopAndProduct(stopId, productId);
-  if (!stock) throw new Error(`No stock record for product ${productId} at stop ${stopId}`);
-  if (!(await repo.recordWaste(stock.id, quantity, reason, reportedByUserId))) {
-    throw new Error(`Insufficient stock for product ${productId} at stop ${stopId}`);
-  }
-}
 
 export async function initializeStopStock(
   repo: StockRepository,

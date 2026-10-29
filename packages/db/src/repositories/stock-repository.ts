@@ -31,15 +31,6 @@ export class DrizzleStockRepository implements StockRepository {
     return row ?? null;
   }
 
-  async decrementStock(stopProductStockId: string, quantity: number): Promise<StopProductStock> {
-    const [updated] = await db
-      .update(stopProductStockTable)
-      .set({ currentStock: sql`${stopProductStockTable.currentStock} - ${quantity}` })
-      .where(eq(stopProductStockTable.id, stopProductStockId))
-      .returning();
-    return updated;
-  }
-
   async recordEvent(event: Omit<StockEvent, "id">): Promise<StockEvent> {
     const [inserted] = await db.insert(stockEventsTable).values(event).returning();
     return inserted;

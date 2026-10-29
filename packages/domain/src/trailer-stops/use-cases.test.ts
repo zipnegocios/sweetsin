@@ -21,15 +21,17 @@ import type { StockRepository } from "../stock/ports";
 
 function fakeOrders(o: { paid?: number; undelivered?: number } = {}) {
   const cancelled: string[] = [];
+  const ctxs: unknown[] = [];
   const repo = {
     countPaidUndeliveredForStop: async () => o.paid ?? 0,
     countUndeliveredForStop: async () => o.undelivered ?? 0,
-    cancelPendingOrdersForStop: async (id: string) => {
+    cancelPendingOrdersForStop: async (id: string, ctx?: unknown) => {
       cancelled.push(id);
+      ctxs.push(ctx);
       return 1;
     },
   } as unknown as OrderRepository;
-  return { repo, cancelled };
+  return { repo, cancelled, ctxs };
 }
 
 function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
@@ -157,7 +159,7 @@ describe("createTrailerStop", () => {
 
 describe("completeTrailerStop / cancelTrailerStop", () => {
   it("marks a stop as completed", async () => {
-    const repo = fakeRepo([fakeStop({ id: "stop1", status: "active" })]);
+    const repo = fakeRepo([fakeStop({ id: "stop1", status: "scheduled" })]);
 
     await completeTrailerStop(repo, "stop1");
 
@@ -184,6 +186,12 @@ describe("transition guards", () => {
     await reactivateTrailerStop(repo, "a");
     expect((await repo.findById("a"))?.status).toBe("scheduled");
     await expect(reactivateTrailerStop(repo, "b")).rejects.toThrow();
+  });
+
+  it("complete rejects active stops (usar cerrar)", async () => {
+    const repo = fakeRepo([fakeStop({ status: "active" })]);
+    await expect(completeTrailerStop(repo, "stop1")).rejects.toThrow("Active stops must be closed");
+    expect(isStopConflictMessage("Active stops must be closed")).toBe(true);
   });
 
   it("complete throws when cancelled or completed", async () => {
@@ -393,6 +401,13 @@ describe("cancelTrailerStop with orders", () => {
     await expect(cancelTrailerStop({ stops: repo, orders: o.repo }, "stop1")).rejects.toThrow("Stop has paid orders");
     expect(o.cancelled).toEqual([]);
     expect((await repo.findById("stop1"))?.status).toBe("scheduled");
+  });
+
+  it("pasa el ctx a cancelPendingOrdersForStop", async () => {
+    const o = fakeOrders();
+    const ctx = { actorUserId: "admin-1", source: "web" as const, record: true };
+    await cancelTrailerStop({ stops: fakeRepo([fakeStop()]), orders: o.repo }, "stop1", ctx);
+    expect(o.ctxs).toEqual([ctx]);
   });
 
   it("cancels pending orders and then the stop", async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DrizzleOrderRepository, DrizzleStockRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleStockRepository, DrizzleTrailerStopRepository } from "@workspace/db/repositories";
 import { retryOrderStock } from "@workspace/domain/orders";
 import { buildTransitionContext } from "@/lib/transition-context";
 import { authorizeAdminUser } from "../../../_lib/authorize-admin";
@@ -13,7 +13,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   try {
     const ctx = await buildTransitionContext({ actorUserId: admin.userId, source: "web" });
     const order = await retryOrderStock(
-      { orders: new DrizzleOrderRepository(), stock: new DrizzleStockRepository() },
+      { orders: new DrizzleOrderRepository(), stock: new DrizzleStockRepository(), stops: new DrizzleTrailerStopRepository() },
       id,
       ctx,
     );

@@ -28,6 +28,7 @@ export async function createOrder(
   for (const line of input.items) {
     const product = await deps.products.findById(line.productId);
     if (!product) throw new Error(`Product not found: ${line.productId}`);
+    if (!product.available) throw new Error("Product not available");
 
     const unitPriceCents = product.priceCents;
     const discountedUnitCents = getDiscountedUnitPriceCents(unitPriceCents, line.quantity, product.category);
@@ -110,6 +111,8 @@ export async function confirmOrderPayment(
   const order = await deps.orders.findById(orderId);
   if (!order) throw new Error(`Order not found: ${orderId}`);
   if (order.paymentStatus === "paid") return; // Stripe puede reenviar el mismo evento de webhook más de una vez.
+  // Pago tardío de un pedido ya cancelado: se registra, sin descontar stock ni encolar; queda para reembolso manual.
+  if (order.fulfillmentStatus === "cancelled") return deps.orders.markAsPaid(orderId, ctx, "order_cancelled");
 
   if (order.stopId) {
     // Sin el repositorio de paradas no se puede aplicar la regla de parada cancelada: error de cableado.
@@ -154,12 +157,13 @@ async function requireAttentionOrder(orders: OrderRepository, orderId: string): 
 
 /** Reintenta el descuento todo o nada de un pedido en atención (p. ej. tras reponer stock). */
 export async function retryOrderStock(
-  deps: { orders: OrderRepository; stock: StockRepository },
+  deps: { orders: OrderRepository; stock: StockRepository; stops: TrailerStopRepository },
   orderId: string,
   ctx?: TransitionContext,
 ): Promise<Order> {
   const order = await requireAttentionOrder(deps.orders, orderId);
   if (!order.stopId) throw new Error("Order has no stop");
+  if ((await deps.stops.findById(order.stopId))?.status === "cancelled") throw new Error("Stop is cancelled");
   const result = await deps.stock.decrementForOrder(order.stopId, orderId, stockLines(order));
   if (!result.ok) throw new Error("Stock still insufficient");
   await deps.orders.resolveAttention(orderId, ctx);
@@ -345,9 +349,9 @@ export async function changeOrderFulfillmentStatus(
       if (!order.assignedDeliveryUserId) throw new Error("Order has no assigned delivery user");
       return markOrderDelivered(deps, orderId, order.assignedDeliveryUserId, ctx);
     case "cancelled":
-      // Solo hay venta que revertir si se descontó: pagado, con parada y sin atención pendiente.
-      // Se revierte antes de cancelar; reverseOrderSale es idempotente, así un reintento es seguro.
-      if (order.paymentStatus === "paid" && order.stopId && !order.attentionReason) {
+      // Se revierte antes de cancelar; reverseOrderSale es idempotente (sin ventas no hace nada),
+      // así que se llama siempre que haya parada, sin mirar pago ni atención.
+      if (order.stopId) {
         // Sin el repositorio de stock la reversa se perdería en silencio: error de cableado.
         if (!deps.stock) throw new Error("Stock repository is required to cancel a paid stop order");
         await deps.stock.reverseOrderSale(orderId);
@@ -370,6 +374,8 @@ const ORDER_CONFLICT_MESSAGES = [
   "Order does not require attention",
   "Order has no stop",
   "Stock still insufficient",
+  "Stop is cancelled",
+  "Product not available",
   "Order requires attention",
   "A delivery user is required for out_for_delivery",
   "Order has no assigned delivery user",

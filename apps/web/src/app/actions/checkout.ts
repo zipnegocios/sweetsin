@@ -12,6 +12,7 @@ import {
 } from "@workspace/db/repositories";
 import { SmtpNotificationAdapter, SmtpNotConfiguredError } from "@workspace/notifications";
 import { auth } from "@/auth";
+import { eligiblePickupStops } from "@/lib/pickup-stops";
 
 const checkoutSchema = z
   .object({
@@ -53,7 +54,11 @@ export type PlaceOrderResult =
   | { ok: false; error: "stockChanged"; available: { productId: string; available: number }[] };
 
 const STOP_UNAVAILABLE_ERRORS = ["Only pickup orders can target a stop", "Stop not found", "Stop not available"];
-const STOCK_CHANGED_ERRORS = ["Product not available at this stop", "Quantity exceeds availability"];
+const STOCK_CHANGED_ERRORS = [
+  "Product not available at this stop",
+  "Quantity exceeds availability",
+  "Product not available",
+];
 
 export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrderResult> {
   const parsed = checkoutSchema.parse(input);
@@ -62,6 +67,12 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   const settings = await new DrizzleSettingsRepository().get();
   const deliveryFeeCents = parsed.fulfillmentType === "self_delivery" ? settings.deliveryFeeCents : 0;
   const stock = new DrizzleStockRepository();
+  const stops = new DrizzleTrailerStopRepository();
+
+  // Retiro sin parada solo cuando no hay ninguna elegible (mismo criterio que el sitio público).
+  if (parsed.fulfillmentType === "pickup" && !stopId && eligiblePickupStops(await stops.listAll(), new Date()).length > 0) {
+    return { ok: false, error: "stopUnavailable" };
+  }
 
   let order;
   try {
@@ -69,7 +80,7 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
       {
         products: new DrizzleProductRepository(),
         orders: new DrizzleOrderRepository(),
-        stops: new DrizzleTrailerStopRepository(),
+        stops,
         stock,
       },
       {

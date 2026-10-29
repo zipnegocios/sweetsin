@@ -5,7 +5,7 @@ import { DrizzleProductRepository } from "./product-repository";
 import { eq, inArray } from "drizzle-orm";
 import { setStopProductQuantity } from "@workspace/domain/stock";
 import { db } from "../index";
-import { ordersTable, productsTable, stockEventsTable } from "../schema";
+import { ordersTable, productsTable, stockEventsTable, stopProductStockTable } from "../schema";
 
 describe("DrizzleStockRepository", () => {
   let stopId: string;
@@ -33,7 +33,7 @@ describe("DrizzleStockRepository", () => {
     if (stopId) await new DrizzleTrailerStopRepository().deleteWithStock(stopId);
   });
 
-  it("creates a stock row, lists it by stop, increments and decrements it", async () => {
+  it("creates a stock row, lists it by stop and increments it", async () => {
     const repo = new DrizzleStockRepository();
 
     const created = await repo.create({ stopId, productId, maxStock: 30, currentStock: 30 });
@@ -45,8 +45,7 @@ describe("DrizzleStockRepository", () => {
     const incremented = await repo.incrementStock(created.id, 5);
     expect(incremented.currentStock).toBe(35);
 
-    const decremented = await repo.decrementStock(created.id, 10);
-    expect(decremented.currentStock).toBe(25);
+    expect(incremented.currentStock).toBe(35);
   });
 
   it("sumSold suma solo eventos sale, hasMovements, setQuantity y remove", async () => {
@@ -64,7 +63,7 @@ describe("DrizzleStockRepository", () => {
     const updated = await repo.setQuantity(row.id, 20);
     expect(updated).toMatchObject({ maxStock: 20, currentStock: 20 }); // delta relativo: 10 + (20 - 10)
 
-    await repo.decrementStock(row.id, 17); // current 3
+    await db.update(stopProductStockTable).set({ currentStock: 3 }).where(eq(stopProductStockTable.id, row.id)); // current 3
     expect(await repo.setQuantity(row.id, 10)).toBeNull(); // 3 + (10 - 20) < 0
     expect((await repo.listByStop(stopId)).find((x) => x.id === row.id)).toMatchObject({ maxStock: 20, currentStock: 3 });
     expect(await repo.setQuantity(row.id, 18)).toMatchObject({ maxStock: 18, currentStock: 1 });
@@ -193,6 +192,16 @@ describe("DrizzleStockRepository — ventas por pedido", () => {
     expect(sellouts).toHaveLength(1);
     expect(sellouts[0]).toMatchObject({ quantity: 0, orderId: null });
     expect(events.filter((e) => e.eventType === "sale").map((e) => e.orderId).sort()).toEqual([o1, o2].sort());
+  }, 15000);
+
+  it("(c1) reponer y volver a agotar registra otro early_sellout", async () => {
+    const [row] = await freshRows([1]);
+    const [o1, o2] = [await newOrder(), await newOrder()];
+    await repo.decrementForOrder(stopId, o1, [{ productId: productIds[0], quantity: 1 }]);
+    await repo.incrementStock(row.id, 1);
+    await repo.decrementForOrder(stopId, o2, [{ productId: productIds[0], quantity: 1 }]);
+    const events = await eventsOf([row.id]);
+    expect(events.filter((e) => e.eventType === "early_sellout")).toHaveLength(2);
   }, 15000);
 
   it("(c2) es idempotente por pedido: repetir el descuento del mismo pedido no toca el stock", async () => {

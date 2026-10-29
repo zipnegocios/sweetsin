@@ -481,6 +481,16 @@ describe("DrizzleOrderRepository — eventos de transición, atención y paradas
     expect((await repo.findQueueForDespachador()).map((o) => o.id)).toContain(order.id);
   }, 15000);
 
+  it("resolveAttention no resucita un pedido cancelado entre la lectura y el bloqueo", async () => {
+    const order = await newOrder({ paymentStatus: "paid", fulfillmentStatus: "cancelled" });
+    await db.update(ordersTable).set({ attentionReason: "stop_cancelled" }).where(eq(ordersTable.id, order.id));
+    await expect(repo.resolveAttention(order.id, ctx())).rejects.toThrow(
+      "Cannot resolve attention from status: cancelled",
+    );
+    expect(await repo.findById(order.id)).toMatchObject({ fulfillmentStatus: "cancelled", attentionReason: "stop_cancelled" });
+    expect(await eventsOf(order.id)).toEqual([]);
+  }, 15000);
+
   it("findQueueForDespachador excluye un pedido paid + received con attentionReason", async () => {
     const order = await newOrder({ paymentStatus: "paid", fulfillmentStatus: "received" });
     expect((await repo.findQueueForDespachador()).map((o) => o.id)).toContain(order.id);

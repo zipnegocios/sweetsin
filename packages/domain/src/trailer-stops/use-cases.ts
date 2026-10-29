@@ -1,6 +1,6 @@
 import type { TrailerStopRepository } from "./ports";
 import type { TrailerStop } from "./entities";
-import type { OrderRepository } from "../orders/ports";
+import type { OrderRepository, TransitionContext } from "../orders/ports";
 import type { StockRepository } from "../stock/ports";
 import type { StopStockSummary } from "../stock/entities";
 
@@ -26,6 +26,7 @@ export function isStopConflictMessage(message: string): boolean {
       "Only active stops can be closed",
       "Stop has undelivered orders",
       "Stop has paid orders",
+      "Active stops must be closed",
     ].includes(message) ||
     message.startsWith("Cannot complete a ") ||
     message.startsWith("Another stop is active")
@@ -101,6 +102,7 @@ export async function completeTrailerStop(repo: TrailerStopRepository, id: strin
   if (stop.status === "cancelled" || stop.status === "completed") {
     throw new Error(`Cannot complete a ${stop.status} stop`);
   }
+  if (stop.status === "active") throw new Error("Active stops must be closed");
   await repo.updateStatus(id, "completed");
 }
 
@@ -146,11 +148,12 @@ export async function closeTrailerStop(
 export async function cancelTrailerStop(
   deps: { stops: TrailerStopRepository; orders: OrderRepository },
   id: string,
+  ctx?: TransitionContext,
 ): Promise<void> {
   const stop = await requireStop(deps.stops, id);
   if (stop.status !== "scheduled") throw new Error("Only scheduled stops can be cancelled");
   if ((await deps.orders.countPaidUndeliveredForStop(id)) > 0) throw new Error("Stop has paid orders");
-  await deps.orders.cancelPendingOrdersForStop(id);
+  await deps.orders.cancelPendingOrdersForStop(id, ctx);
   await deps.stops.updateStatus(id, "cancelled");
 }
 

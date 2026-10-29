@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   autoSoldOutEnabled: true,
   createError: null as Error | null,
   stopStock: [] as Array<{ productId: string; currentStock: number }>,
+  allStops: [] as Array<{ status: string; endTime: Date }>,
 }));
 
 vi.mock("@workspace/domain/orders", () => ({
@@ -28,7 +29,11 @@ vi.mock("@workspace/db/repositories", () => ({
       return state.stopStock;
     }
   },
-  DrizzleTrailerStopRepository: class {},
+  DrizzleTrailerStopRepository: class {
+    async listAll() {
+      return state.allStops;
+    }
+  },
   DrizzleSettingsRepository: class {
     async get() {
       return { deliveryFeeCents: 500, autoSoldOutEnabled: state.autoSoldOutEnabled };
@@ -70,6 +75,7 @@ beforeEach(() => {
   state.autoSoldOutEnabled = true;
   state.createError = null;
   state.stopStock = [];
+  state.allStops = [];
 });
 
 describe("placeOrderAction - stopId", () => {
@@ -96,6 +102,19 @@ describe("placeOrderAction - stopId", () => {
     state.autoSoldOutEnabled = false;
     await placeOrderAction({ ...pickup, stopId: STOP });
     expect(state.options).toEqual([{ enforceAvailability: true }, { enforceAvailability: false }]);
+  });
+
+  it("pickup sin parada con paradas elegibles se rechaza sin crear la orden", async () => {
+    state.allStops = [{ status: "active", endTime: new Date(Date.now() - 1000) }];
+    expect(await placeOrderAction(pickup)).toEqual({ ok: false, error: "stopUnavailable" });
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("producto no disponible con parada se traduce a stockChanged", async () => {
+    state.createError = new Error("Product not available");
+    state.stopStock = [{ productId: P1, currentStock: 3 }];
+    const result = await placeOrderAction({ ...pickup, stopId: STOP });
+    expect(result).toEqual({ ok: false, error: "stockChanged", available: [{ productId: P1, available: 3 }] });
   });
 
   it("pickup sin parada sigue mandando stopId null", async () => {

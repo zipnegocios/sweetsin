@@ -139,6 +139,16 @@ describe("buildFulfillmentReport", () => {
     expect(keys("stop")).toEqual(["none", "s1"]);
   });
 
+  it("ordena los grupos de tamaño de menor a mayor, no alfabéticamente", () => {
+    const rows = [51, 21, 6, 1].map((units, i) => delivery({ orderId: `s${i}`, units }));
+    expect(buildFulfillmentReport(rows, { ...opts, groupBy: "size" }).groups.map((x) => x.key)).toEqual([
+      "1-5",
+      "6-20",
+      "21-50",
+      "51+",
+    ]);
+  });
+
   const adelaide = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Australia/Adelaide", year: "numeric", month: "2-digit", day: "2-digit",
   });

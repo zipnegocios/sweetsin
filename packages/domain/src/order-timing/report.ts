@@ -38,6 +38,8 @@ export function classifyComposition(coffeeUnits: number, sweetUnits: number): "c
   return "mixed";
 }
 
+const SIZE_ORDER = ["1-5", "6-20", "21-50", "51+"];
+
 export function sizeBucket(units: number): "1-5" | "6-20" | "21-50" | "51+" {
   if (units <= 5) return "1-5";
   if (units <= 20) return "6-20";
@@ -108,7 +110,9 @@ export function buildFulfillmentReport(
     }
   }
 
-  const groups: ReportGroup[] = [...samples.keys()].sort().map((key) => {
+  const groups: ReportGroup[] = [...samples.keys()]
+    .sort((a, b) => (groupBy === "size" ? SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b) : a < b ? -1 : a > b ? 1 : 0))
+    .map((key) => {
     const segments: ReportGroup["segments"] = {};
     for (const seg of SEGMENT_ORDER) {
       const v = samples.get(key)!.get(seg);

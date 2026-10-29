@@ -238,6 +238,10 @@ export class DrizzleOrderRepository implements OrderRepository {
     await db.transaction(async (tx) => {
       const current = await lockOrder(tx, orderId);
       if (!current) return;
+      // Entre la lectura del dominio y este bloqueo el pedido pudo cancelarse: no se resucita.
+      if (current.fulfillmentStatus !== "pending") {
+        throw new Error(`Cannot resolve attention from status: ${current.fulfillmentStatus}`);
+      }
       await tx
         .update(ordersTable)
         .set({ attentionReason: null, fulfillmentStatus: "received" })

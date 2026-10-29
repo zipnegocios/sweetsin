@@ -288,12 +288,6 @@ function fakeStockRepo(
         events.push({ ...sale, eventType: "sale_reversal" });
       }
     },
-    async decrementStock(id, quantity) {
-      const item = stock.find((s) => s.id === id);
-      if (!item) throw new Error("not found");
-      item.currentStock -= quantity;
-      return item;
-    },
     async recordEvent(event) {
       events.push(event);
       return { ...event, id: `event-${events.length}` };
@@ -1080,19 +1074,21 @@ describe("changeOrderFulfillmentStatus: delivered por tipo, cancelación y ctx",
     expect(repo.ctxs.at(-1)).toEqual(ctx);
   });
 
-  it("cancelar un pedido en atención no revierte (no se descontó nada)", async () => {
-    const stock = fakeStockRepo(stockRows(10, 10));
+  it("cancelar un pedido en atención llama la reversa (idempotente) sin mover stock", async () => {
+    const rows = stockRows(10, 10);
+    const stock = fakeStockRepo(rows);
     const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
     await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled");
-    expect(stock.reversals).toEqual([]);
+    expect(stock.reversals).toEqual(["order-1"]);
+    expect(rows.map((r) => r.currentStock)).toEqual([10, 10]);
     expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
   });
 
-  it("cancelar un pedido sin pagar no revierte", async () => {
+  it("cancelar un pedido sin pagar con parada también llama la reversa", async () => {
     const stock = fakeStockRepo(stockRows(10, 10));
     const repo = makeFakeOrderRepo([pickupOrder()]);
     await changeOrderFulfillmentStatus({ orders: repo, users: users(), stock }, "order-1", "cancelled");
-    expect(stock.reversals).toEqual([]);
+    expect(stock.reversals).toEqual(["order-1"]);
   });
 
   it("un pedido en atención no avanza por el cambio de estado genérico", async () => {
@@ -1187,7 +1183,7 @@ describe("retryOrderStock / resolveOrderAttention", () => {
     expect((await repo.findById("order-1"))?.attentionReason).toBe("insufficient_stock:p2");
 
     rows[1].currentStock = 6; // reposición
-    const updated = await retryOrderStock({ orders: repo, stock }, "order-1", ctx);
+    const updated = await retryOrderStock({ orders: repo, stock, stops: fakeStopRepo([fakeStop()]) }, "order-1", ctx);
 
     expect(updated.fulfillmentStatus).toBe("received");
     const order = await repo.findById("order-1");
@@ -1200,7 +1196,7 @@ describe("retryOrderStock / resolveOrderAttention", () => {
   it("si sigue sin alcanzar lanza y no toca nada", async () => {
     const rows = stockRows(5, 2);
     const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
-    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(rows) }, "order-1")).rejects.toThrow(
+    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop()]) }, "order-1")).rejects.toThrow(
       "Stock still insufficient",
     );
     expect(rows.map((r) => r.currentStock)).toEqual([5, 2]);
@@ -1209,7 +1205,7 @@ describe("retryOrderStock / resolveOrderAttention", () => {
 
   it("reintentar sin atención se rechaza", async () => {
     const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid" })]);
-    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)) }, "order-1")).rejects.toThrow(
+    await expect(retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)), stops: fakeStopRepo([fakeStop()]) }, "order-1")).rejects.toThrow(
       "Order does not require attention",
     );
   });
@@ -1343,6 +1339,8 @@ describe("isOrderConflictMessage", () => {
       "Cannot mark delivered from status: in_prep",
       "Cannot move to in_prep from status: pending",
       "Invalid delivery user: u1",
+      "Product not available",
+      "Stop is cancelled",
     ]) expect(isOrderConflictMessage(m)).toBe(true);
     expect(isOrderConflictMessage("Order not found: x")).toBe(false);
     expect(isOrderConflictMessage("boom")).toBe(false);
@@ -1379,7 +1377,7 @@ describe("escrituras atómicas y dependencias obligatorias", () => {
 
   it("retryOrderStock llama resolveAttention una vez y nada más", async () => {
     const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
-    await retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)) }, "order-1", ctx);
+    await retryOrderStock({ orders: repo, stock: fakeStockRepo(stockRows(5, 5)), stops: fakeStopRepo([fakeStop()]) }, "order-1", ctx);
     expect(repo.calls).toEqual([{ method: "resolveAttention", args: ["order-1", ctx] }]);
   });
 
@@ -1413,13 +1411,51 @@ describe("escrituras atómicas y dependencias obligatorias", () => {
     expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("received");
   });
 
-  it("cancelar sin repositorio de stock sigue funcionando si no hay reversa (sin parada o en atención)", async () => {
+  it("cancelar sin repositorio de stock sigue funcionando si el pedido no tiene parada", async () => {
     const noStop = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", stopId: null })]);
     await changeOrderFulfillmentStatus({ orders: noStop, users: fakeUserRepo([]) }, "order-1", "cancelled");
     expect((await noStop.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
 
-    const held = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "stop_cancelled" })]);
-    await changeOrderFulfillmentStatus({ orders: held, users: fakeUserRepo([]) }, "order-1", "cancelled");
-    expect((await held.findById("order-1"))?.fulfillmentStatus).toBe("cancelled");
+  });
+});
+
+describe("revisión final: pago tardío, reversa, producto no disponible, parada cancelada", () => {
+  it("confirmar el pago de un pedido cancelado no descuenta, no lo encola y queda en order_cancelled", async () => {
+    const rows = stockRows(5, 5);
+    const repo = makeFakeOrderRepo([pickupOrder({ fulfillmentStatus: "cancelled" })]);
+    await confirmOrderPayment({ orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop()]) }, "order-1", ctx);
+    expect(repo.calls).toEqual([{ method: "markAsPaid", args: ["order-1", ctx, "order_cancelled"] }]);
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 5]);
+  });
+
+  it("createOrder rechaza un producto no disponible", async () => {
+    const products = fakeProductRepo([fakeProduct({ id: "p1", available: false })]);
+    await expect(
+      createOrder(
+        { products, orders: fakeOrderRepo() },
+        {
+          customerId: null,
+          customerName: "Jane",
+          customerEmail: "jane@example.com",
+          customerPhone: "+61400000000",
+          fulfillmentType: "self_delivery",
+          deliveryAddress: "1 Test St",
+          deliveryNotes: null,
+          stopId: null,
+          deliveryFeeCents: 0,
+          channel: "web",
+          items: [{ productId: "p1", quantity: 1 }],
+        },
+      ),
+    ).rejects.toThrow("Product not available");
+  });
+
+  it("retryOrderStock rechaza si la parada está cancelada y no descuenta", async () => {
+    const rows = stockRows(5, 5);
+    const repo = makeFakeOrderRepo([pickupOrder({ paymentStatus: "paid", attentionReason: "insufficient_stock:p2" })]);
+    await expect(
+      retryOrderStock({ orders: repo, stock: fakeStockRepo(rows), stops: fakeStopRepo([fakeStop({ status: "cancelled" })]) }, "order-1"),
+    ).rejects.toThrow("Stop is cancelled");
+    expect(rows.map((r) => r.currentStock)).toEqual([5, 5]);
   });
 });

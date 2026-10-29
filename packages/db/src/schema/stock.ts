@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, uuid, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { index, pgEnum, pgTable, uuid, integer, text, timestamp } from "drizzle-orm/pg-core";
 import { trailerStopsTable } from "./trailer-stops";
 import { productsTable } from "./products";
 import { usersTable } from "./users";
@@ -25,4 +25,4 @@ export const stockEventsTable = pgTable("stock_events", {
   orderId: uuid("order_id").references(() => ordersTable.id),
   reportedByUserId: uuid("reported_by_user_id").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [index("stock_events_order_id_idx").on(t.orderId)]);

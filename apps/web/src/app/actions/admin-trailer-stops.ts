@@ -35,6 +35,7 @@ import {
   DrizzleSettingsRepository,
 } from "@workspace/db/repositories";
 import { requireAdmin } from "@/lib/require-admin";
+import { buildTransitionContext } from "@/lib/transition-context";
 import { runAdminAction } from "@/lib/run-admin-action";
 import { assertLiveStockEnabled } from "@/lib/live-stock";
 import { LIVE_STOCK_DISABLED } from "@/lib/settings-errors";
@@ -89,8 +90,9 @@ export async function completeTrailerStopAction(id: string): Promise<void> {
 }
 
 export async function cancelTrailerStopAction(id: string): Promise<void> {
-  await requireAdmin();
-  await cancelTrailerStop({ stops: new DrizzleTrailerStopRepository(), orders: new DrizzleOrderRepository() }, id);
+  const { userId } = await requireAdmin();
+  const ctx = await buildTransitionContext({ actorUserId: userId, source: "web" });
+  await cancelTrailerStop({ stops: new DrizzleTrailerStopRepository(), orders: new DrizzleOrderRepository() }, id, ctx);
 }
 
 export async function updateTrailerStopAction(
