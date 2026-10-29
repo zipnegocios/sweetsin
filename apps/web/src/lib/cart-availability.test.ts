@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   EMPTY_DELIVERY_AVAILABILITY,
   deliveryAvailabilityList,
+  deliveryAfterStockConflict,
+  deliveryAfterRejection,
   limitFor,
   stopAvailabilityFor,
   trimCartToAvailability,
@@ -168,5 +170,28 @@ describe("trimCartToAvailability", () => {
     );
     expect(result.lines).toEqual([{ productId: "p2", quantity: 4 }]);
     expect(result.changes).toEqual([{ productId: "p9", from: 1, to: 0 }]);
+  });
+});
+
+describe("estado de la entrega tras la respuesta del servidor", () => {
+  it("stockChanged con jornada conocida: fusiona sobre su stock", () => {
+    const next = deliveryAfterStockConflict({ enabled: true, open: true, stock: { p1: 5, p2: 3 } }, ["p1"], [
+      { productId: "p1", available: 2 },
+    ]);
+    expect(next).toEqual({ enabled: true, open: true, stock: { p2: 3, p1: 2 } });
+  });
+
+  it("stockChanged sin jornada conocida (abierta después de cargar): pasa a abierta con lo devuelto", () => {
+    for (const before of [EMPTY_DELIVERY_AVAILABILITY, { enabled: true, open: false, stock: {} }]) {
+      const next = deliveryAfterStockConflict(before, ["p1"], [{ productId: "p1", available: 1 }]);
+      expect(next).toEqual({ enabled: true, open: true, stock: { p1: 1 } });
+      expect(deliveryAvailabilityList(next)).toEqual([{ productId: "p1", available: 1 }]);
+    }
+  });
+
+  it("deliveryRejected: deja de limitar (sin jornada)", () => {
+    const next = deliveryAfterRejection({ enabled: true, open: true, stock: { p1: 2 } });
+    expect(next.open).toBe(false);
+    expect(deliveryAvailabilityList(next)).toBeNull();
   });
 });

@@ -184,6 +184,7 @@ describe("/api/admin/jornadas", () => {
   it("POST 400 con cuerpo inválido", async () => {
     state.stops[0].status = "completed";
     expect((await open(post({ products: [{ productId: P, maxStock: 0 }] }))).status).toBe(400);
+    expect((await open(post({ products: [{ productId: P, maxStock: 100_001 }] }))).status).toBe(400);
     expect((await open(post({ templateId: TPL, products: [{ productId: P, maxStock: 1 }] }))).status).toBe(400);
     expect((await open(post({ products: [{ productId: P, maxStock: 1 }, { productId: P, maxStock: 2 }] }))).status).toBe(400);
     expect((await open(post({ extra: true }))).status).toBe(400);

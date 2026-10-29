@@ -1685,8 +1685,12 @@ describe("createOrder con control de stock a domicilio (jornadas)", () => {
     await expect(
       createOrder(deps(), input({ items: [{ productId: "p1", quantity: 3 }] })),
     ).rejects.toThrow("Quantity exceeds availability");
+    // Con el control a domicilio encendido la cantidad se valida siempre, aunque autoSoldOut esté apagado (spec §7.3).
     await expect(
       createOrder(deps(), input({ items: [{ productId: "p1", quantity: 3 }] }), { enforceAvailability: false }),
+    ).rejects.toThrow("Quantity exceeds availability");
+    await expect(
+      createOrder(deps(), input({ items: [{ productId: "p1", quantity: 2 }] }), { enforceAvailability: false }),
     ).resolves.toMatchObject({ stopId: "jornada-1" });
   });
 

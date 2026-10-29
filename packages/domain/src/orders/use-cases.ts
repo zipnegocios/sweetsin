@@ -71,7 +71,7 @@ export async function createOrder(
 
   // Orden de evaluación: producto disponible → capacidad → jornada/parada → stock.
   const stopId = deliveryStockMode
-    ? await resolveDeliveryStop(deps, deliveryStockMode, input, enforceAvailability)
+    ? await resolveDeliveryStop(deps, deliveryStockMode, input)
     : input.stopId;
 
   const totalCents = subtotalCents - discountCents + input.deliveryFeeCents;
@@ -164,16 +164,17 @@ async function deliveryStockControlMode(settings: SettingsRepository): Promise<A
 
 // Resuelve la parada con findDeliveryStop, devuelve su id para ligar el pedido y valida las líneas
 // contra su stock (revalidación; el descuento todo o nada ocurre al confirmar el pago, igual que el retiro).
+// La cantidad se valida siempre contra el stock (spec §7.3), aunque `enforceAvailability` esté apagado:
+// la jornada existe justamente para no prometer a domicilio más de lo alistado.
 async function resolveDeliveryStop(
   deps: { stops?: TrailerStopRepository; stock?: StockRepository },
   mode: AppSettings["deliveryStockMode"],
   input: NewOrderInput,
-  enforceAvailability: boolean,
 ): Promise<string> {
   if (!deps.stops || !deps.stock) throw new Error("Delivery stock control requires stops and stock repositories");
   const stop = await findDeliveryStop(deps.stops, mode);
   if (!stop) throw new DeliveryRejectedError([{ code: "no_open_jornada" }]);
-  await assertStockLines(deps.stock, stop.id, input, enforceAvailability);
+  await assertStockLines(deps.stock, stop.id, input, true);
   return stop.id;
 }
 

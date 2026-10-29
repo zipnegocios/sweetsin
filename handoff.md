@@ -1851,6 +1851,15 @@ Sin intentos fallidos en la tarea de cierre. Rondas de corrección durante la ej
 - "Product not available" (producto desactivado) en una entrega con control encendido y sin jornada responde `deliveryRejected`.
 - `/api/admin/trailer-stops/[id]/stock/**` siguen aceptando el id de una jornada (a propósito, se reutilizan).
 
+**Actualización (revisión final del proyecto 5):**
+- **Riesgo en la DB compartida:** el test de `packages/db` `trailer-stop-repository.test.ts` crea filas de `trailer_stops` **activas** (incluida una jornada `delivery` activa) en la DB compartida dev/prod. Si su limpieza falla (test interrumpido o error en `afterEach`), queda una jornada abierta real: bloquea abrir otra (índice único) y, con el control encendido, las entregas de producción se ligarían a ella. Si pasa, cerrarla o borrarla a mano desde `/admin/jornadas`.
+- Resuelto el diferido "Tras un `deliveryRejected` el estado `delivery` del cliente queda obsoleto": el rechazo marca la jornada cerrada en el carrito, y un `stockChanged` en una entrega con el cliente creyendo que no había jornada (abierta después de cargar la página) la activa con el stock devuelto y recorta.
+- Con el control encendido, la cantidad de una entrega se valida **siempre** contra el stock (dominio y carrito), aunque `autoSoldOutEnabled` esté apagado (spec §7.3). "Quedan N a domicilio" en el menú sigue mostrándose solo con `autoSoldOutEnabled`.
+- Cerrar una jornada no toca los pedidos pendientes de pago: si se pagan después descuentan del sobrante; si no alcanza quedan en "requiere atención" y "Reintentar" no funciona con la jornada cerrada (solo resolver o cancelar).
+- `assertStockLines` suma las líneas repetidas de un producto también en el retiro (cambio intencional).
+- El reporte de despacho lista las jornadas como paradas ("Jornada: <nombre>"); el detalle admin del pedido muestra la jornada o, en `shared`, la parada trailer de la que descuenta; textos de cierre propios para jornadas; el aviso previo del checkout sin jornada es `role="status"`.
+- Spec §4 con nota del ruling (jornada = `trailer_stops` `kind='delivery'`; sin tabla `delivery_jornadas`, `delivery_jornada_id`, `closed_at` ni `opened_by_user_id`).
+
 **Siguiente:** auth por token para la APK admin y ejercitar todo en un navegador.
 
 ## Sesión: foto con cámara e idioma del staff (app mobile)

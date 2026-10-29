@@ -6,6 +6,8 @@ import { getLineTotalCents } from "@workspace/domain/pricing";
 import { getPickupStopsAction } from "@/app/actions/pickup-stops";
 import {
   EMPTY_DELIVERY_AVAILABILITY,
+  deliveryAfterRejection,
+  deliveryAfterStockConflict,
   deliveryAvailabilityList,
   limitFor,
   stopAvailabilityFor,
@@ -50,6 +52,8 @@ interface CartContextValue {
   dismissTrimChanges: () => void;
   /** Aplica el disponible que devolvió el servidor al rechazar el pedido por stock. */
   applyStockConflict: (available: ProductAvailability[]) => void;
+  /** El servidor rechazó la entrega por falta de jornada: el carrito deja de limitarse por su stock. */
+  applyDeliveryRejection: () => void;
   /** Vuelve a leer las paradas (p. ej. la elegida dejó de aceptar pedidos). */
   refreshPickupStops: () => Promise<void>;
   totalQty: number;
@@ -96,15 +100,17 @@ export function CartProvider({
   // Retiro: la parada elegida; entrega: la jornada abierta (si hay control a domicilio).
   const availabilityFor = (f: Fulfillment | null, stopAvailability: ProductAvailability[] | null) =>
     stopAvailabilityFor(f, stopAvailability, deliveryAvailability);
+  // La entrega con control a domicilio siempre respeta el stock (el servidor la valida igual); el retiro, según autoSoldOut.
+  const enforceFor = (f: Fulfillment | null) => f === "self_delivery" || autoSoldOutEnabled;
   const limitOf = (productId: string) =>
-    limitFor(productId, availabilityFor(fulfillment, selectedStop?.availability ?? null), autoSoldOutEnabled);
+    limitFor(productId, availabilityFor(fulfillment, selectedStop?.availability ?? null), enforceFor(fulfillment));
 
   // Recorta sobre el estado más reciente (updater), no sobre `items` del render: así no
   // resucita un carrito recién vaciado con clear() en el mismo evento. setTrimChanges es
   // idempotente, por lo que es seguro aunque React invoque el updater dos veces.
-  function retrim(availability: ProductAvailability[] | null, base?: CartLine[]) {
+  function retrim(availability: ProductAvailability[] | null, base?: CartLine[], f: Fulfillment | null = fulfillment) {
     setItems((prev) => {
-      const result = trimCartToAvailability(base ?? prev, availability, autoSoldOutEnabled);
+      const result = trimCartToAvailability(base ?? prev, availability, enforceFor(f));
       setTrimChanges(result.changes);
       return result.lines;
     });
@@ -113,7 +119,7 @@ export function CartProvider({
   // La parada solo limita el carrito en retiro y la jornada en delivery: cambiar de tipo vuelve a ajustarlo.
   const setFulfillment = (next: Fulfillment | null) => {
     setFulfillmentState(next);
-    retrim(availabilityFor(next, selectedStop?.availability ?? null));
+    retrim(availabilityFor(next, selectedStop?.availability ?? null), undefined, next);
   };
 
   useEffect(() => {
@@ -154,14 +160,14 @@ export function CartProvider({
 
   const applyStockConflict = (available: ProductAvailability[]) => {
     if (fulfillment === "self_delivery") {
-      if (!deliveryAvailability) return;
-      // Mismo criterio que el retiro, sobre el stock de la jornada.
-      const merged = [
-        ...deliveryAvailability.filter((a) => !items.some((i) => i.productId === a.productId)),
-        ...available,
-      ];
-      setDelivery((d) => ({ ...d, stock: Object.fromEntries(merged.map((a) => [a.productId, a.available])) }));
-      retrim(merged);
+      // Mismo criterio que el retiro, sobre el stock de la jornada (aunque se haya abierto después de cargar).
+      const next = deliveryAfterStockConflict(
+        delivery,
+        items.map((i) => i.productId),
+        available,
+      );
+      setDelivery(next);
+      retrim(deliveryAvailabilityList(next));
       return;
     }
     if (!selectedStop) return;
@@ -173,6 +179,9 @@ export function CartProvider({
     setPickupStops((prev) => prev.map((s) => (s.stopId === selectedStop.stopId ? { ...s, availability: merged } : s)));
     retrim(availabilityFor(fulfillment, merged));
   };
+
+  // Sin jornada no hay límite que aplicar: no hace falta recortar el carrito.
+  const applyDeliveryRejection = () => setDelivery((d) => deliveryAfterRejection(d));
 
   const refreshPickupStops = async () => {
     const fresh = await getPickupStopsAction();
@@ -249,6 +258,7 @@ export function CartProvider({
         trimChanges,
         dismissTrimChanges: () => setTrimChanges([]),
         applyStockConflict,
+        applyDeliveryRejection,
         refreshPickupStops,
         totalQty,
         subtotalCents,

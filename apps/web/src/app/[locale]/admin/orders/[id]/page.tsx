@@ -24,6 +24,8 @@ export default async function AdminOrderDetailPage({
   // Una entrega con el control de stock a domicilio queda ligada a la jornada por stopId.
   const stop = order.stopId ? await new DrizzleTrailerStopRepository().findById(order.stopId) : null;
   const jornada = stop?.kind === "delivery" ? stop : null;
+  // Modo `shared`: la entrega descuenta de la parada del trailer abierta.
+  const deliveryStop = order.fulfillmentType === "self_delivery" && stop?.kind === "trailer" ? stop : null;
 
   return (
     <div>
@@ -41,6 +43,14 @@ export default async function AdminOrderDetailPage({
             {t("detailJornada")}:{" "}
             <Link href={`/admin/jornadas/${jornada.id}`} className="admin-link">
               {jornada.location}
+            </Link>
+          </p>
+        )}
+        {deliveryStop && (
+          <p className="text-sm mt-1">
+            {t("detailDeliveryStop")}:{" "}
+            <Link href={`/admin/trailer-stops/${deliveryStop.id}`} className="admin-link">
+              {deliveryStop.location}
             </Link>
           </p>
         )}

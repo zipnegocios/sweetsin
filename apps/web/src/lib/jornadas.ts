@@ -15,7 +15,7 @@ import { isUuid } from "@/app/api/admin/_lib/domain-error-response";
 export const openJornadaBodySchema = z
   .strictObject({
     name: z.string().trim().max(120).optional(),
-    products: z.array(z.strictObject({ productId: z.string().uuid(), maxStock: z.number().int().min(1) })).default([]),
+    products: z.array(z.strictObject({ productId: z.string().uuid(), maxStock: z.number().int().min(1).max(100_000) })).default([]),
     templateId: z.string().uuid().optional(),
   })
   .refine((b) => !(b.templateId && b.products.length > 0), "Use products or templateId, not both")

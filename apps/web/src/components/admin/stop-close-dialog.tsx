@@ -68,7 +68,7 @@ export function StopCloseDialog({
   return (
     <div>
       <button type="button" disabled={isPending} onClick={handleOpen} className="admin-btn disabled:opacity-50">
-        {t("stopCloseButton")}
+        {t(jornada ? "jornadaCloseButton" : "stopCloseButton")}
       </button>
 
       <dialog
@@ -89,7 +89,7 @@ export function StopCloseDialog({
         {summary && (
           <>
             {summary.products.length === 0 ? (
-              <p className="text-[13px] text-navy/60">{t("stopCloseNoStock")}</p>
+              <p className="text-[13px] text-navy/60">{t(jornada ? "jornadaNoStock" : "stopCloseNoStock")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="admin-table">
@@ -118,7 +118,9 @@ export function StopCloseDialog({
             )}
             {summary.undeliveredOrders > 0 && (
               <p role="alert" className="mt-4 rounded-lg bg-gold/15 p-3 text-[13px] text-[#8A611C]">
-                {t("stopCloseUndeliveredWarning", { count: String(summary.undeliveredOrders) })}
+                {t(jornada ? "jornadaCloseUndeliveredWarning" : "stopCloseUndeliveredWarning", {
+                  count: String(summary.undeliveredOrders),
+                })}
               </p>
             )}
           </>

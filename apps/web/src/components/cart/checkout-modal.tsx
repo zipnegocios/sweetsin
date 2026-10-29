@@ -50,6 +50,7 @@ export function CheckoutModal() {
     closeCheckout,
     selectedStop,
     applyStockConflict,
+    applyDeliveryRejection,
     refreshPickupStops,
     // El tipo de entrega vive en el carrito: en delivery la parada no limita ni recorta.
     fulfillment,
@@ -200,6 +201,7 @@ export function CheckoutModal() {
       setOrderError(t("errorStockChanged"));
     } else if (result.error === "capacityRejected" || result.error === "deliveryRejected") {
       // El carrito no se toca: el cliente puede ajustar o negociar por WhatsApp.
+      if (result.error === "deliveryRejected") applyDeliveryRejection();
       setRejection(result);
       setOrderError(t(result.error === "capacityRejected" ? "errorCapacityRejected" : "errorDeliveryRejected"));
     } else {
@@ -419,7 +421,11 @@ export function CheckoutModal() {
               )}
               {/* Control a domicilio sin jornada abierta: se avisa antes, el servidor igual lo rechazaría. */}
               {delivery.enabled && !delivery.open && !rejection && (
-                <RejectionPanel title={t("deliveryRejectedTitle")} whatsappUrl={`https://wa.me/${BUSINESS_WHATSAPP}`}>
+                <RejectionPanel
+                  title={t("deliveryRejectedTitle")}
+                  whatsappUrl={`https://wa.me/${BUSINESS_WHATSAPP}`}
+                  role="status"
+                >
                   <li>{t("delivery_no_open_jornada")}</li>
                 </RejectionPanel>
               )}
@@ -540,10 +546,21 @@ export function CheckoutModal() {
   );
 }
 
-function RejectionPanel({ title, whatsappUrl, children }: { title: string; whatsappUrl: string; children: ReactNode }) {
+// `role="status"` para un aviso previo (no interrumpe al lector de pantalla); "alert" para un rechazo real.
+function RejectionPanel({
+  title,
+  whatsappUrl,
+  children,
+  role = "alert",
+}: {
+  title: string;
+  whatsappUrl: string;
+  children: ReactNode;
+  role?: "alert" | "status";
+}) {
   const t = useTranslations("cart");
   return (
-    <div role="alert" className="border border-sin-red/30 rounded-2xl p-4 mb-4 space-y-2">
+    <div role={role} className="border border-sin-red/30 rounded-2xl p-4 mb-4 space-y-2">
       <p className="font-medium text-navy text-[14px]">{title}</p>
       <ul className="list-disc pl-5 space-y-1 text-[13px] text-navy/70">{children}</ul>
       <a

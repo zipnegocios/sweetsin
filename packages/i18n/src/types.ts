@@ -563,6 +563,10 @@ export interface Dictionary {
     jornadaNoStock: string;
     jornadaErrorInvalid: string;
     detailJornada: string;
+    detailDeliveryStop: string;
+    jornadaCloseButton: string;
+    jornadaCloseUndeliveredWarning: string;
+    repJornadaLabel: string;
     navCapacity: string;
     capTitle: string;
     capIntro: string;

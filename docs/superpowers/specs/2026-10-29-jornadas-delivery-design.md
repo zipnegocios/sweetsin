@@ -39,6 +39,9 @@ Anti-objetivos:
 
 ## 4. Datos (aditivos; DB compartida; nunca `--force`)
 
+> **Nota (ruling del plan, implementado):** una jornada es una fila de `trailer_stops` con `kind = 'delivery'`. **No existen** la tabla `delivery_jornadas`, la columna `orders.delivery_jornada_id`, `closed_at` ni `opened_by_user_id`: el pedido se liga con el `orders.stop_id` existente y el stock usa `stop_product_stock`/`stock_events`. Los estados reales son los de `trailer_stops`: una jornada se crea `active` (abierta) y al cerrarse pasa a `completed`; `scheduled` no se usa para jornadas. Lo que sigue en esta sección es el diseño original.
+
+
 - Tabla `delivery_jornadas`: `id`, `name` (opcional), `status` (`open` | `closed`), `opened_at`, `closed_at`, `opened_by_user_id`.
 - Stock por jornada: reutilizar la estructura y los eventos de stock de paradas si el código existente lo permite sin duplicar (el plan decide: tabla `delivery_jornada_stock` análoga o generalizar `trailer_stop_stock`/`stock_events` con una referencia opcional a la jornada). Prioridad: no duplicar lógica de `decrementForOrder`.
 - `orders.delivery_jornada_id` nullable.

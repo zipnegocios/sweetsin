@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { useTranslations } from "next-intl";
 
 export interface StockPickerProduct {
@@ -39,6 +40,7 @@ export function StockPicker({
   label: string;
 }) {
   const t = useTranslations("admin");
+  const templateSelectId = useId();
 
   function toggleProduct(productId: string, checked: boolean) {
     const next = { ...value };
@@ -61,8 +63,10 @@ export function StockPicker({
     <div>
       {templates.length > 0 && (
         <div className="mb-3">
-          <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("stopFormTemplate")}</label>
-          <select defaultValue="" onChange={(e) => applyTemplate(e.target.value)} className="admin-input">
+          <label htmlFor={templateSelectId} className="block text-[11px] uppercase text-navy/40 mb-1">
+            {t("stopFormTemplate")}
+          </label>
+          <select id={templateSelectId} defaultValue="" onChange={(e) => applyTemplate(e.target.value)} className="admin-input">
             <option value="">{t("stopFormTemplateNone")}</option>
             {templates.map((tpl) => (
               <option key={tpl.id} value={tpl.id}>
@@ -90,7 +94,7 @@ export function StockPicker({
                 value={value[product.id]}
                 onChange={(e) => onChange({ ...value, [product.id]: e.target.value })}
                 placeholder={t("stopFormMaxStock")}
-                aria-label={t("stopFormMaxStock")}
+                aria-label={`${t("stopFormMaxStock")}: ${product.nameEn}`}
                 className="w-24 border border-navy/15 rounded-lg px-2 py-1 text-sm"
               />
             )}

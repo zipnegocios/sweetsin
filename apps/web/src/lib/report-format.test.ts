@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultReportRange, durationParts } from "./report-format";
+import { defaultReportRange, durationParts, reportStopOptions } from "./report-format";
 
 describe("durationParts", () => {
   it("separa minutos y segundos", () => {
@@ -13,5 +13,21 @@ describe("defaultReportRange", () => {
   it("cubre 7 días terminando hoy en hora de Adelaida", () => {
     // 2026-10-28 15:00 UTC ya es 29 en Adelaida (UTC+10:30).
     expect(defaultReportRange(new Date("2026-10-28T15:00:00Z"))).toEqual({ from: "2026-10-23", to: "2026-10-29" });
+  });
+});
+
+describe("reportStopOptions", () => {
+  it("incluye paradas del trailer y jornadas con su prefijo", () => {
+    const d = new Date("2026-10-29T00:00:00Z");
+    const options = reportStopOptions(
+      [{ id: "t1", location: "Glenelg", startTime: d }],
+      [{ id: "j1", location: "Viernes", startTime: d }],
+      () => "29/10",
+      (name) => `Jornada: ${name}`,
+    );
+    expect(options).toEqual([
+      { id: "t1", label: "Glenelg · 29/10" },
+      { id: "j1", label: "Jornada: Viernes · 29/10" },
+    ]);
   });
 });

@@ -69,7 +69,7 @@ export function JornadaOpenForm({
         templates={templates}
         value={selection}
         onChange={setSelection}
-        label={t("stopFormMaxStock")}
+        label={t("stopFormProducts")}
       />
       {invalid && (
         <p role="alert" className="text-[13px] text-sin-red">

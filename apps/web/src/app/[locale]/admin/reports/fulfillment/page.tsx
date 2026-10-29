@@ -1,12 +1,12 @@
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import type { FulfillmentReport as Report } from "@workspace/domain/order-timing";
-import { DrizzleSettingsRepository } from "@workspace/db/repositories";
+import { DrizzleSettingsRepository, DrizzleTrailerStopRepository } from "@workspace/db/repositories";
 import { listTrailerStopsAction } from "@/app/actions/admin-trailer-stops";
 import { listStaffAction } from "@/app/actions/admin-staff";
 import { requireAdmin } from "@/lib/require-admin";
 import { loadFulfillmentReport, parseReportQuery } from "@/lib/fulfillment-report";
-import { defaultReportRange } from "@/lib/report-format";
+import { defaultReportRange, reportStopOptions } from "@/lib/report-format";
 import { formatAdelaide } from "@/lib/adelaide-time";
 import { FulfillmentReport } from "@/components/admin/fulfillment-report";
 import { PageHeader } from "@/components/admin/page-header";
@@ -48,10 +48,12 @@ export default async function AdminFulfillmentReportPage({
     }
   }
 
-  const stops = (await listTrailerStopsAction()).map((s) => ({
-    id: s.id,
-    label: `${s.location} · ${formatAdelaide(s.startTime, locale)}`,
-  }));
+  const stops = reportStopOptions(
+    await listTrailerStopsAction(),
+    await new DrizzleTrailerStopRepository().listAll("delivery"),
+    (d) => formatAdelaide(d, locale),
+    (name) => t("repJornadaLabel", { name }),
+  );
   const staffNames =
     query?.groupBy === "staff" ? Object.fromEntries((await listStaffAction()).map((u) => [u.id, u.name])) : {};
 
