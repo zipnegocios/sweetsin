@@ -41,6 +41,15 @@ export const TruckIcon = (p: P) => (
   </Icon>
 );
 
+// Ruta de reparto: origen, recorrido y destino (jornadas de delivery).
+export const RouteIcon = (p: P) => (
+  <Icon {...p}>
+    <circle cx="6" cy="19" r="2" />
+    <circle cx="18" cy="5" r="2" />
+    <path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" />
+  </Icon>
+);
+
 export const EventsIcon = (p: P) => (
   <Icon {...p}>
     <path d="m12 3 2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8 9.6 8 12 3Z" />

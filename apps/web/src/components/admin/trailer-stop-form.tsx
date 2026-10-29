@@ -9,29 +9,25 @@ import { createTrailerStopAction, updateTrailerStopAction, checkStopOverlapActio
 import { parseAdelaideLocal, toAdelaideLocalInput } from "@/lib/adelaide-time";
 import type { TrailerStop } from "@workspace/domain/trailer-stops";
 import { LocationPicker } from "@/components/admin/location-picker";
-
-interface ProductOption {
-  id: string;
-  nameEn: string;
-}
+import {
+  StockPicker,
+  toStockItems,
+  type StockPickerProduct,
+  type StockPickerTemplate,
+  type StockSelection,
+} from "@/components/admin/stock-picker";
 
 const DEFAULT_LAT = -34.9285;
 const DEFAULT_LNG = 138.6007;
-
-interface TemplateOption {
-  id: string;
-  name: string;
-  items: { productId: string; quantity: number }[];
-}
 
 export function TrailerStopForm({
   products,
   stop,
   templates = [],
 }: {
-  products: ProductOption[];
+  products: StockPickerProduct[];
   stop?: TrailerStop;
-  templates?: TemplateOption[];
+  templates?: StockPickerTemplate[];
 }) {
   const t = useTranslations("admin");
   const router = useRouter();
@@ -40,7 +36,7 @@ export function TrailerStopForm({
   const [lng, setLng] = useState(stop?.lng ?? DEFAULT_LNG);
   const [startTime, setStartTime] = useState(stop ? toAdelaideLocalInput(stop.startTime) : "");
   const [endTime, setEndTime] = useState(stop ? toAdelaideLocalInput(stop.endTime) : "");
-  const [selectedProducts, setSelectedProducts] = useState<Record<string, string>>({});
+  const [selectedProducts, setSelectedProducts] = useState<StockSelection>({});
   const [overlaps, setOverlaps] = useState<{ clientName: string; eventDate: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -86,31 +82,9 @@ export function TrailerStopForm({
     return () => clearTimeout(handle);
   }, [startTime, endTime]);
 
-  function toggleProduct(productId: string, checked: boolean) {
-    setSelectedProducts((prev) => {
-      const next = { ...prev };
-      if (checked) next[productId] = next[productId] ?? "10";
-      else delete next[productId];
-      return next;
-    });
-  }
-
-  // Copia la plantilla al estado (editable después); "Ninguna" no lo toca.
-  function applyTemplate(templateId: string) {
-    const template = templates.find((tpl) => tpl.id === templateId);
-    if (!template) return;
-    const available = new Set(products.map((p) => p.id));
-    setSelectedProducts(
-      Object.fromEntries(template.items.filter((i) => available.has(i.productId)).map((i) => [i.productId, String(i.quantity)])),
-    );
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const stockItems = Object.entries(selectedProducts).map(([productId, raw]) => ({
-      productId,
-      maxStock: /^\d+$/.test(raw.trim()) ? Number(raw) : 0,
-    }));
+    const stockItems = toStockItems(selectedProducts);
     if (!stop && stockItems.some((i) => i.maxStock < 1)) {
       setSubmitError(t("tplErrorQuantity"));
       return;
@@ -179,46 +153,13 @@ export function TrailerStopForm({
       )}
 
       {!stop && (
-      <div>
-        {templates.length > 0 && (
-          <div className="mb-3">
-            <label className="block text-[11px] uppercase text-navy/40 mb-1">{t("stopFormTemplate")}</label>
-            <select defaultValue="" onChange={(e) => applyTemplate(e.target.value)} className="admin-input">
-              <option value="">{t("stopFormTemplateNone")}</option>
-              {templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <p className="text-[11px] uppercase text-navy/40 mb-2">{t("stopFormProducts")}</p>
-        <div className="space-y-2">
-          {products.map((product) => (
-            <div key={product.id} className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={product.id in selectedProducts}
-                onChange={(e) => toggleProduct(product.id, e.target.checked)}
-              />
-              <span className="text-sm flex-1">{product.nameEn}</span>
-              {product.id in selectedProducts && (
-                <input
-                  type="number"
-                  min={1}
-                  value={selectedProducts[product.id]}
-                  onChange={(e) =>
-                    setSelectedProducts((prev) => ({ ...prev, [product.id]: e.target.value }))
-                  }
-                  placeholder={t("stopFormMaxStock")}
-                  className="w-24 border border-navy/15 rounded-lg px-2 py-1 text-sm"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+        <StockPicker
+          products={products}
+          templates={templates}
+          value={selectedProducts}
+          onChange={setSelectedProducts}
+          label={t("stopFormProducts")}
+        />
       )}
 
       {submitError && (

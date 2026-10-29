@@ -14,7 +14,8 @@ export type StopOperationErrorKey =
   | "opErrorNoAttention"
   | "opErrorNoStop"
   | "opErrorOnlyPickupHandover"
-  | "opErrorInvalidTransition";
+  | "opErrorInvalidTransition"
+  | "opErrorJornadaOpen";
 
 export interface StopOperationError {
   key: StopOperationErrorKey;
@@ -24,6 +25,8 @@ export interface StopOperationError {
 const KEYS: Record<string, StopOperationErrorKey> = {
   "Only scheduled stops can be opened": "opErrorNotScheduled",
   "Only active stops can be closed": "opErrorNotActiveClose",
+  "Only open jornadas can be closed": "opErrorNotActiveClose",
+  "A jornada is already open": "opErrorJornadaOpen",
   "Stop has undelivered orders": "opErrorUndelivered",
   "Stop is not active": "opErrorStopNotActive",
   "Stop not found": "opErrorStopNotFound",

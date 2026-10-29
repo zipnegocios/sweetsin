@@ -52,6 +52,13 @@ describe("/api/admin/settings", () => {
     expect((await res.json()).settings).toMatchObject({ liveStockEnabled: false, deliveryFeeCents: 0 });
   });
 
+  it("PUT 200 con el control de stock a domicilio y su modo", async () => {
+    const res = await PUT(put({ deliveryStockControlEnabled: true, deliveryStockMode: "shared" }));
+    expect(res.status).toBe(200);
+    expect(state.updates).toEqual([{ deliveryStockControlEnabled: true, deliveryStockMode: "shared" }]);
+    expect((await res.json()).settings).toMatchObject({ deliveryStockControlEnabled: true, deliveryStockMode: "shared" });
+  });
+
   it("PUT con cuerpo vacío no escribe", async () => {
     expect((await PUT(put({}))).status).toBe(200);
     expect(state.updates).toEqual([]);
@@ -62,6 +69,8 @@ describe("/api/admin/settings", () => {
     expect((await PUT(put({ deliveryFeeCents: 1.5 }))).status).toBe(400);
     expect((await PUT(put({ timingEnabled: "yes" }))).status).toBe(400);
     expect((await PUT(put({ unknown: true }))).status).toBe(400);
+    expect((await PUT(put({ deliveryStockMode: "mixed" }))).status).toBe(400);
+    expect((await PUT(put({ deliveryStockControlEnabled: "on" }))).status).toBe(400);
     expect((await PUT(new Request("http://x", { method: "PUT", body: "{" }))).status).toBe(400);
     expect(state.updates).toEqual([]);
   });

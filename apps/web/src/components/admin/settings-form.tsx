@@ -6,7 +6,16 @@ import { useRouter } from "@/i18n/navigation";
 import { updateSettingsAction } from "@/app/actions/admin-settings";
 import type { AppSettings } from "@workspace/domain/settings";
 
-type Switch = Exclude<keyof AppSettings, "deliveryFeeCents">;
+// Solo los campos de esta página: los de capacidad se editan en /admin/capacity y el esquema es estricto.
+type FormSettings = Pick<
+  AppSettings,
+  | "deliveryFeeCents"
+  | "deliveryEvidenceRequired"
+  | (typeof OPERATION)[number]["key"]
+  | "deliveryStockControlEnabled"
+  | "deliveryStockMode"
+>;
+type Switch = { [K in keyof AppSettings]: AppSettings[K] extends boolean ? K : never }[keyof AppSettings];
 
 const OPERATION = [
   { key: "requireStockConfirmationOnOpen", label: "cfgRequireStockConfirmation", help: "cfgRequireStockConfirmationHelp" },
@@ -43,6 +52,13 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [values, setValues] = useState<AppSettings>(initial);
+  const formValues = (v: AppSettings): FormSettings => ({
+    deliveryFeeCents: v.deliveryFeeCents,
+    deliveryEvidenceRequired: v.deliveryEvidenceRequired,
+    ...(Object.fromEntries(OPERATION.map((o) => [o.key, v[o.key]])) as Pick<AppSettings, (typeof OPERATION)[number]["key"]>),
+    deliveryStockControlEnabled: v.deliveryStockControlEnabled,
+    deliveryStockMode: v.deliveryStockMode,
+  });
   const [fee, setFee] = useState((initial.deliveryFeeCents / 100).toFixed(2));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<"saved" | "invalid" | "generic" | null>(null);
@@ -59,7 +75,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
     }
     setIsSubmitting(true);
     try {
-      const result = await updateSettingsAction({ ...values, deliveryFeeCents: Math.round(Number(fee) * 100) });
+      const result = await updateSettingsAction({ ...formValues(values), deliveryFeeCents: Math.round(Number(fee) * 100) });
       if (!result.ok) {
         setFeedback(result.error === "generic" ? "generic" : "invalid");
         return;
@@ -88,6 +104,30 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
             onChange={(v) => set(o.key, v)}
           />
         ))}
+      </section>
+
+      <section className="admin-card p-5">
+        <h2 className="font-serif font-bold text-navy text-lg mb-2">{t("cfgDeliverySection")}</h2>
+        <Toggle
+          label={t("cfgDeliveryStockControl")}
+          help={t("cfgDeliveryStockControlHelp")}
+          checked={values.deliveryStockControlEnabled}
+          onChange={(v) => set("deliveryStockControlEnabled", v)}
+        />
+        <label className="block py-2">
+          <span className="block text-sm font-medium text-navy">{t("cfgDeliveryStockMode")}</span>
+          <span className="block text-[13px] text-navy/55 mb-1">
+            {t(values.deliveryStockMode === "shared" ? "cfgDeliveryStockModeSharedHelp" : "cfgDeliveryStockModeSeparateHelp")}
+          </span>
+          <select
+            value={values.deliveryStockMode}
+            onChange={(e) => set("deliveryStockMode", e.target.value as AppSettings["deliveryStockMode"])}
+            className="admin-input"
+          >
+            <option value="separate">{t("cfgDeliveryStockModeSeparate")}</option>
+            <option value="shared">{t("cfgDeliveryStockModeShared")}</option>
+          </select>
+        </label>
       </section>
 
       <section className="admin-card p-5">

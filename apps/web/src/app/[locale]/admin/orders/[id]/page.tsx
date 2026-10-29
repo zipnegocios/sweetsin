@@ -4,7 +4,7 @@ import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { formatAdelaide } from "@/lib/adelaide-time";
 import { Link } from "@/i18n/navigation";
-import { DrizzleOrderRepository } from "@workspace/db/repositories";
+import { DrizzleOrderRepository, DrizzleTrailerStopRepository } from "@workspace/db/repositories";
 import { OrderStatusForm } from "@/components/admin/order-status-form";
 import { PageHeader } from "@/components/admin/page-header";
 import { AttentionBadge } from "@/components/admin/status-badge";
@@ -21,6 +21,9 @@ export default async function AdminOrderDetailPage({
 
   const order = await new DrizzleOrderRepository().findById(id);
   if (!order) notFound();
+  // Una entrega con el control de stock a domicilio queda ligada a la jornada por stopId.
+  const stop = order.stopId ? await new DrizzleTrailerStopRepository().findById(order.stopId) : null;
+  const jornada = stop?.kind === "delivery" ? stop : null;
 
   return (
     <div>
@@ -32,6 +35,14 @@ export default async function AdminOrderDetailPage({
         <p className="text-sm">{order.customerName} — {order.customerEmail} — {order.customerPhone}</p>
         {order.deliveryAddress && (
           <p className="text-sm mt-1">{t("detailAddress")}: {order.deliveryAddress}</p>
+        )}
+        {jornada && (
+          <p className="text-sm mt-1">
+            {t("detailJornada")}:{" "}
+            <Link href={`/admin/jornadas/${jornada.id}`} className="admin-link">
+              {jornada.location}
+            </Link>
+          </p>
         )}
         {order.scheduledFor && (
           <p className="text-sm mt-1">{t("detailScheduledFor")}: {formatAdelaide(order.scheduledFor, locale)}</p>

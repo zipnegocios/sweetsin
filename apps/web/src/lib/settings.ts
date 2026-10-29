@@ -12,6 +12,8 @@ export const settingsUpdateSchema = z.strictObject({
   autoSoldOutEnabled: z.boolean().optional(),
   timingEnabled: z.boolean().optional(),
   showPerStaffBreakdown: z.boolean().optional(),
+  deliveryStockControlEnabled: z.boolean().optional(),
+  deliveryStockMode: z.enum(["separate", "shared"]).optional(),
 });
 
 /** `null` si el cuerpo no es válido; si no trae campos, devuelve los Settings actuales sin escribir. */

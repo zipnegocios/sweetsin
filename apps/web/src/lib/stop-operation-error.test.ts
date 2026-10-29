@@ -14,6 +14,10 @@ describe("stopOperationError", () => {
     expect(stopOperationError("Stop has undelivered orders").key).toBe("opErrorUndelivered");
     expect(stopOperationError("Stop not found").key).toBe("opErrorStopNotFound");
   });
+  it("traduce las reglas de jornadas", () => {
+    expect(stopOperationError("A jornada is already open").key).toBe("opErrorJornadaOpen");
+    expect(stopOperationError("Only open jornadas can be closed").key).toBe("opErrorNotActiveClose");
+  });
   it("traduce las reglas de stock en vivo", () => {
     expect(stopOperationError("Stop is not active").key).toBe("opErrorStopNotActive");
     expect(stopOperationError("Waste exceeds current stock").key).toBe("opErrorWasteExceeds");

@@ -7,6 +7,7 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   OrdersIcon,
   TruckIcon,
+  RouteIcon,
   BoxIcon,
   EventsIcon,
   CalendarIcon,
@@ -24,6 +25,7 @@ import {
 const ICONS = {
   orders: OrdersIcon,
   stops: TruckIcon,
+  jornadas: RouteIcon,
   templates: BoxIcon,
   events: EventsIcon,
   calendar: CalendarIcon,

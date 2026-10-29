@@ -8,13 +8,23 @@ import {
   getStopCloseSummaryAction,
   type StopCloseSummary,
 } from "@/app/actions/admin-trailer-stops";
+import { closeJornadaAction } from "@/app/actions/admin-jornadas";
 import { useStopOperation } from "@/components/admin/use-stop-operation";
 
 /**
  * Cerrar una parada abierta: muestra el resumen (vendido, merma, sobrante, agotados) y,
  * si hay pedidos sin entregar, exige un segundo clic explícito (confirmUndelivered).
+ * Con `jornada`, cierra una jornada de delivery (el dominio no exige la confirmación; el segundo clic queda como aviso).
  */
-export function StopCloseDialog({ stopId, productNames }: { stopId: string; productNames: Record<string, string> }) {
+export function StopCloseDialog({
+  stopId,
+  productNames,
+  jornada = false,
+}: {
+  stopId: string;
+  productNames: Record<string, string>;
+  jornada?: boolean;
+}) {
   const t = useTranslations("admin");
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -41,7 +51,9 @@ export function StopCloseDialog({ stopId, productNames }: { stopId: string; prod
     }
     void run(
       async () => {
-        const result = await closeTrailerStopAction(stopId, { confirmUndelivered: armed });
+        const result = jornada
+          ? await closeJornadaAction(stopId)
+          : await closeTrailerStopAction(stopId, { confirmUndelivered: armed });
         // Apareció un pedido sin entregar entre el resumen y el clic: el próximo clic confirma.
         if (!result.ok && result.error === "Stop has undelivered orders") setArmed(true);
         return result;

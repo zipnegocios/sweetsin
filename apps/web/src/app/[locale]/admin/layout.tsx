@@ -25,6 +25,7 @@ export default async function AdminLayout({
   const items: AdminNavItem[] = [
     { href: "/admin/orders", label: t("navOrders"), icon: "orders" },
     { href: "/admin/trailer-stops", label: t("navTrailerStops"), icon: "stops" },
+    { href: "/admin/jornadas", label: t("navJornadas"), icon: "jornadas" },
     { href: "/admin/stock-templates", label: t("navStockTemplates"), icon: "templates" },
     { href: "/admin/event-bookings", label: t("navEventBookings"), icon: "events" },
     { href: "/admin/calendar", label: t("navCalendar"), icon: "calendar" },

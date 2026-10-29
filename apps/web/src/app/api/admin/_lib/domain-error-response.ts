@@ -13,7 +13,7 @@ export function notFoundResponse(what = "Stop not found"): Response {
 }
 export const isUuid = (id: string): boolean => UUID.test(id);
 
-const NOT_FOUND_MESSAGES = ["Stop not found", "Template not found", "Stock row not found"];
+const NOT_FOUND_MESSAGES = ["Stop not found", "Template not found", "Stock row not found", "Product not found"];
 
 // "* not found" -> 404; reglas de negocio conocidas -> 409; el resto -> 500 sin filtrar detalles.
 export function domainErrorResponse(error: unknown): Response {
