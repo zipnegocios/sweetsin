@@ -189,6 +189,27 @@ describe("estado de la entrega tras la respuesta del servidor", () => {
     }
   });
 
+  it("stockChanged sin filas (control apagado o producto desactivado): estado intacto y el carrito no se recorta", () => {
+    for (const before of [EMPTY_DELIVERY_AVAILABILITY, { enabled: true, open: true, stock: { p1: 2 } }]) {
+      const next = deliveryAfterStockConflict(before, ["p1"], []);
+      expect(next).toBe(before);
+    }
+    // Control apagado: sigue sin límite, así que recortar no quita nada.
+    const lines = [{ productId: "p1", quantity: 3 }];
+    const kept = deliveryAvailabilityList(deliveryAfterStockConflict(EMPTY_DELIVERY_AVAILABILITY, ["p1"], []));
+    expect(kept).toBeNull();
+    expect(trimCartToAvailability(lines, kept, true)).toEqual({ lines, changes: [] });
+  });
+
+  it("stockChanged con filas: activa la jornada y recorta el carrito a lo devuelto", () => {
+    const next = deliveryAfterStockConflict(EMPTY_DELIVERY_AVAILABILITY, ["p1"], [{ productId: "p1", available: 1 }]);
+    expect(next).toEqual({ enabled: true, open: true, stock: { p1: 1 } });
+    expect(trimCartToAvailability([{ productId: "p1", quantity: 3 }], deliveryAvailabilityList(next), true)).toEqual({
+      lines: [{ productId: "p1", quantity: 1 }],
+      changes: [{ productId: "p1", from: 3, to: 1 }],
+    });
+  });
+
   it("deliveryRejected: deja de limitar (sin jornada)", () => {
     const next = deliveryAfterRejection({ enabled: true, open: true, stock: { p1: 2 } });
     expect(next.open).toBe(false);

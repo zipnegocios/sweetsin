@@ -43,13 +43,15 @@ export function deliveryAvailabilityList(delivery: DeliveryAvailability): Produc
 /**
  * Stock de entrega tras un `stockChanged` del servidor: fusiona lo que devolvió con lo conocido
  * (mismo criterio que el retiro). Si el cliente creía que no había jornada (se abrió después de
- * cargar la página), pasa a abierta con solo lo devuelto.
+ * cargar la página), pasa a abierta con solo lo devuelto. Sin filas devueltas (p. ej. producto
+ * desactivado, o control apagado) no es un conflicto de la jornada: devuelve el mismo estado, intacto.
  */
 export function deliveryAfterStockConflict(
   delivery: DeliveryAvailability,
   orderedIds: string[],
   available: ProductAvailability[],
 ): DeliveryAvailability {
+  if (available.length === 0) return delivery;
   const known = deliveryAvailabilityList(delivery) ?? [];
   const merged = [...known.filter((a) => !orderedIds.includes(a.productId)), ...available];
   return { enabled: true, open: true, stock: Object.fromEntries(merged.map((a) => [a.productId, a.available])) };

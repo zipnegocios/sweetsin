@@ -568,7 +568,7 @@ export const en: Dictionary = {
     detailDeliveryStop: "Stock from stop",
     jornadaCloseButton: "Close jornada",
     jornadaCloseUndeliveredWarning: "Undelivered orders in this jornada: {count}. Delivery continues after closing; it just stops taking new orders.",
-    repJornadaLabel: "Delivery jornada: {name}",
+    repJornadaLabel: "Jornada: {name}",
     navCapacity: "Capacity",
     capTitle: "Capacity engine",
     capIntro: "Rules that decide whether a home-delivery order is accepted and how long it takes. Leave a number field empty for no limit.",

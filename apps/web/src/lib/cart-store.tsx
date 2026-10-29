@@ -166,6 +166,8 @@ export function CartProvider({
         items.map((i) => i.productId),
         available,
       );
+      // Sin filas (control apagado o producto desactivado) no se toca ni el estado ni el carrito.
+      if (next === delivery) return;
       setDelivery(next);
       retrim(deliveryAvailabilityList(next));
       return;
