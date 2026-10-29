@@ -27,9 +27,10 @@ export async function saveProductRuleAction(productId: string, input: unknown): 
     return INVALID;
   }
   return runAdminAction(async () => {
-    const repo = new DrizzleCapacityRepository();
-    await repo.saveRule({ productId, ...parsed.data.rule });
-    await repo.replaceSteps(productId, parsed.data.steps.map((s, i) => ({ ...s, position: i + 1 })));
+    await new DrizzleCapacityRepository().saveRuleWithSteps(
+      { productId, ...parsed.data.rule },
+      parsed.data.steps.map((s, i) => ({ ...s, position: i + 1 })),
+    );
   }, isInvalid);
 }
 

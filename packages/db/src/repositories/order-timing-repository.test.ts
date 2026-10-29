@@ -134,4 +134,12 @@ describe("DrizzleOrderTimingRepository.listForReport", () => {
 
     expect(await repo.listForReport({ from: day(4), to: day(4, 23) })).toEqual([]);
   }, 15000);
+
+  it("itemsByOrder devuelve las lineas de los pedidos del rango y excluye los de fuera", async () => {
+    const inside = await insertOrder({ createdAt: day(20), stopId: null, items: [{ productId: productIds.sin, quantity: 2 }, { productId: productIds.coffee, quantity: 1 }] });
+    const outside = await insertOrder({ createdAt: day(25), stopId: null, items: [{ productId: productIds.sin, quantity: 1 }] });
+    const map = await repo.itemsByOrder({ from: day(19), to: day(21) });
+    expect(map.get(inside)?.map((l) => l.quantity).sort()).toEqual([1, 2]);
+    expect(map.has(outside)).toBe(false);
+  });
 });

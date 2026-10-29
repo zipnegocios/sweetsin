@@ -14,7 +14,8 @@ export async function simulateCapacity(input: unknown, now = new Date()): Promis
     lines: parsed.data.lines,
     rules: new Map(rules.map((r) => [r.productId, r])),
     steps: stepMap,
-    settings,
+    // El simulador funciona con el motor apagado: el admin prueba las reglas antes de encenderlo.
+    settings: { ...settings, capacityEngineEnabled: true },
     now,
     scheduledFor: parsed.data.scheduledFor ? new Date(parsed.data.scheduledFor) : null,
   });

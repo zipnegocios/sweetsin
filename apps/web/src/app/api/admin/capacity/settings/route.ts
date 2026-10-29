@@ -8,7 +8,9 @@ export async function GET(): Promise<Response> {
   const denied = await authorizeAdmin();
   if (denied) return denied;
   try {
-    return NextResponse.json({ settings: await new DrizzleCapacityRepository().getSettings() });
+    const repo = new DrizzleCapacityRepository();
+    const [settings, modifiedAt] = await Promise.all([repo.getSettings(), repo.lastModifiedAt()]);
+    return NextResponse.json({ settings, lastModifiedAt: modifiedAt?.toISOString() ?? null });
   } catch (error) {
     return domainErrorResponse(error);
   }

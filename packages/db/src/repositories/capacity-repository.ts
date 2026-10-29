@@ -60,6 +60,26 @@ function pickSettings(s: CapacitySettings): CapacitySettings {
   };
 }
 
+type Executor = Pick<typeof db, "insert" | "delete">;
+
+async function upsertRule(exec: Executor, rule: ProductCapacityRule): Promise<ProductCapacityRule> {
+  const valid = ruleSchema.parse(rule);
+  const { productId: _p, ...values } = valid;
+  const [row] = await exec
+    .insert(productCapacityRulesTable)
+    .values(valid)
+    .onConflictDoUpdate({ target: productCapacityRulesTable.productId, set: { ...values, updatedAt: new Date() } })
+    .returning();
+  return toRule(row);
+}
+
+async function writeSteps(exec: Executor, productId: string, valid: z.infer<typeof stepSchema>[]): Promise<PrepStep[]> {
+  await exec.delete(productPrepStepsTable).where(eq(productPrepStepsTable.productId, productId));
+  if (valid.length === 0) return [];
+  const rows = await exec.insert(productPrepStepsTable).values(valid.map((s) => ({ ...s, productId }))).returning();
+  return rows.map(toStep).sort((a, b) => a.position - b.position);
+}
+
 export class DrizzleCapacityRepository implements CapacityRepository {
   private readonly settings = new DrizzleSettingsRepository();
 
@@ -82,14 +102,15 @@ export class DrizzleCapacityRepository implements CapacityRepository {
   }
 
   async saveRule(rule: ProductCapacityRule): Promise<ProductCapacityRule> {
-    const valid = ruleSchema.parse(rule);
-    const { productId, ...values } = valid;
-    const [row] = await db
-      .insert(productCapacityRulesTable)
-      .values(valid)
-      .onConflictDoUpdate({ target: productCapacityRulesTable.productId, set: { ...values, updatedAt: new Date() } })
-      .returning();
-    return toRule(row);
+    return upsertRule(db, rule);
+  }
+
+  async saveRuleWithSteps(rule: ProductCapacityRule, steps: PrepStepInput[]) {
+    const valid = z.array(stepSchema).parse(steps);
+    return db.transaction(async (tx) => ({
+      rule: await upsertRule(tx, rule),
+      steps: await writeSteps(tx, rule.productId, valid),
+    }));
   }
 
   async listSteps(productId?: string): Promise<PrepStep[]> {
@@ -103,15 +124,7 @@ export class DrizzleCapacityRepository implements CapacityRepository {
 
   async replaceSteps(productId: string, steps: PrepStepInput[]): Promise<PrepStep[]> {
     const valid = z.array(stepSchema).parse(steps);
-    return db.transaction(async (tx) => {
-      await tx.delete(productPrepStepsTable).where(eq(productPrepStepsTable.productId, productId));
-      if (valid.length === 0) return [];
-      const rows = await tx
-        .insert(productPrepStepsTable)
-        .values(valid.map((s) => ({ ...s, productId })))
-        .returning();
-      return rows.map(toStep).sort((a, b) => a.position - b.position);
-    });
+    return db.transaction((tx) => writeSteps(tx, productId, valid));
   }
 
   async lastModifiedAt(): Promise<Date | null> {

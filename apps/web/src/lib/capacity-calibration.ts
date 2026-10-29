@@ -65,9 +65,10 @@ export async function loadCalibration(
   capacity: CapacityRepository = new DrizzleCapacityRepository(),
 ): Promise<CalibrationRow[]> {
   const timing = new DrizzleOrderTimingRepository();
-  const rows = await timing.listForReport({ from: new Date(now.getTime() - WINDOW_DAYS * 86_400_000), to: now });
+  const range = { from: new Date(now.getTime() - WINDOW_DAYS * 86_400_000), to: now };
+  const rows = await timing.listForReport(range);
   const [items, rules, steps, settings] = await Promise.all([
-    timing.itemsByOrder(rows.map((r) => r.orderId)),
+    timing.itemsByOrder(range),
     capacity.listRules(),
     capacity.listSteps(),
     capacity.getSettings(),

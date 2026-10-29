@@ -56,14 +56,14 @@ export class DrizzleOrderTimingRepository implements OrderTimingRepository {
     }));
   }
 
-  /** Líneas (producto y cantidad) de cada pedido dado; pedidos sin líneas no aparecen. */
-  async itemsByOrder(orderIds: string[]): Promise<Map<string, { productId: string; quantity: number }[]>> {
+  /** Lineas (producto y cantidad) de los pedidos con `createdAt` en [from, to]; acotado por fecha, sin lista de ids. */
+  async itemsByOrder(filter: { from: Date; to: Date }): Promise<Map<string, { productId: string; quantity: number }[]>> {
     const out = new Map<string, { productId: string; quantity: number }[]>();
-    if (orderIds.length === 0) return out;
     const rows = await db
       .select({ orderId: orderItemsTable.orderId, productId: orderItemsTable.productId, quantity: orderItemsTable.quantity })
       .from(orderItemsTable)
-      .where(inArray(orderItemsTable.orderId, orderIds));
+      .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+      .where(and(gte(ordersTable.createdAt, filter.from), lte(ordersTable.createdAt, filter.to)));
     for (const { orderId, ...line } of rows) out.set(orderId, [...(out.get(orderId) ?? []), line]);
     return out;
   }

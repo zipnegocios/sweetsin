@@ -15,8 +15,8 @@ vi.mock("@workspace/db/repositories", () => ({
     async listRules() { return [{ productId: PID, soldOnline: false, deliveryMaxQty: null, leadTimeMinutes: null, batchUnits: null, batchSeconds: null }]; }
     async listSteps() { return []; }
     async getRule() { return null; }
-    async saveRule(r: object) { state.writes.push("rule"); return r; }
-    async replaceSteps(_id: string, s: object[]) { state.writes.push("steps"); return s; }
+    async saveRuleWithSteps(r: object, s: object[]) { state.writes.push("rule+steps"); return { rule: r, steps: s }; }
+    async lastModifiedAt() { return new Date("2026-01-02T03:04:05.000Z"); }
   },
   DrizzleOrderTimingRepository: class {
     async listForReport() { return []; }
@@ -49,6 +49,18 @@ describe("/api/admin/capacity", () => {
     expect((await putProduct(req({ rule, steps: [] }), ctx(PID))).status).toBe(403);
   });
 
+  it("GET settings y producto exponen lastModifiedAt en ISO", async () => {
+    expect((await (await getSettings()).json()).lastModifiedAt).toBe("2026-01-02T03:04:05.000Z");
+    expect((await (await getProduct(req(null), ctx(PID))).json()).lastModifiedAt).toBe("2026-01-02T03:04:05.000Z");
+  });
+
+  it("simulate con el motor apagado igual devuelve razones", async () => {
+    state.settings = { ...state.settings, capacityEngineEnabled: false };
+    const res = await simulate(req({ lines: [{ productId: PID, quantity: 1 }] }));
+    expect((await res.json()).evaluation.reasons[0].code).toBe("not_sold_online");
+    state.settings = { ...state.settings, capacityEngineEnabled: true };
+  });
+
   it("settings: valores <= 0 -> 400 sin escribir; válido -> 200", async () => {
     expect((await putSettings(req({ workAreaUnits: 0 }))).status).toBe(400);
     expect((await putSettings(req({ tripMinutes: -1 }))).status).toBe(400);
@@ -64,7 +76,7 @@ describe("/api/admin/capacity", () => {
     expect(state.writes).toEqual([]);
     const ok = await putProduct(req({ rule, steps: [{ name: "a", seconds: 30, mode: "per_unit" }] }), ctx(PID));
     expect(ok.status).toBe(200);
-    expect(state.writes).toEqual(["rule", "steps"]);
+    expect(state.writes).toEqual(["rule+steps"]);
   });
 
   it("simulate: evalúa sin escribir; cantidad <= 0 -> 400", async () => {

@@ -7,8 +7,7 @@ vi.mock("@/lib/require-admin", () => ({ requireAdmin: vi.fn().mockResolvedValue(
 vi.mock("@workspace/db/repositories", () => ({
   DrizzleCapacityRepository: class {
     async saveSettings() { if (state.fail) throw new Error("boom"); state.writes.push("settings"); }
-    async saveRule() { state.writes.push("rule"); }
-    async replaceSteps() { state.writes.push("steps"); }
+    async saveRuleWithSteps() { state.writes.push("rule+steps"); }
     async listRules() { return []; }
     async listSteps() { return []; }
     async getSettings() { return { capacityEngineEnabled: true, workAreaUnits: null, vehicleCapacityUnits: null, tripMinutes: null, maxDeliveryTrips: null, showEstimateToCustomer: false }; }
@@ -24,7 +23,7 @@ describe("admin-capacity actions", () => {
   it("guardan y devuelven { ok }", async () => {
     expect(await saveCapacitySettingsAction({ workAreaUnits: 4 })).toEqual({ ok: true });
     expect(await saveProductRuleAction(PID, { rule, steps: [] })).toEqual({ ok: true });
-    expect(state.writes).toEqual(["settings", "rule", "steps"]);
+    expect(state.writes).toEqual(["settings", "rule+steps"]);
   });
 
   it("rechazan valores <= 0 o id inválido sin escribir ni lanzar", async () => {

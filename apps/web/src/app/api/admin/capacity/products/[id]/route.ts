@@ -13,8 +13,8 @@ export async function GET(_req: Request, { params }: Ctx): Promise<Response> {
   if (!isUuid(id)) return notFoundResponse("Product not found");
   try {
     const repo = new DrizzleCapacityRepository();
-    const [rule, steps] = await Promise.all([repo.getRule(id), repo.listSteps(id)]);
-    return NextResponse.json({ rule, steps });
+    const [rule, steps, modifiedAt] = await Promise.all([repo.getRule(id), repo.listSteps(id), repo.lastModifiedAt()]);
+    return NextResponse.json({ rule, steps, lastModifiedAt: modifiedAt?.toISOString() ?? null });
   } catch (error) {
     return domainErrorResponse(error);
   }
@@ -29,8 +29,10 @@ export async function PUT(req: Request, { params }: Ctx): Promise<Response> {
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   try {
     const repo = new DrizzleCapacityRepository();
-    const rule = await repo.saveRule({ productId: id, ...parsed.data.rule });
-    const steps = await repo.replaceSteps(id, parsed.data.steps.map((s, i) => ({ ...s, position: i + 1 })));
+    const { rule, steps } = await repo.saveRuleWithSteps(
+      { productId: id, ...parsed.data.rule },
+      parsed.data.steps.map((s, i) => ({ ...s, position: i + 1 })),
+    );
     return NextResponse.json({ rule, steps });
   } catch (error) {
     return domainErrorResponse(error);
