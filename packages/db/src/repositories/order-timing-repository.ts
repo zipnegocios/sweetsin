@@ -55,4 +55,16 @@ export class DrizzleOrderTimingRepository implements OrderTimingRepository {
       events: byOrder.get(o.orderId) ?? [],
     }));
   }
+
+  /** Líneas (producto y cantidad) de cada pedido dado; pedidos sin líneas no aparecen. */
+  async itemsByOrder(orderIds: string[]): Promise<Map<string, { productId: string; quantity: number }[]>> {
+    const out = new Map<string, { productId: string; quantity: number }[]>();
+    if (orderIds.length === 0) return out;
+    const rows = await db
+      .select({ orderId: orderItemsTable.orderId, productId: orderItemsTable.productId, quantity: orderItemsTable.quantity })
+      .from(orderItemsTable)
+      .where(inArray(orderItemsTable.orderId, orderIds));
+    for (const { orderId, ...line } of rows) out.set(orderId, [...(out.get(orderId) ?? []), line]);
+    return out;
+  }
 }
