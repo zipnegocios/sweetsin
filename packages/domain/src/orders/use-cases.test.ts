@@ -15,6 +15,8 @@ import {
   isOrderConflictMessage,
 } from "./use-cases";
 import { CapacityRejectedError } from "../capacity";
+import { DeliveryRejectedError } from "../delivery-jornadas";
+import type { AppSettings, SettingsRepository } from "../settings";
 import type { CapacityRepository } from "../capacity";
 import type { Order } from "./entities";
 import type { OrderRepository, OrderFilters, TransitionContext } from "./ports";
@@ -978,6 +980,7 @@ function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
     startTime: new Date(Date.now() - 3_600_000),
     endTime: new Date(Date.now() + 3_600_000),
     status: "active",
+    kind: "trailer",
     originalLocation: null,
     originalLat: null,
     originalLng: null,
@@ -990,8 +993,8 @@ function fakeStop(overrides: Partial<TrailerStop> = {}): TrailerStop {
 function fakeStopRepo(stops: TrailerStop[]): TrailerStopRepository {
   return {
     findById: async (id) => stops.find((s) => s.id === id) ?? null,
-    listVisible: async () => stops,
-    listAll: async () => stops,
+    listVisible: async (kind) => stops.filter((s) => !kind || s.kind === kind),
+    listAll: async (kind) => stops.filter((s) => !kind || s.kind === kind),
     create: async () => {
       throw new Error("unused");
     },
@@ -1540,5 +1543,289 @@ describe("createOrder con motor de capacidad", () => {
     const none = fakeOrderRepo();
     await createOrder({ products: products(), orders: none }, input({ scheduledFor }));
     expect(none.created[0]?.scheduledFor).toBeNull();
+  });
+});
+
+describe("createOrder con control de stock a domicilio (jornadas)", () => {
+  type Input = Parameters<typeof createOrder>[1];
+  const input = (overrides: Partial<Input> = {}): Input => ({
+    customerId: null,
+    customerName: "Jane",
+    customerEmail: "jane@example.com",
+    customerPhone: "+61400000000",
+    fulfillmentType: "self_delivery",
+    deliveryAddress: "1 Test St",
+    deliveryNotes: null,
+    stopId: null,
+    deliveryFeeCents: 500,
+    channel: "web",
+    items: [
+      { productId: "p1", quantity: 2 },
+      { productId: "p2", quantity: 3 },
+    ],
+    ...overrides,
+  });
+  const appSettings = (overrides: Partial<AppSettings> = {}): SettingsRepository => ({
+    get: async () =>
+      ({ deliveryStockControlEnabled: true, deliveryStockMode: "separate", ...overrides }) as AppSettings,
+    update: async () => {
+      throw new Error("unused");
+    },
+  });
+  const jornada = (overrides: Partial<TrailerStop> = {}) =>
+    fakeStop({ id: "jornada-1", kind: "delivery", location: "Delivery", ...overrides });
+  const jornadaRows = (p1: number, p2: number): StopProductStock[] => [
+    { id: "j-s1", stopId: "jornada-1", productId: "p1", maxStock: 10, currentStock: p1 },
+    { id: "j-s2", stopId: "jornada-1", productId: "p2", maxStock: 10, currentStock: p2 },
+  ];
+  const products = () => fakeProductRepo([fakeProduct({ id: "p1" }), fakeProduct({ id: "p2", slug: "pride" })]);
+  const spyStops = (stops: TrailerStop[]) => {
+    const repo = fakeStopRepo(stops);
+    return { ...repo, findById: vi.fn(repo.findById), listAll: vi.fn(repo.listAll), listVisible: vi.fn(repo.listVisible) };
+  };
+  const spyStock = (rows: StopProductStock[]) => {
+    const repo = fakeStockRepo(rows);
+    return Object.assign(repo, { findByStopAndProduct: vi.fn(repo.findByStopAndProduct) });
+  };
+
+  it("(a) interruptor apagado: stopId null y no consulta paradas ni stock", async () => {
+    const orders = fakeOrderRepo();
+    const stops = spyStops([jornada()]);
+    const stock = spyStock(jornadaRows(5, 5));
+    const order = await createOrder(
+      { products: products(), orders, stops, stock, settings: appSettings({ deliveryStockControlEnabled: false }) },
+      input(),
+    );
+    expect(order.stopId).toBeNull();
+    expect(stops.findById).not.toHaveBeenCalled();
+    expect(stops.listAll).not.toHaveBeenCalled();
+    expect(stops.listVisible).not.toHaveBeenCalled();
+    expect(stock.findByStopAndProduct).not.toHaveBeenCalled();
+  });
+
+  it("(a) apagado: un stopId en una entrega sigue rechazándose como hoy", async () => {
+    await expect(
+      createOrder(
+        {
+          products: products(),
+          orders: fakeOrderRepo(),
+          stops: fakeStopRepo([fakeStop()]),
+          stock: fakeStockRepo(stockRows(5, 5)),
+          settings: appSettings({ deliveryStockControlEnabled: false }),
+        },
+        input({ stopId: "stop-1" }),
+      ),
+    ).rejects.toThrow("Only pickup orders can target a stop");
+  });
+
+  it("(b) encendido sin jornada: DeliveryRejectedError no_open_jornada y no crea el pedido", async () => {
+    const orders = fakeOrderRepo();
+    const err = await createOrder(
+      { products: products(), orders, stops: fakeStopRepo([fakeStop()]), stock: fakeStockRepo(stockRows(5, 5)), settings: appSettings() },
+      input(),
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(DeliveryRejectedError);
+    expect(err.reasons).toEqual([{ code: "no_open_jornada" }]);
+    expect(orders.created).toHaveLength(0);
+  });
+
+  it("(b) una jornada cerrada no cuenta como abierta", async () => {
+    const err = await createOrder(
+      {
+        products: products(),
+        orders: fakeOrderRepo(),
+        stops: fakeStopRepo([jornada({ status: "completed" })]),
+        stock: fakeStockRepo(jornadaRows(5, 5)),
+        settings: appSettings(),
+      },
+      input(),
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(DeliveryRejectedError);
+  });
+
+  it("(b) encendido sin jornada: el retiro sigue pasando", async () => {
+    await expect(
+      createOrder(
+        { products: products(), orders: fakeOrderRepo(), stops: fakeStopRepo([fakeStop()]), stock: fakeStockRepo(stockRows(5, 5)), settings: appSettings() },
+        input({ fulfillmentType: "pickup", deliveryAddress: null, deliveryFeeCents: 0, stopId: "stop-1" }),
+      ),
+    ).resolves.toMatchObject({ stopId: "stop-1" });
+  });
+
+  it("(c) separate con jornada: liga el pedido a la jornada y sobrescribe el stopId del cliente", async () => {
+    const deps = () => ({
+      products: products(),
+      orders: fakeOrderRepo(),
+      stops: fakeStopRepo([fakeStop(), jornada()]),
+      stock: fakeStockRepo([...stockRows(5, 5), ...jornadaRows(5, 5)]),
+      settings: appSettings(),
+    });
+    await expect(createOrder(deps(), input())).resolves.toMatchObject({ stopId: "jornada-1" });
+    await expect(createOrder(deps(), input({ stopId: "stop-1" }))).resolves.toMatchObject({ stopId: "jornada-1" });
+  });
+
+  it("(c) cantidad igual al stock pasa; stock + 1 lanza Quantity exceeds availability", async () => {
+    const deps = () => ({
+      products: products(),
+      orders: fakeOrderRepo(),
+      stops: fakeStopRepo([jornada()]),
+      stock: fakeStockRepo(jornadaRows(2, 3)),
+      settings: appSettings(),
+    });
+    await expect(createOrder(deps(), input())).resolves.toMatchObject({ stopId: "jornada-1" });
+    await expect(
+      createOrder(deps(), input({ items: [{ productId: "p1", quantity: 3 }] })),
+    ).rejects.toThrow("Quantity exceeds availability");
+    await expect(
+      createOrder(deps(), input({ items: [{ productId: "p1", quantity: 3 }] }), { enforceAvailability: false }),
+    ).resolves.toMatchObject({ stopId: "jornada-1" });
+  });
+
+  it("(d) producto sin fila de stock en la jornada: rechazo", async () => {
+    await expect(
+      createOrder(
+        {
+          products: products(),
+          orders: fakeOrderRepo(),
+          stops: fakeStopRepo([jornada()]),
+          stock: fakeStockRepo(jornadaRows(5, 5).slice(0, 1)),
+          settings: appSettings(),
+        },
+        input(),
+        { enforceAvailability: false },
+      ),
+    ).rejects.toThrow("Product not available at this stop");
+  });
+
+  it("(e) shared sin parada trailer activa: rechazo (una jornada abierta no cuenta)", async () => {
+    const err = await createOrder(
+      {
+        products: products(),
+        orders: fakeOrderRepo(),
+        stops: fakeStopRepo([fakeStop({ status: "scheduled" }), jornada()]),
+        stock: fakeStockRepo([...stockRows(5, 5), ...jornadaRows(5, 5)]),
+        settings: appSettings({ deliveryStockMode: "shared" }),
+      },
+      input(),
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(DeliveryRejectedError);
+    expect(err.reasons).toEqual([{ code: "no_open_jornada" }]);
+  });
+
+  it("(e) shared con parada trailer activa: liga el pedido a ella", async () => {
+    await expect(
+      createOrder(
+        {
+          products: products(),
+          orders: fakeOrderRepo(),
+          stops: fakeStopRepo([jornada(), fakeStop()]),
+          stock: fakeStockRepo(stockRows(5, 5)),
+          settings: appSettings({ deliveryStockMode: "shared" }),
+        },
+        input(),
+      ),
+    ).resolves.toMatchObject({ stopId: "stop-1" });
+  });
+
+  it("(f) el motor de capacidad rechaza antes que la jornada", async () => {
+    const capacity = {
+      getSettings: async () => ({
+        capacityEngineEnabled: true,
+        workAreaUnits: null,
+        vehicleCapacityUnits: null,
+        tripMinutes: null,
+        maxDeliveryTrips: null,
+        showEstimateToCustomer: false,
+      }),
+      listRules: async () => [
+        { productId: "p1", soldOnline: true, deliveryMaxQty: 1, leadTimeMinutes: null, batchUnits: null, batchSeconds: null },
+      ],
+      listSteps: async () => [],
+    } as unknown as CapacityRepository;
+    const stops = spyStops([]);
+    const err = await createOrder(
+      { products: products(), orders: fakeOrderRepo(), stops, stock: fakeStockRepo([]), capacity, settings: appSettings() },
+      input(),
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(CapacityRejectedError);
+    expect(stops.listAll).not.toHaveBeenCalled();
+  });
+
+  it("producto no disponible se rechaza antes que la jornada", async () => {
+    const stops = spyStops([]);
+    await expect(
+      createOrder(
+        {
+          products: fakeProductRepo([fakeProduct({ id: "p1", available: false }), fakeProduct({ id: "p2" })]),
+          orders: fakeOrderRepo(),
+          stops,
+          stock: fakeStockRepo([]),
+          settings: appSettings(),
+        },
+        input(),
+      ),
+    ).rejects.toThrow("Product not available");
+    expect(stops.listAll).not.toHaveBeenCalled();
+  });
+
+  it("(g) un retiro contra una jornada: Stop not available", async () => {
+    await expect(
+      createOrder(
+        { products: products(), orders: fakeOrderRepo(), stops: fakeStopRepo([jornada()]), stock: fakeStockRepo(jornadaRows(5, 5)) },
+        input({ fulfillmentType: "pickup", deliveryAddress: null, deliveryFeeCents: 0, stopId: "jornada-1" }),
+      ),
+    ).rejects.toThrow("Stop not available");
+  });
+
+  it("encendido sin repositorios de paradas o stock: error de cableado (no conflicto)", async () => {
+    const err = await createOrder({ products: products(), orders: fakeOrderRepo(), settings: appSettings() }, input()).catch(
+      (e) => e,
+    );
+    expect(err.message).toBe("Delivery stock control requires stops and stock repositories");
+    expect(isOrderConflictMessage(err.message)).toBe(false);
+  });
+});
+
+describe("confirmOrderPayment de una entrega ligada a una jornada", () => {
+  const deliveryOrder = (overrides: Partial<Order> = {}): Order =>
+    pickupOrder({ fulfillmentType: "self_delivery", deliveryAddress: "1 Test St", stopId: "jornada-1", ...overrides });
+  const rows = (p1: number, p2: number): StopProductStock[] => [
+    { id: "j-s1", stopId: "jornada-1", productId: "p1", maxStock: 10, currentStock: p1 },
+    { id: "j-s2", stopId: "jornada-1", productId: "p2", maxStock: 10, currentStock: p2 },
+  ];
+  const stops = () => fakeStopRepo([fakeStop({ id: "jornada-1", kind: "delivery" })]);
+
+  it("descuenta del stock de la jornada y pasa a received", async () => {
+    const stock = rows(5, 5);
+    const repo = makeFakeOrderRepo([deliveryOrder()]);
+    await confirmOrderPayment({ orders: repo, stock: fakeStockRepo(stock), stops: stops() }, "order-1");
+    expect(stock.map((r) => r.currentStock)).toEqual([3, 2]);
+    expect((await repo.findById("order-1"))?.fulfillmentStatus).toBe("received");
+  });
+
+  it("sin stock suficiente queda en atención insufficient_stock:<id> sin descontar", async () => {
+    const stock = rows(5, 2);
+    const repo = makeFakeOrderRepo([deliveryOrder()]);
+    await confirmOrderPayment({ orders: repo, stock: fakeStockRepo(stock), stops: stops() }, "order-1");
+    expect(stock.map((r) => r.currentStock)).toEqual([5, 2]);
+    const order = await repo.findById("order-1");
+    expect(order?.fulfillmentStatus).toBe("pending");
+    expect(order?.attentionReason).toBe("insufficient_stock:p2");
+  });
+
+  it("dos pagos por la última unidad: solo uno descuenta, el otro queda en atención", async () => {
+    const stock = rows(2, 3);
+    const repo = makeFakeOrderRepo([deliveryOrder(), deliveryOrder({ id: "order-2" })]);
+    const stockRepo = fakeStockRepo(stock);
+    await Promise.all([
+      confirmOrderPayment({ orders: repo, stock: stockRepo, stops: stops() }, "order-1"),
+      confirmOrderPayment({ orders: repo, stock: stockRepo, stops: stops() }, "order-2"),
+    ]);
+    const reasons = [
+      (await repo.findById("order-1"))?.attentionReason ?? null,
+      (await repo.findById("order-2"))?.attentionReason ?? null,
+    ];
+    expect(reasons.filter((r) => r === null)).toHaveLength(1);
+    expect(stock.map((r) => r.currentStock)).toEqual([0, 0]);
   });
 });

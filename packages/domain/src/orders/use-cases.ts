@@ -10,9 +10,18 @@ import { CapacityRejectedError } from "../capacity/errors";
 import { evaluateDeliveryOrder } from "../capacity/evaluate";
 import type { UserRepository } from "../users/ports";
 import { listActiveStaff } from "../users/use-cases";
+import type { AppSettings, SettingsRepository } from "../settings";
+import { DeliveryRejectedError } from "../delivery-jornadas/errors";
 
 export async function createOrder(
-  deps: { products: ProductRepository; orders: OrderRepository; stops?: TrailerStopRepository; stock?: StockRepository; capacity?: CapacityRepository },
+  deps: {
+    products: ProductRepository;
+    orders: OrderRepository;
+    stops?: TrailerStopRepository;
+    stock?: StockRepository;
+    capacity?: CapacityRepository;
+    settings?: SettingsRepository;
+  },
   input: NewOrderInput,
   /** `enforceAvailability: false` (Settings.autoSoldOutEnabled apagado) no limita la cantidad al stock. */
   options: { enforceAvailability?: boolean } = {},
@@ -20,8 +29,13 @@ export async function createOrder(
   if (input.items.length === 0) {
     throw new Error("Order must have at least one item");
   }
-  if (input.stopId !== null) {
-    await assertStopCanFulfill(deps, input.stopId, input, options.enforceAvailability ?? true);
+  const enforceAvailability = options.enforceAvailability ?? true;
+  // Con el control de stock a domicilio encendido, la parada de una entrega la resuelve el servidor
+  // (más abajo); el stopId del cliente se ignora. Apagado, todo sigue como antes.
+  const deliveryStockMode =
+    input.fulfillmentType === "self_delivery" && deps.settings ? await deliveryStockControlMode(deps.settings) : null;
+  if (input.stopId !== null && !deliveryStockMode) {
+    await assertStopCanFulfill(deps, input.stopId, input, enforceAvailability);
   }
 
   const items: OrderItem[] = [];
@@ -54,6 +68,11 @@ export async function createOrder(
     if (await assertDeliveryCapacity(deps.capacity, input)) scheduledFor = input.scheduledFor ?? null;
   }
 
+  // Orden de evaluación: producto disponible → capacidad → jornada/parada → stock.
+  const stopId = deliveryStockMode
+    ? await resolveDeliveryStop(deps, deliveryStockMode, input, enforceAvailability)
+    : input.stopId;
+
   const totalCents = subtotalCents - discountCents + input.deliveryFeeCents;
 
   return deps.orders.create({
@@ -64,7 +83,7 @@ export async function createOrder(
     fulfillmentType: input.fulfillmentType,
     deliveryAddress: input.deliveryAddress,
     deliveryNotes: input.deliveryNotes,
-    stopId: input.stopId,
+    stopId,
     paymentStatus: "pending",
     fulfillmentStatus: "pending",
     subtotalCents,
@@ -112,15 +131,48 @@ async function assertStopCanFulfill(
   const stop = await deps.stops.findById(stopId);
   if (!stop) throw new Error("Stop not found");
   // Una parada activa acepta pedidos hasta que se cierra, aunque haya pasado su hora de fin;
-  // una programada (pre-pedido) solo mientras no terminó.
+  // una programada (pre-pedido) solo mientras no terminó. Una jornada de delivery nunca acepta retiros.
   const open =
-    stop.status === "active" || (stop.status === "scheduled" && stop.endTime.getTime() > Date.now());
+    stop.kind !== "delivery" &&
+    (stop.status === "active" || (stop.status === "scheduled" && stop.endTime.getTime() > Date.now()));
   if (!open) throw new Error("Stop not available");
+  await assertStockLines(deps.stock, stopId, input, enforceAvailability);
+}
+
+async function assertStockLines(
+  stock: StockRepository,
+  stopId: string,
+  input: NewOrderInput,
+  enforceAvailability: boolean,
+): Promise<void> {
   for (const line of input.items) {
-    const row = await deps.stock.findByStopAndProduct(stopId, line.productId);
+    const row = await stock.findByStopAndProduct(stopId, line.productId);
     if (!row) throw new Error("Product not available at this stop");
     if (enforceAvailability && line.quantity > row.currentStock) throw new Error("Quantity exceeds availability");
   }
+}
+
+/** Modo del control de stock a domicilio, o null si está apagado. */
+async function deliveryStockControlMode(settings: SettingsRepository): Promise<AppSettings["deliveryStockMode"] | null> {
+  const s = await settings.get();
+  return s.deliveryStockControlEnabled ? s.deliveryStockMode : null;
+}
+
+// `separate`: la jornada (parada `delivery`) activa; `shared`: la parada del trailer activa.
+// Devuelve su id para ligar el pedido y valida las líneas contra su stock (revalidación; el
+// descuento todo o nada ocurre al confirmar el pago, igual que el retiro).
+async function resolveDeliveryStop(
+  deps: { stops?: TrailerStopRepository; stock?: StockRepository },
+  mode: AppSettings["deliveryStockMode"],
+  input: NewOrderInput,
+  enforceAvailability: boolean,
+): Promise<string> {
+  if (!deps.stops || !deps.stock) throw new Error("Delivery stock control requires stops and stock repositories");
+  const kind = mode === "separate" ? "delivery" : "trailer";
+  const stop = (await deps.stops.listAll(kind)).find((s) => s.status === "active");
+  if (!stop) throw new DeliveryRejectedError([{ code: "no_open_jornada" }]);
+  await assertStockLines(deps.stock, stop.id, input, enforceAvailability);
+  return stop.id;
 }
 
 function stockLines(order: Order): { productId: string; quantity: number }[] {

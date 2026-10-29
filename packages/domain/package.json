@@ -11,6 +11,7 @@
     "./order-timing": "./src/order-timing/index.ts",
     "./stock": "./src/stock/index.ts",
     "./capacity": "./src/capacity/index.ts",
+    "./delivery-jornadas": "./src/delivery-jornadas/index.ts",
     "./stock-templates": "./src/stock-templates/index.ts",
     "./users": "./src/users/index.ts",
     "./event-bookings": "./src/event-bookings/index.ts",

@@ -27,6 +27,8 @@ export function isStopConflictMessage(message: string): boolean {
       "Stop has undelivered orders",
       "Stop has paid orders",
       "Active stops must be closed",
+      "A jornada is already open",
+      "Only open jornadas can be closed",
     ].includes(message) ||
     message.startsWith("Cannot complete a ") ||
     message.startsWith("Another stop is active")
