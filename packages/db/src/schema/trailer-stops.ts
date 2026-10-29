@@ -7,6 +7,8 @@ export const trailerStopStatusEnum = pgEnum("trailer_stop_status", [
   "cancelled",
 ]);
 
+export const trailerStopKindEnum = pgEnum("trailer_stop_kind", ["trailer", "delivery"]);
+
 export const trailerStopsTable = pgTable("trailer_stops", {
   id: uuid("id").primaryKey().defaultRandom(),
   location: text("location").notNull(),
@@ -15,6 +17,7 @@ export const trailerStopsTable = pgTable("trailer_stops", {
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   status: trailerStopStatusEnum("status").notNull().default("scheduled"),
+  kind: trailerStopKindEnum("kind").notNull().default("trailer"),
   originalLocation: text("original_location"),
   originalLat: doublePrecision("original_lat"),
   originalLng: doublePrecision("original_lng"),

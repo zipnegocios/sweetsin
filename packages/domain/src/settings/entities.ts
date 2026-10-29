@@ -13,4 +13,6 @@ export interface AppSettings {
   tripMinutes: number | null;
   maxDeliveryTrips: number | null;
   showEstimateToCustomer: boolean;
+  deliveryStockControlEnabled: boolean;
+  deliveryStockMode: "separate" | "shared";
 }

@@ -1,5 +1,7 @@
 export type TrailerStopStatus = "scheduled" | "active" | "completed" | "cancelled";
 
+export type TrailerStopKind = "trailer" | "delivery";
+
 export interface TrailerStop {
   id: string;
   location: string;
@@ -8,6 +10,7 @@ export interface TrailerStop {
   startTime: Date;
   endTime: Date;
   status: TrailerStopStatus;
+  kind: TrailerStopKind;
   originalLocation: string | null;
   originalLat: number | null;
   originalLng: number | null;
@@ -17,5 +20,5 @@ export interface TrailerStop {
 
 export type NewTrailerStop = Omit<
   TrailerStop,
-  "id" | "originalLocation" | "originalLat" | "originalLng" | "originalStartTime" | "originalEndTime"
->;
+  "id" | "kind" | "originalLocation" | "originalLat" | "originalLng" | "originalStartTime" | "originalEndTime"
+> & { kind?: TrailerStopKind };

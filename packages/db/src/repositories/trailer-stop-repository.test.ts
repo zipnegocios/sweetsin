@@ -38,6 +38,18 @@ describe("DrizzleTrailerStopRepository", () => {
     await db.delete(trailerStopsTable).where(inArray(trailerStopsTable.id, stopIds));
   });
 
+  it("separa las jornadas de delivery de las paradas del trailer en los listados", async () => {
+    const created = await repo.create({ ...base("delivery", 0, DAY, "active"), kind: "delivery" });
+    expect(created.kind).toBe("delivery");
+    const ids = (list: { id: string }[]) => list.map((s) => s.id);
+    expect(ids(await repo.listAll())).not.toContain(created.id);
+    expect(ids(await repo.listVisible())).not.toContain(created.id);
+    expect(ids(await repo.listAll("delivery"))).toContain(created.id);
+    expect((await repo.findById(created.id))?.kind).toBe("delivery");
+    const plain = await repo.create(base("trailer", 0, DAY, "scheduled"));
+    expect(plain.kind).toBe("trailer");
+  });
+
   it("listVisible includes future scheduled and cancelled; excludes completed and ended cancelled", async () => {
     const scheduled = await repo.create(base("vis-scheduled", DAY, DAY + 3_600_000, "scheduled"));
     const cancelled = await repo.create(base("vis-cancelled", DAY, DAY + 3_600_000, "cancelled"));

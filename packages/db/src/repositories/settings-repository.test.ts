@@ -55,4 +55,16 @@ describe("DrizzleSettingsRepository", () => {
       await repo.update(initial);
     }
   }, 15000);
+
+  it("expone los ajustes de stock a domicilio con sus defaults y persiste ambos valores", async () => {
+    const repo = new DrizzleSettingsRepository();
+    const initial = await repo.get();
+    try {
+      const updated = await repo.update({ deliveryStockControlEnabled: true, deliveryStockMode: "shared" });
+      expect(updated).toMatchObject({ deliveryStockControlEnabled: true, deliveryStockMode: "shared" });
+      expect(await repo.get()).toMatchObject({ deliveryStockControlEnabled: true, deliveryStockMode: "shared" });
+    } finally {
+      await repo.update(initial);
+    }
+  }, 15000);
 });

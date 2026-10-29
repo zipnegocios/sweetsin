@@ -1,4 +1,4 @@
-import { pgTable, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, integer, boolean, text, timestamp } from "drizzle-orm/pg-core";
 
 // Fila única de configuración editable — id fijo en 1 por convención (no
 // hay multi-tenant ni necesidad de más de una fila). Se agregan columnas
@@ -20,6 +20,8 @@ export const settingsTable = pgTable("settings", {
   tripMinutes: integer("trip_minutes"),
   maxDeliveryTrips: integer("max_delivery_trips"),
   showEstimateToCustomer: boolean("show_estimate_to_customer").notNull().default(false),
+  deliveryStockControlEnabled: boolean("delivery_stock_control_enabled").notNull().default(false),
+  deliveryStockMode: text("delivery_stock_mode", { enum: ["separate", "shared"] }).notNull().default("separate"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

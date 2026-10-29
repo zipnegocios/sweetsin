@@ -1,5 +1,5 @@
 import { and, asc, count, eq, gte, inArray, ne } from "drizzle-orm";
-import type { NewTrailerStop, TrailerStop, TrailerStopRepository } from "@workspace/domain/trailer-stops";
+import type { NewTrailerStop, TrailerStop, TrailerStopKind, TrailerStopRepository } from "@workspace/domain/trailer-stops";
 import { db } from "../index";
 import { ordersTable, stockEventsTable, stopProductStockTable, trailerStopsTable } from "../schema";
 
@@ -11,6 +11,7 @@ const stopColumns = {
   startTime: trailerStopsTable.startTime,
   endTime: trailerStopsTable.endTime,
   status: trailerStopsTable.status,
+  kind: trailerStopsTable.kind,
   originalLocation: trailerStopsTable.originalLocation,
   originalLat: trailerStopsTable.originalLat,
   originalLng: trailerStopsTable.originalLng,
@@ -19,7 +20,7 @@ const stopColumns = {
 };
 
 export class DrizzleTrailerStopRepository implements TrailerStopRepository {
-  async listVisible(): Promise<TrailerStop[]> {
+  async listVisible(kind: TrailerStopKind = "trailer"): Promise<TrailerStop[]> {
     // Filtrar solo por status no alcanza: nada marca una parada como
     // "completed" automáticamente, así que una parada vencida seguiría con
     // status "scheduled" para siempre. Excluir por endTime evita mostrar una
@@ -28,12 +29,16 @@ export class DrizzleTrailerStopRepository implements TrailerStopRepository {
     return db
       .select(stopColumns)
       .from(trailerStopsTable)
-      .where(and(ne(trailerStopsTable.status, "completed"), gte(trailerStopsTable.endTime, new Date())))
+      .where(and(eq(trailerStopsTable.kind, kind), ne(trailerStopsTable.status, "completed"), gte(trailerStopsTable.endTime, new Date())))
       .orderBy(asc(trailerStopsTable.startTime));
   }
 
-  async listAll(): Promise<TrailerStop[]> {
-    return db.select(stopColumns).from(trailerStopsTable).orderBy(asc(trailerStopsTable.startTime));
+  async listAll(kind: TrailerStopKind = "trailer"): Promise<TrailerStop[]> {
+    return db
+      .select(stopColumns)
+      .from(trailerStopsTable)
+      .where(eq(trailerStopsTable.kind, kind))
+      .orderBy(asc(trailerStopsTable.startTime));
   }
 
   async create(stop: NewTrailerStop): Promise<TrailerStop> {

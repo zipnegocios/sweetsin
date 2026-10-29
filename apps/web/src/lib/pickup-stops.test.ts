@@ -13,6 +13,7 @@ function stop(id: string, status: TrailerStop["status"], endTime: string): Trail
     startTime: new Date("2026-10-28T08:00:00Z"),
     endTime: new Date(endTime),
     status,
+    kind: "trailer",
     originalLocation: null,
     originalLat: null,
     originalLng: null,

@@ -21,6 +21,8 @@ function toSettings(row: typeof settingsTable.$inferSelect): AppSettings {
     tripMinutes: row.tripMinutes,
     maxDeliveryTrips: row.maxDeliveryTrips,
     showEstimateToCustomer: row.showEstimateToCustomer,
+    deliveryStockControlEnabled: row.deliveryStockControlEnabled,
+    deliveryStockMode: row.deliveryStockMode,
   };
 }
 
