@@ -19,15 +19,38 @@ export interface CartTrimChange {
 
 export type Fulfillment = "pickup" | "self_delivery";
 
+/** Stock público de la entrega a domicilio (solo ids y cantidades). */
+export interface DeliveryAvailability {
+  /** Control de stock a domicilio encendido. */
+  enabled: boolean;
+  /** Hay jornada (o parada, en modo compartido) abierta. */
+  open: boolean;
+  stock: Record<string, number>;
+}
+
+/** Interruptor apagado: la entrega no se limita, el checkout queda como antes. */
+export const EMPTY_DELIVERY_AVAILABILITY: DeliveryAvailability = { enabled: false, open: false, stock: {} };
+
+/**
+ * Stock que limita una entrega: solo con jornada abierta. Sin jornada no se recorta el carrito
+ * (el servidor rechaza el pedido y el cliente ve la salida por WhatsApp).
+ */
+export function deliveryAvailabilityList(delivery: DeliveryAvailability): ProductAvailability[] | null {
+  if (!delivery.enabled || !delivery.open) return null;
+  return Object.entries(delivery.stock).map(([productId, available]) => ({ productId, available }));
+}
+
 /**
  * Disponibilidad que limita el carrito según el tipo de entrega: la parada solo
- * aplica al retiro. Sin tipo elegido todavía (`null`), elegir parada implica retiro.
+ * aplica al retiro y la jornada (si hay control a domicilio) a la entrega. Sin tipo
+ * elegido todavía (`null`), elegir parada implica retiro.
  */
 export function stopAvailabilityFor(
   fulfillment: Fulfillment | null,
   availability: ProductAvailability[] | null,
+  deliveryAvailability: ProductAvailability[] | null = null,
 ): ProductAvailability[] | null {
-  return fulfillment === "self_delivery" ? null : availability;
+  return fulfillment === "self_delivery" ? deliveryAvailability : availability;
 }
 
 /**

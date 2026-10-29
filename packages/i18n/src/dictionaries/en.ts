@@ -172,6 +172,13 @@ export const en: Dictionary = {
     addressWarningsTitle: "Heads up: this can't be delivered as it is",
     leadMinutes: "{count} min",
     leadHours: "{count} h",
+    errorDeliveryRejected: "Delivery isn't open right now. Your cart is still here: choose pickup or message us on WhatsApp.",
+    deliveryRejectedTitle: "Delivery isn't available right now",
+    delivery_no_open_jornada: "We're not taking delivery orders at the moment.",
+    deliveryAvailableCount: "{count} left for delivery",
+    deliverySoldOut: "Sold out for delivery",
+    notForDelivery: "Not available for delivery",
+    trimNoticeTitleDelivery: "We adjusted your cart to what's available for delivery:",
   },
   auth: {
     loginTitle: "Sign in",

@@ -12,6 +12,7 @@ import type { UserRepository } from "../users/ports";
 import { listActiveStaff } from "../users/use-cases";
 import type { AppSettings, SettingsRepository } from "../settings";
 import { DeliveryRejectedError } from "../delivery-jornadas/errors";
+import { findDeliveryStop } from "../delivery-jornadas/use-cases";
 
 export async function createOrder(
   deps: {
@@ -161,11 +162,8 @@ async function deliveryStockControlMode(settings: SettingsRepository): Promise<A
   return s.deliveryStockControlEnabled ? s.deliveryStockMode : null;
 }
 
-// `separate`: la jornada (parada `delivery`) activa; `shared`: la parada del trailer activa.
-// Devuelve su id para ligar el pedido y valida las líneas contra su stock (revalidación; el
-// descuento todo o nada ocurre al confirmar el pago, igual que el retiro).
-// Decisión provisional: en `shared` con varias paradas activas (allowMultipleActiveStops) se usa la
-// más antigua, es decir la primera de listAll, que el repositorio ordena por startTime ascendente.
+// Resuelve la parada con findDeliveryStop, devuelve su id para ligar el pedido y valida las líneas
+// contra su stock (revalidación; el descuento todo o nada ocurre al confirmar el pago, igual que el retiro).
 async function resolveDeliveryStop(
   deps: { stops?: TrailerStopRepository; stock?: StockRepository },
   mode: AppSettings["deliveryStockMode"],
@@ -173,8 +171,7 @@ async function resolveDeliveryStop(
   enforceAvailability: boolean,
 ): Promise<string> {
   if (!deps.stops || !deps.stock) throw new Error("Delivery stock control requires stops and stock repositories");
-  const kind = mode === "separate" ? "delivery" : "trailer";
-  const stop = (await deps.stops.listAll(kind)).find((s) => s.status === "active");
+  const stop = await findDeliveryStop(deps.stops, mode);
   if (!stop) throw new DeliveryRejectedError([{ code: "no_open_jornada" }]);
   await assertStockLines(deps.stock, stop.id, input, enforceAvailability);
   return stop.id;

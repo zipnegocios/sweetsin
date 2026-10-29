@@ -1,5 +1,6 @@
 import type { TrailerStopRepository } from "../trailer-stops/ports";
 import type { TrailerStop } from "../trailer-stops/entities";
+import type { AppSettings } from "../settings";
 
 const JORNADA_HOURS = 24;
 
@@ -32,4 +33,18 @@ export async function closeJornada(deps: { stops: TrailerStopRepository }, id: s
   if (!stop || stop.kind !== "delivery") throw new Error("Stop not found");
   if (stop.status !== "active") throw new Error("Only open jornadas can be closed");
   await deps.stops.updateStatus(id, "completed");
+}
+
+/**
+ * Parada de la que descuenta una entrega con el control de stock a domicilio encendido:
+ * `separate` = la jornada activa; `shared` = la parada del trailer activa. null si no hay.
+ * Decisión provisional: en `shared` con varias activas (allowMultipleActiveStops) se usa la
+ * más antigua, la primera de listAll (el repositorio ordena por startTime ascendente).
+ */
+export async function findDeliveryStop(
+  stops: TrailerStopRepository,
+  mode: AppSettings["deliveryStockMode"],
+): Promise<TrailerStop | null> {
+  const kind = mode === "separate" ? "delivery" : "trailer";
+  return (await stops.listAll(kind)).find((s) => s.status === "active") ?? null;
 }

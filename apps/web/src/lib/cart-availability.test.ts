@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { limitFor, stopAvailabilityFor, trimCartToAvailability } from "./cart-availability";
+import {
+  EMPTY_DELIVERY_AVAILABILITY,
+  deliveryAvailabilityList,
+  limitFor,
+  stopAvailabilityFor,
+  trimCartToAvailability,
+} from "./cart-availability";
 
 const stopA = [
   { productId: "p1", available: 3 },
@@ -50,6 +56,26 @@ describe("stopAvailabilityFor", () => {
     expect(trimCartToAvailability(lines, stopAvailabilityFor("pickup", stopA), true).lines).toEqual([
       { productId: "p1", quantity: 3 },
     ]);
+  });
+});
+
+describe("stock de la entrega a domicilio", () => {
+  it("apagado o sin jornada abierta no limita (no recorta el carrito)", () => {
+    expect(deliveryAvailabilityList(EMPTY_DELIVERY_AVAILABILITY)).toBeNull();
+    expect(deliveryAvailabilityList({ enabled: true, open: false, stock: {} })).toBeNull();
+  });
+
+  it("con jornada abierta limita la entrega a su stock (sin fila = no se puede pedir)", () => {
+    const delivery = deliveryAvailabilityList({ enabled: true, open: true, stock: { p1: 2, p2: 0 } });
+    expect(delivery).toEqual([
+      { productId: "p1", available: 2 },
+      { productId: "p2", available: 0 },
+    ]);
+    const availability = stopAvailabilityFor("self_delivery", stopA, delivery);
+    expect(limitFor("p1", availability, true)).toBe(2);
+    expect(limitFor("p2", availability, true)).toBe(0);
+    expect(limitFor("p9", availability, true)).toBe(0);
+    expect(stopAvailabilityFor("pickup", stopA, delivery)).toBe(stopA);
   });
 });
 

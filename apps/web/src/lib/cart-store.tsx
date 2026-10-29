@@ -5,8 +5,11 @@ import type { Product } from "@workspace/domain/products";
 import { getLineTotalCents } from "@workspace/domain/pricing";
 import { getPickupStopsAction } from "@/app/actions/pickup-stops";
 import {
+  EMPTY_DELIVERY_AVAILABILITY,
+  deliveryAvailabilityList,
   limitFor,
   stopAvailabilityFor,
+  type DeliveryAvailability,
   trimCartToAvailability,
   type CartTrimChange,
   type Fulfillment,
@@ -30,6 +33,10 @@ interface CartContextValue {
   /** Paradas de retiro elegibles y la elegida (`null` = delivery o sin parada, como antes). */
   /** Reglas públicas del motor de capacidad (vacías con el motor apagado). */
   capacity: PublicCapacityData;
+  /** Stock de la entrega a domicilio (vacío con el control apagado). */
+  delivery: DeliveryAvailability;
+  /** Lo que limita una entrega (null = sin límite: control apagado o sin jornada abierta). */
+  deliveryAvailability: ProductAvailability[] | null;
   pickupStops: PickupStop[];
   selectedStop: PickupStop | null;
   selectStop: (stopId: string | null) => void;
@@ -65,11 +72,13 @@ export function CartProvider({
   products,
   pickup,
   capacity = EMPTY_PUBLIC_CAPACITY,
+  delivery: initialDelivery = EMPTY_DELIVERY_AVAILABILITY,
 }: {
   children: ReactNode;
   products: Product[];
   pickup: PickupStopsData;
   capacity?: PublicCapacityData;
+  delivery?: DeliveryAvailability;
 }) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -79,11 +88,16 @@ export function CartProvider({
   const [stopId, setStopId] = useState<string | null>(null);
   const [trimChanges, setTrimChanges] = useState<CartTrimChange[]>([]);
   const [fulfillment, setFulfillmentState] = useState<Fulfillment | null>(null);
+  const [delivery, setDelivery] = useState(initialDelivery);
 
   const autoSoldOutEnabled = pickup.autoSoldOutEnabled;
   const selectedStop = pickupStops.find((s) => s.stopId === stopId) ?? null;
+  const deliveryAvailability = deliveryAvailabilityList(delivery);
+  // Retiro: la parada elegida; entrega: la jornada abierta (si hay control a domicilio).
+  const availabilityFor = (f: Fulfillment | null, stopAvailability: ProductAvailability[] | null) =>
+    stopAvailabilityFor(f, stopAvailability, deliveryAvailability);
   const limitOf = (productId: string) =>
-    limitFor(productId, stopAvailabilityFor(fulfillment, selectedStop?.availability ?? null), autoSoldOutEnabled);
+    limitFor(productId, availabilityFor(fulfillment, selectedStop?.availability ?? null), autoSoldOutEnabled);
 
   // Recorta sobre el estado más reciente (updater), no sobre `items` del render: así no
   // resucita un carrito recién vaciado con clear() en el mismo evento. setTrimChanges es
@@ -96,10 +110,10 @@ export function CartProvider({
     });
   }
 
-  // La parada solo limita el carrito en retiro: elegir delivery lo libera; volver a retiro lo vuelve a ajustar.
+  // La parada solo limita el carrito en retiro y la jornada en delivery: cambiar de tipo vuelve a ajustarlo.
   const setFulfillment = (next: Fulfillment | null) => {
     setFulfillmentState(next);
-    retrim(stopAvailabilityFor(next, selectedStop?.availability ?? null));
+    retrim(availabilityFor(next, selectedStop?.availability ?? null));
   };
 
   useEffect(() => {
@@ -135,10 +149,21 @@ export function CartProvider({
   const selectStop = (nextStopId: string | null) => {
     const next = pickupStops.find((s) => s.stopId === nextStopId) ?? null;
     setStopId(next?.stopId ?? null);
-    retrim(stopAvailabilityFor(fulfillment, next?.availability ?? null));
+    retrim(availabilityFor(fulfillment, next?.availability ?? null));
   };
 
   const applyStockConflict = (available: ProductAvailability[]) => {
+    if (fulfillment === "self_delivery") {
+      if (!deliveryAvailability) return;
+      // Mismo criterio que el retiro, sobre el stock de la jornada.
+      const merged = [
+        ...deliveryAvailability.filter((a) => !items.some((i) => i.productId === a.productId)),
+        ...available,
+      ];
+      setDelivery((d) => ({ ...d, stock: Object.fromEntries(merged.map((a) => [a.productId, a.available])) }));
+      retrim(merged);
+      return;
+    }
     if (!selectedStop) return;
     // `available` trae solo los productos pedidos que tienen fila; un pedido sin fila ya no se vende ahí.
     const merged = [
@@ -146,7 +171,7 @@ export function CartProvider({
       ...available,
     ];
     setPickupStops((prev) => prev.map((s) => (s.stopId === selectedStop.stopId ? { ...s, availability: merged } : s)));
-    retrim(stopAvailabilityFor(fulfillment, merged));
+    retrim(availabilityFor(fulfillment, merged));
   };
 
   const refreshPickupStops = async () => {
@@ -154,7 +179,7 @@ export function CartProvider({
     setPickupStops(fresh.stops);
     const next = fresh.stops.find((s) => s.stopId === stopId) ?? null;
     setStopId(next?.stopId ?? null);
-    retrim(stopAvailabilityFor(fulfillment, next?.availability ?? null));
+    retrim(availabilityFor(fulfillment, next?.availability ?? null));
   };
 
   const add = (productId: string) => {
@@ -212,6 +237,8 @@ export function CartProvider({
         setQty,
         clear,
         capacity,
+        delivery,
+        deliveryAvailability,
         pickupStops,
         selectedStop,
         selectStop,

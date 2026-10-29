@@ -109,12 +109,23 @@ function MenuCard({ product, locale }: { product: Product; locale: "en" | "es" }
   const description = locale === "en" ? product.descriptionEn : product.descriptionEs;
   const price = (product.priceCents / 100).toFixed(2);
   const t = useTranslations("cart");
-  const { items, add, remove, selectedStop, autoSoldOutEnabled, limitOf, capacity } = useCart();
+  const { items, add, remove, selectedStop, autoSoldOutEnabled, limitOf, capacity, deliveryAvailability } = useCart();
   // Motor apagado = sin reglas = ninguna etiqueta. Texto (no solo color) para cada restricción de entrega.
   const rule = capacity.rules.find((r) => r.productId === product.id);
   const lead = rule?.leadTimeMinutes ? leadParts(rule.leadTimeMinutes) : null;
+  // Control de stock a domicilio con jornada abierta: mismo criterio de texto que la parada.
+  const deliveryRow = deliveryAvailability?.find((a) => a.productId === product.id);
+  const deliveryStockText = !deliveryAvailability
+    ? null
+    : !deliveryRow
+      ? t("notForDelivery")
+      : !autoSoldOutEnabled
+        ? null
+        : deliveryRow.available <= 0
+          ? t("deliverySoldOut")
+          : t("deliveryAvailableCount", { count: deliveryRow.available });
   const deliveryNotes = [
-    rule && !rule.soldOnline ? t("onlyAtTrailer") : null,
+    rule && !rule.soldOnline ? t("onlyAtTrailer") : deliveryStockText,
     rule?.soldOnline && rule.deliveryMaxQty !== null ? t("deliveryCapLabel", { count: rule.deliveryMaxQty }) : null,
     rule?.soldOnline && lead ? t("deliveryLeadLabel", { time: t(lead.key, { count: lead.count }) }) : null,
   ].filter(Boolean);

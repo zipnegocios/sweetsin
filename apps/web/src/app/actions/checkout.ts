@@ -4,6 +4,11 @@ import { z } from "zod";
 import { createOrder } from "@workspace/domain/orders";
 import { CapacityRejectedError, type CapacityReason } from "@workspace/domain/capacity";
 import {
+  DeliveryRejectedError,
+  findDeliveryStop,
+  type DeliveryRejectionReason,
+} from "@workspace/domain/delivery-jornadas";
+import {
   DrizzleOrderRepository,
   DrizzleProductRepository,
   DrizzleSettingsRepository,
@@ -77,7 +82,11 @@ export type PlaceOrderResult =
   /** El stock cambió: disponible ahora por producto pedido con fila en la parada (ausente = no se vende ahí). */
   | { ok: false; error: "stockChanged"; available: { productId: string; available: number }[] }
   /** El motor de capacidad rechazó la entrega a domicilio; el carrito no se toca. */
-  | { ok: false; error: "capacityRejected"; reasons: CapacityRejectionReason[]; whatsappUrl: string };
+  | { ok: false; error: "capacityRejected"; reasons: CapacityRejectionReason[]; whatsappUrl: string }
+  /** Control de stock a domicilio encendido y sin jornada (o parada) abierta; el carrito no se toca. */
+  | { ok: false; error: "deliveryRejected"; reasons: DeliveryRejectionReason[]; whatsappUrl: string };
+
+const WHATSAPP_URL = `https://wa.me/${BUSINESS_WHATSAPP}`;
 
 const STOP_UNAVAILABLE_ERRORS = ["Only pickup orders can target a stop", "Stop not found", "Stop not available"];
 const STOCK_CHANGED_ERRORS = [
@@ -90,7 +99,8 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   const parsed = checkoutSchema.parse(input);
   const stopId = parsed.fulfillmentType === "pickup" ? parsed.stopId ?? null : null;
 
-  const settings = await new DrizzleSettingsRepository().get();
+  const settingsRepo = new DrizzleSettingsRepository();
+  const settings = await settingsRepo.get();
   const deliveryFeeCents = parsed.fulfillmentType === "self_delivery" ? settings.deliveryFeeCents : 0;
   const stock = new DrizzleStockRepository();
   const stops = new DrizzleTrailerStopRepository();
@@ -110,6 +120,7 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
         stops,
         stock,
         capacity: new DrizzleCapacityRepository(),
+        settings: settingsRepo,
       },
       {
         customerId: null,
@@ -134,16 +145,28 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
         ok: false,
         error: "capacityRejected",
         reasons: await toRejectionReasons(err.reasons, products, parsed.locale),
-        whatsappUrl: `https://wa.me/${BUSINESS_WHATSAPP}`,
+        whatsappUrl: WHATSAPP_URL,
       };
+    }
+    if (err instanceof DeliveryRejectedError) {
+      return { ok: false, error: "deliveryRejected", reasons: err.reasons, whatsappUrl: WHATSAPP_URL };
     }
     const message = err instanceof Error ? err.message : "";
     if (stopId && STOP_UNAVAILABLE_ERRORS.includes(message)) return { ok: false, error: "stopUnavailable" };
-    if (message === "Product not available" && !stopId) return { ok: false, error: "stockChanged", available: [] };
-    if (stopId && STOCK_CHANGED_ERRORS.includes(message)) {
+    // Con el control a domicilio encendido, el dominio ligó la entrega a la jornada (o parada) activa:
+    // se vuelve a resolver aquí porque el error no trae su id.
+    const deliveryStock =
+      parsed.fulfillmentType === "self_delivery" && settings.deliveryStockControlEnabled && STOCK_CHANGED_ERRORS.includes(message);
+    const conflictStopId = deliveryStock ? (await findDeliveryStop(stops, settings.deliveryStockMode))?.id ?? null : stopId;
+    if (deliveryStock && !conflictStopId) {
+      // La jornada se cerró entre la validación y esta lectura.
+      return { ok: false, error: "deliveryRejected", reasons: [{ code: "no_open_jornada" }], whatsappUrl: WHATSAPP_URL };
+    }
+    if (message === "Product not available" && !conflictStopId) return { ok: false, error: "stockChanged", available: [] };
+    if (conflictStopId && STOCK_CHANGED_ERRORS.includes(message)) {
       // El dominio no dice qué línea falló: se devuelve el disponible actual de cada producto pedido
       // que tiene fila en la parada (los que no aparecen ya no se venden ahí).
-      const rows = await stock.listByStop(stopId);
+      const rows = await stock.listByStop(conflictStopId);
       return {
         ok: false,
         error: "stockChanged",

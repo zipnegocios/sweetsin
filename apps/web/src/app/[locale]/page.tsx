@@ -8,6 +8,7 @@ import { CheckoutModal } from "@/components/cart/checkout-modal";
 import { CartTrimNotice } from "@/components/cart/stop-selector";
 import { getPickupStopsAction } from "@/app/actions/pickup-stops";
 import { getPublicCapacityAction } from "@/app/actions/capacity-public";
+import { getDeliveryAvailability } from "@/app/actions/delivery-availability";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Hero } from "@/components/sections/hero";
@@ -28,14 +29,15 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const [products, pickup, capacity] = await Promise.all([
+  const [products, pickup, capacity, delivery] = await Promise.all([
     listAvailableProducts(new DrizzleProductRepository()),
     getPickupStopsAction(),
     getPublicCapacityAction(),
+    getDeliveryAvailability(),
   ]);
 
   return (
-    <CartProvider products={products} pickup={pickup} capacity={capacity}>
+    <CartProvider products={products} pickup={pickup} capacity={capacity} delivery={delivery}>
       <main className="w-full min-h-screen bg-sweet-dark text-cream selection:bg-sin-red selection:text-white pb-14 md:pb-0">
         <Navbar />
         <Hero />

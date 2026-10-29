@@ -170,6 +170,13 @@ export interface Dictionary {
     addressWarningsTitle: string;
     leadMinutes: string;
     leadHours: string;
+    errorDeliveryRejected: string;
+    deliveryRejectedTitle: string;
+    delivery_no_open_jornada: string;
+    deliveryAvailableCount: string;
+    deliverySoldOut: string;
+    notForDelivery: string;
+    trimNoticeTitleDelivery: string;
   };
   auth: {
     loginTitle: string;

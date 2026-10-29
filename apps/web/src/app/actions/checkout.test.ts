@@ -7,7 +7,9 @@ const state = vi.hoisted(() => ({
   autoSoldOutEnabled: true,
   createError: null as Error | null,
   stopStock: [] as Array<{ productId: string; currentStock: number }>,
-  allStops: [] as Array<{ status: string; endTime: Date }>,
+  allStops: [] as Array<{ id?: string; status: string; endTime: Date; kind?: string }>,
+  deliveryControl: false,
+  stockByStopCalls: [] as string[],
   findByIdCalls: 0,
   findByIdFails: false,
 }));
@@ -34,18 +36,24 @@ vi.mock("@workspace/db/repositories", () => ({
   },
   DrizzleCapacityRepository: class {},
   DrizzleStockRepository: class {
-    async listByStop() {
+    async listByStop(stopId: string) {
+      state.stockByStopCalls.push(stopId);
       return state.stopStock;
     }
   },
   DrizzleTrailerStopRepository: class {
-    async listAll() {
-      return state.allStops;
+    async listAll(kind?: string) {
+      return state.allStops.filter((s) => (s.kind ?? "trailer") === (kind ?? "trailer"));
     }
   },
   DrizzleSettingsRepository: class {
     async get() {
-      return { deliveryFeeCents: 500, autoSoldOutEnabled: state.autoSoldOutEnabled };
+      return {
+        deliveryFeeCents: 500,
+        autoSoldOutEnabled: state.autoSoldOutEnabled,
+        deliveryStockControlEnabled: state.deliveryControl,
+        deliveryStockMode: "separate",
+      };
     }
   },
   DrizzleEmailLogRepository: class {
@@ -61,6 +69,7 @@ vi.mock("@workspace/notifications", () => ({
 vi.mock("@/auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
 import { CapacityRejectedError } from "@workspace/domain/capacity";
+import { DeliveryRejectedError } from "@workspace/domain/delivery-jornadas";
 import { placeOrderAction, type PlaceOrderInput } from "./checkout";
 
 const base: PlaceOrderInput = {
@@ -88,6 +97,8 @@ beforeEach(() => {
   state.allStops = [];
   state.findByIdCalls = 0;
   state.findByIdFails = false;
+  state.deliveryControl = false;
+  state.stockByStopCalls.length = 0;
 });
 
 describe("placeOrderAction - stopId", () => {
@@ -263,5 +274,51 @@ describe("placeOrderAction - capacidad", () => {
       reasons: [{ code: "over_delivery_cap", productId: P1, allowedQty: 2 }],
     });
     expect(result.ok === false && result.error === "capacityRejected" && result.reasons[0]).not.toHaveProperty("productName");
+  });
+});
+
+describe("placeOrderAction - jornadas de delivery", () => {
+  const JORNADA = "55555555-5555-4555-8555-555555555555";
+
+  it("pasa settings a createOrder para que el dominio resuelva la jornada", async () => {
+    await placeOrderAction(base);
+    expect(state.deps[0]).toHaveProperty("settings");
+  });
+
+  it("devuelve deliveryRejected con razones y la misma salida de WhatsApp que capacidad", async () => {
+    state.deliveryControl = true;
+    state.createError = new DeliveryRejectedError([{ code: "no_open_jornada" }]);
+    const result = await placeOrderAction(base);
+    expect(result).toEqual({
+      ok: false,
+      error: "deliveryRejected",
+      reasons: [{ code: "no_open_jornada" }],
+      whatsappUrl: "https://wa.me/61433508831",
+    });
+    JSON.stringify(result);
+  });
+
+  it("interruptor apagado: un error de stock en una entrega sigue como hoy (sin leer jornadas)", async () => {
+    state.createError = new Error("Quantity exceeds availability");
+    state.allStops = [{ id: JORNADA, status: "active", endTime: new Date(), kind: "delivery" }];
+    await expect(placeOrderAction(base)).rejects.toThrow("Quantity exceeds availability");
+    expect(state.stockByStopCalls).toEqual([]);
+  });
+
+  it("encendido: si el stock de la jornada cambió devuelve su disponible", async () => {
+    state.deliveryControl = true;
+    state.createError = new Error("Quantity exceeds availability");
+    state.allStops = [{ id: JORNADA, status: "active", endTime: new Date(), kind: "delivery" }];
+    state.stopStock = [{ productId: P1, currentStock: 1 }];
+    const result = await placeOrderAction({ ...base, items: [{ productId: P1, quantity: 3 }] });
+    expect(result).toEqual({ ok: false, error: "stockChanged", available: [{ productId: P1, available: 1 }] });
+    expect(state.stockByStopCalls).toEqual([JORNADA]);
+  });
+
+  it("encendido: si la jornada se cerró entre medio responde deliveryRejected", async () => {
+    state.deliveryControl = true;
+    state.createError = new Error("Product not available at this stop");
+    const result = await placeOrderAction(base);
+    expect(result).toMatchObject({ ok: false, error: "deliveryRejected", reasons: [{ code: "no_open_jornada" }] });
   });
 });

@@ -48,7 +48,7 @@ export function StopSelector({ tone = "light" }: { tone?: "light" | "cream" }) {
 export function CartTrimNotice() {
   const t = useTranslations("cart");
   const locale = useLocale();
-  const { trimChanges, dismissTrimChanges, products } = useCart();
+  const { trimChanges, dismissTrimChanges, products, fulfillment } = useCart();
 
   if (trimChanges.length === 0) return null;
 
@@ -57,7 +57,7 @@ export function CartTrimNotice() {
       role="status"
       className="fixed left-4 right-4 bottom-20 md:bottom-6 md:left-auto md:right-6 md:max-w-sm z-[200] bg-white border border-sin-red/40 rounded-2xl shadow-[0_8px_32px_rgba(15,27,61,0.18)] p-4"
     >
-      <p className="text-[13px] font-medium text-navy mb-2">{t("trimNoticeTitle")}</p>
+      <p className="text-[13px] font-medium text-navy mb-2">{t(fulfillment === "self_delivery" ? "trimNoticeTitleDelivery" : "trimNoticeTitle")}</p>
       <ul className="text-[13px] text-navy/80 space-y-1 mb-3">
         {trimChanges.map((change) => {
           const product = products.find((p) => p.id === change.productId);

@@ -173,6 +173,13 @@ export const es: Dictionary = {
     addressWarningsTitle: "Ojo: esto no se podrá entregar a domicilio tal como está",
     leadMinutes: "{count} min",
     leadHours: "{count} h",
+    errorDeliveryRejected: "El delivery no está abierto en este momento. Tu carrito sigue aquí: elige retiro o escríbenos por WhatsApp.",
+    deliveryRejectedTitle: "El delivery no está disponible en este momento",
+    delivery_no_open_jornada: "Ahora mismo no estamos tomando pedidos a domicilio.",
+    deliveryAvailableCount: "Quedan {count} a domicilio",
+    deliverySoldOut: "Agotado a domicilio",
+    notForDelivery: "No disponible a domicilio",
+    trimNoticeTitleDelivery: "Ajustamos tu carrito a lo disponible para entrega a domicilio:",
   },
   auth: {
     loginTitle: "Iniciar sesión",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -55,9 +55,13 @@ export function CheckoutModal() {
     fulfillment,
     setFulfillment,
     capacity,
+    delivery,
   } = useCart();
   const [orderError, setOrderError] = useState("");
-  const [rejection, setRejection] = useState<{ reasons: CapacityRejectionReason[]; whatsappUrl: string } | null>(null);
+  const [rejection, setRejection] = useState<Extract<
+    PlaceOrderResult,
+    { error: "capacityRejected" | "deliveryRejected" }
+  > | null>(null);
   const [scheduledAt, setScheduledAt] = useState("");
 
   const [step, setStep] = useState<Step>("fulfillment");
@@ -194,10 +198,10 @@ export function CheckoutModal() {
     if (result.error === "stockChanged") {
       applyStockConflict(result.available);
       setOrderError(t("errorStockChanged"));
-    } else if (result.error === "capacityRejected") {
+    } else if (result.error === "capacityRejected" || result.error === "deliveryRejected") {
       // El carrito no se toca: el cliente puede ajustar o negociar por WhatsApp.
-      setRejection({ reasons: result.reasons, whatsappUrl: result.whatsappUrl });
-      setOrderError(t("errorCapacityRejected"));
+      setRejection(result);
+      setOrderError(t(result.error === "capacityRejected" ? "errorCapacityRejected" : "errorDeliveryRejected"));
     } else {
       await refreshPickupStops();
       setOrderError(t("errorStopUnavailable"));
@@ -330,23 +334,20 @@ export function CheckoutModal() {
             </p>
           )}
 
-          {rejection && (
-            <div role="alert" className="border border-sin-red/30 rounded-2xl p-4 mb-4 space-y-2">
-              <p className="font-medium text-navy text-[14px]">{t("capacityRejectedTitle")}</p>
-              <ul className="list-disc pl-5 space-y-1 text-[13px] text-navy/70">
-                {rejection.reasons.map((r, i) => (
-                  <ReasonItem key={i} reason={r} locale={locale} />
-                ))}
-              </ul>
-              <a
-                href={rejection.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center bg-navy text-white py-3 rounded-xl font-bold text-[14px] tracking-wide hover:bg-navy-mid transition-colors"
-              >
-                {t("capacityWhatsappButton")}
-              </a>
-            </div>
+          {rejection?.error === "capacityRejected" && (
+            <RejectionPanel title={t("capacityRejectedTitle")} whatsappUrl={rejection.whatsappUrl}>
+              {rejection.reasons.map((r, i) => (
+                <ReasonItem key={i} reason={r} locale={locale} />
+              ))}
+            </RejectionPanel>
+          )}
+
+          {rejection?.error === "deliveryRejected" && (
+            <RejectionPanel title={t("deliveryRejectedTitle")} whatsappUrl={rejection.whatsappUrl}>
+              {rejection.reasons.map((r, i) => (
+                <li key={i}>{t(`delivery_${r.code}`)}</li>
+              ))}
+            </RejectionPanel>
           )}
 
           {step === "fulfillment" && (
@@ -415,6 +416,12 @@ export function CheckoutModal() {
                   />
                   <p className="text-[12px] text-navy/60">{t("scheduleHint", { time: leadLabel })}</p>
                 </div>
+              )}
+              {/* Control a domicilio sin jornada abierta: se avisa antes, el servidor igual lo rechazaría. */}
+              {delivery.enabled && !delivery.open && !rejection && (
+                <RejectionPanel title={t("deliveryRejectedTitle")} whatsappUrl={`https://wa.me/${BUSINESS_WHATSAPP}`}>
+                  <li>{t("delivery_no_open_jornada")}</li>
+                </RejectionPanel>
               )}
               {addressWarnings.length > 0 && (
                 <div className="mb-4">
@@ -530,6 +537,24 @@ export function CheckoutModal() {
         </div>
       </div>
     </>
+  );
+}
+
+function RejectionPanel({ title, whatsappUrl, children }: { title: string; whatsappUrl: string; children: ReactNode }) {
+  const t = useTranslations("cart");
+  return (
+    <div role="alert" className="border border-sin-red/30 rounded-2xl p-4 mb-4 space-y-2">
+      <p className="font-medium text-navy text-[14px]">{title}</p>
+      <ul className="list-disc pl-5 space-y-1 text-[13px] text-navy/70">{children}</ul>
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full text-center bg-navy text-white py-3 rounded-xl font-bold text-[14px] tracking-wide hover:bg-navy-mid transition-colors"
+      >
+        {t("capacityWhatsappButton")}
+      </a>
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { openJornada, closeJornada } from "./use-cases";
+import { openJornada, closeJornada, findDeliveryStop } from "./use-cases";
 import { isStopConflictMessage } from "../trailer-stops/use-cases";
 import type { TrailerStop, NewTrailerStop } from "../trailer-stops/entities";
 import type { TrailerStopRepository } from "../trailer-stops/ports";
@@ -107,5 +107,20 @@ describe("closeJornada", () => {
   it("los rechazos de jornada son conflictos (409)", () => {
     expect(isStopConflictMessage("A jornada is already open")).toBe(true);
     expect(isStopConflictMessage("Only open jornadas can be closed")).toBe(true);
+  });
+});
+
+describe("findDeliveryStop", () => {
+  it("separate: la jornada activa; shared: la parada del trailer activa más antigua; null si no hay", async () => {
+    const stops = fakeStops([
+      stop({ id: "j0", status: "completed" }),
+      stop({ id: "t1", kind: "trailer" }),
+      stop({ id: "t2", kind: "trailer" }),
+      stop({ id: "j1" }),
+    ]);
+    expect((await findDeliveryStop(stops, "separate"))?.id).toBe("j1");
+    expect((await findDeliveryStop(stops, "shared"))?.id).toBe("t1");
+    expect(await findDeliveryStop(fakeStops([stop({ status: "completed" })]), "separate")).toBeNull();
+    expect(await findDeliveryStop(fakeStops([stop()]), "shared")).toBeNull();
   });
 });
