@@ -18,6 +18,9 @@ vi.mock("@workspace/db/repositories", () => ({
     async saveRuleWithSteps(r: object, s: object[]) { state.writes.push("rule+steps"); return { rule: r, steps: s }; }
     async lastModifiedAt() { return new Date("2026-01-02T03:04:05.000Z"); }
   },
+  DrizzleProductRepository: class {
+    async findById(id: string) { return id === PID ? { id } : null; }
+  },
   DrizzleOrderTimingRepository: class {
     async listForReport() { return []; }
     async itemsByOrder() { return new Map(); }
@@ -79,8 +82,16 @@ describe("/api/admin/capacity", () => {
     expect(state.writes).toEqual(["rule+steps"]);
   });
 
+  it("producto: PUT con UUID de un producto inexistente -> 404 sin escribir", async () => {
+    state.writes = [];
+    const missing = "99999999-9999-4999-8999-999999999999";
+    expect((await putProduct(req({ rule, steps: [] }), ctx(missing))).status).toBe(404);
+    expect(state.writes).toEqual([]);
+  });
+
   it("simulate: evalúa sin escribir; cantidad <= 0 -> 400", async () => {
     expect((await simulate(req({ lines: [{ productId: PID, quantity: 0 }] }))).status).toBe(400);
+    expect((await simulate(req({ lines: [{ productId: PID, quantity: 10_001 }] }))).status).toBe(400);
     expect((await simulate(req({ lines: [{ productId: PID, quantity: 1 }], scheduledFor: "no" }))).status).toBe(400);
     const res = await simulate(req({ lines: [{ productId: PID, quantity: 1 }] }));
     expect(res.status).toBe(200);

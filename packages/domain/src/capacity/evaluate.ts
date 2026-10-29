@@ -36,13 +36,19 @@ export interface DeliveryEvaluation {
   estimate: { prepSeconds: number; trips: number; transportMinutes: number };
 }
 
-const MAX_SCHEDULE_DAYS = 60;
+export const MAX_SCHEDULE_DAYS = 60;
+/** Tolerancia para la hora pedida frente a la antelación mínima (reloj del cliente, redondeo del selector). */
+export const LEAD_TIME_MARGIN_MINUTES = 5;
 const MINUTE_MS = 60_000;
 
 export function evaluateDeliveryOrder(
   input: DeliveryEvaluationInput,
 ): DeliveryEvaluation {
-  const { lines, rules, steps, settings, now, scheduledFor } = input;
+  const { rules, steps, settings, now, scheduledFor } = input;
+  // Líneas repetidas del mismo producto cuentan juntas: el tope no se esquiva partiendo la cantidad.
+  const merged = new Map<string, number>();
+  for (const l of input.lines) merged.set(l.productId, (merged.get(l.productId) ?? 0) + l.quantity);
+  const lines: CapacityLine[] = [...merged].map(([productId, quantity]) => ({ productId, quantity }));
   const prep = estimatePreparation(lines, rules, steps, settings.workAreaUnits);
   const totalUnits = lines.reduce((sum, l) => sum + l.quantity, 0);
   const transport = estimateTransport(
@@ -90,7 +96,7 @@ export function evaluateDeliveryOrder(
     reasons.push({ code: "scheduled_for_invalid" });
   } else if (leadMinutes > 0) {
     const earliestAt = new Date(now.getTime() + leadMinutes * MINUTE_MS);
-    if (scheduledFor === null || scheduledFor.getTime() < earliestAt.getTime()) {
+    if (scheduledFor === null || scheduledFor.getTime() < earliestAt.getTime() - LEAD_TIME_MARGIN_MINUTES * MINUTE_MS) {
       reasons.push({ code: "lead_time", productId: leadProductId, earliestAt });
     }
   }

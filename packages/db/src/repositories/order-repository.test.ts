@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { Order, TransitionContext } from "@workspace/domain/orders";
+import type { CapacityRepository } from "@workspace/domain/capacity";
 import { createOrder } from "@workspace/domain/orders";
 import { DrizzleProductRepository } from "./product-repository";
 import { DrizzleOrderRepository } from "./order-repository";
@@ -52,7 +53,16 @@ describe("DrizzleOrderRepository", () => {
     const orders = new DrizzleOrderRepository();
     const scheduledFor = new Date(Date.now() + 3_600_000);
     const order = await createOrder(
-      { products: new DrizzleProductRepository(), orders },
+      // Con el motor apagado scheduledFor no se guarda: se enciende con un repositorio mínimo y sin reglas.
+      {
+        products: new DrizzleProductRepository(),
+        orders,
+        capacity: {
+          getSettings: async () => ({ capacityEngineEnabled: true, workAreaUnits: null, vehicleCapacityUnits: null, tripMinutes: null, maxDeliveryTrips: null, showEstimateToCustomer: false }),
+          listRules: async () => [],
+          listSteps: async () => [],
+        } as unknown as CapacityRepository,
+      },
       {
         customerId: null,
         customerName: "Jane Doe",

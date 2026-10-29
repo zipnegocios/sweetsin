@@ -17,7 +17,6 @@ export async function getPublicCapacityAction(): Promise<PublicCapacityData> {
     ]);
     const availableIds = new Set(available.map((p) => p.id));
     return {
-      showEstimateToCustomer: settings.showEstimateToCustomer,
       rules: rules.filter((r) => availableIds.has(r.productId)).map(({ productId, soldOnline, deliveryMaxQty, leadTimeMinutes }) => ({
         productId,
         soldOnline,
@@ -25,7 +24,8 @@ export async function getPublicCapacityAction(): Promise<PublicCapacityData> {
         leadTimeMinutes,
       })),
     };
-  } catch {
+  } catch (error) {
+    console.error("getPublicCapacityAction failed", error);
     return EMPTY_PUBLIC_CAPACITY;
   }
 }

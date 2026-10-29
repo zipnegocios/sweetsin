@@ -209,6 +209,7 @@ export interface Dictionary {
     detailCustomer: string;
     detailAddress: string;
     detailDeliveryNotes: string;
+    detailScheduledFor: string;
     saveStatus: string;
     statusSaved: string;
     statusChangeError: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DrizzleCapacityRepository } from "@workspace/db/repositories";
+import { DrizzleCapacityRepository, DrizzleProductRepository } from "@workspace/db/repositories";
 import { authorizeAdmin } from "../../../_lib/authorize-admin";
 import { productRuleBodySchema } from "../../../_lib/capacity-body";
 import { domainErrorResponse, isUuid, notFoundResponse } from "../../../_lib/domain-error-response";
@@ -28,6 +28,7 @@ export async function PUT(req: Request, { params }: Ctx): Promise<Response> {
   const parsed = productRuleBodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   try {
+    if (!(await new DrizzleProductRepository().findById(id))) return notFoundResponse("Product not found");
     const repo = new DrizzleCapacityRepository();
     const { rule, steps } = await repo.saveRuleWithSteps(
       { productId: id, ...parsed.data.rule },

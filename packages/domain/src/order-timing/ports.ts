@@ -25,4 +25,6 @@ export interface TimingOrderRow {
 export interface OrderTimingRepository {
   /** Pedidos con `createdAt` en [from, to], opcionalmente de una sola parada. */
   listForReport(filter: { from: Date; to: Date; stopId?: string }): Promise<TimingOrderRow[]>;
+  /** Líneas (producto y cantidad) de los pedidos con `createdAt` en [from, to], por id de pedido. */
+  itemsByOrder(filter: { from: Date; to: Date }): Promise<Map<string, { productId: string; quantity: number }[]>>;
 }

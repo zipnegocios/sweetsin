@@ -6,6 +6,10 @@ import {
   earliestScheduleAt,
   capacityReasonMessage,
   leadParts,
+  minScheduleAt,
+  maxScheduleAt,
+  LEAD_TIME_MARGIN_MINUTES,
+  MAX_SCHEDULE_DAYS,
   type PublicCapacityData,
 } from "./capacity-public";
 
@@ -16,7 +20,7 @@ const rule = (productId: string, over: Partial<PublicCapacityData["rules"][numbe
   leadTimeMinutes: null,
   ...over,
 });
-const data = (rules: PublicCapacityData["rules"]): PublicCapacityData => ({ rules, showEstimateToCustomer: false });
+const data = (rules: PublicCapacityData["rules"]): PublicCapacityData => ({ rules });
 
 describe("deliveryBlockers", () => {
   it("con reglas vacías (motor apagado) no bloquea nada", () => {
@@ -84,5 +88,13 @@ describe("leadParts", () => {
     expect(leadParts(120)).toEqual({ key: "leadHours", count: 2 });
     expect(leadParts(90)).toEqual({ key: "leadMinutes", count: 90 });
     expect(leadParts(45)).toEqual({ key: "leadMinutes", count: 45 });
+  });
+});
+
+describe("límites de hora pedida", () => {
+  const now = new Date("2026-11-01T00:00:00.000Z");
+  it("el mínimo descuenta el margen del servidor y el máximo son 60 días", () => {
+    expect(minScheduleAt(now, 60).getTime()).toBe(now.getTime() + (60 - LEAD_TIME_MARGIN_MINUTES) * 60_000);
+    expect(maxScheduleAt(now).getTime()).toBe(now.getTime() + MAX_SCHEDULE_DAYS * 86_400_000);
   });
 });

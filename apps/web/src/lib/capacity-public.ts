@@ -1,4 +1,8 @@
+import { LEAD_TIME_MARGIN_MINUTES, MAX_SCHEDULE_DAYS } from "@workspace/domain/capacity";
 import type { CapacityRejectionReason } from "@/app/actions/checkout";
+
+// Mismos límites que aplica el servidor (dominio): la UI no los duplica.
+export { LEAD_TIME_MARGIN_MINUTES, MAX_SCHEDULE_DAYS };
 
 /** Reglas por producto que el sitio público puede conocer (nada de tiempos de preparación ni lotes). */
 export interface PublicCapacityRule {
@@ -10,14 +14,10 @@ export interface PublicCapacityRule {
 
 export interface PublicCapacityData {
   rules: PublicCapacityRule[];
-  showEstimateToCustomer: boolean;
 }
 
-/** Máximo de días a futuro para pedir hora; igual que el servidor (domain evaluate.ts). */
-export const MAX_SCHEDULE_DAYS = 60;
-
 /** Motor apagado: sin reglas, la UI queda igual que antes. */
-export const EMPTY_PUBLIC_CAPACITY: PublicCapacityData = { rules: [], showEstimateToCustomer: false };
+export const EMPTY_PUBLIC_CAPACITY: PublicCapacityData = { rules: [] };
 
 interface Line {
   productId: string;
@@ -54,6 +54,16 @@ export function requiredLeadMinutes(data: PublicCapacityData, lines: Line[]): nu
 
 export function earliestScheduleAt(now: Date, leadMinutes: number): Date {
   return new Date(now.getTime() + leadMinutes * 60_000);
+}
+
+/** Hora más temprana aceptada por el servidor: ahora + antelación - margen. */
+export function minScheduleAt(now: Date, leadMinutes: number): Date {
+  return new Date(earliestScheduleAt(now, leadMinutes).getTime() - LEAD_TIME_MARGIN_MINUTES * 60_000);
+}
+
+/** Hora más lejana aceptada por el servidor. */
+export function maxScheduleAt(now: Date): Date {
+  return earliestScheduleAt(now, MAX_SCHEDULE_DAYS * 24 * 60);
 }
 
 /** Razón del servidor -> clave i18n (`cart.capacity_<code>`) y sus valores. */

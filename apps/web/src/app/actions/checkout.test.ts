@@ -201,6 +201,12 @@ describe("placeOrderAction - deliveryNotes", () => {
   });
 });
 
+describe("placeOrderAction - cantidades", () => {
+  it("rechaza cantidades por encima de 10000", async () => {
+    await expect(placeOrderAction({ ...base, items: [{ productId: P1, quantity: 10_001 }] })).rejects.toThrow();
+  });
+});
+
 describe("placeOrderAction - capacidad", () => {
   const earliestAt = new Date("2026-11-01T01:00:00.000Z");
 

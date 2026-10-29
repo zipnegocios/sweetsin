@@ -33,6 +33,6 @@ export const productRuleBodySchema = z.object({
 });
 
 export const simulateBodySchema = z.object({
-  lines: z.array(z.object({ productId: z.string().uuid(), quantity: positiveInt })).min(1),
+  lines: z.array(z.object({ productId: z.string().uuid(), quantity: positiveInt.max(10_000) })).min(1),
   scheduledFor: z.iso.datetime({ offset: true }).optional(),
 });

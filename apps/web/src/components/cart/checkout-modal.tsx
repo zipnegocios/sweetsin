@@ -15,9 +15,9 @@ import { formatAdelaide, parseAdelaideLocal, toAdelaideLocalInput } from "@/lib/
 import {
   capacityReasonMessage,
   deliveryBlockers,
-  earliestScheduleAt,
+  maxScheduleAt,
+  minScheduleAt,
   leadParts,
-  MAX_SCHEDULE_DAYS,
   requiredLeadMinutes,
 } from "@/lib/capacity-public";
 
@@ -137,12 +137,12 @@ export function CheckoutModal() {
         setAddressError(t("scheduleRequired"));
         return;
       }
-      if (parseAdelaideLocal(scheduledAt).getTime() > earliestScheduleAt(new Date(), MAX_SCHEDULE_DAYS * 24 * 60).getTime()) {
+      if (parseAdelaideLocal(scheduledAt).getTime() > maxScheduleAt(new Date()).getTime()) {
         setAddressError(t("capacity_scheduled_for_invalid"));
         return;
       }
-      // Mismo corte que el servidor, con un minuto de margen por el redondeo del selector.
-      if (parseAdelaideLocal(scheduledAt).getTime() < earliestScheduleAt(new Date(), leadMinutes).getTime() - 60_000) {
+      // Mismo corte (y margen) que el servidor.
+      if (parseAdelaideLocal(scheduledAt).getTime() < minScheduleAt(new Date(), leadMinutes).getTime()) {
         setAddressError(t("scheduleTooSoon", { time: leadLabel }));
         return;
       }
@@ -252,6 +252,7 @@ export function CheckoutModal() {
             : "Pickup at the trailer",
         `Name: ${contact.name}`,
         `Phone: ${contact.phone}`,
+        ...(scheduledFor ? [`Requested time: ${formatAdelaide(new Date(scheduledFor), "en")}`] : []),
       ].join("\n");
 
       const whatsappUrl = `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(text)}`;
@@ -406,8 +407,8 @@ export function CheckoutModal() {
                   <input
                     type="datetime-local"
                     value={scheduledAt}
-                    min={toAdelaideLocalInput(earliestScheduleAt(new Date(), leadMinutes))}
-                    max={toAdelaideLocalInput(earliestScheduleAt(new Date(), MAX_SCHEDULE_DAYS * 24 * 60))}
+                    min={toAdelaideLocalInput(minScheduleAt(new Date(), leadMinutes))}
+                    max={toAdelaideLocalInput(maxScheduleAt(new Date()))}
                     onChange={(e) => setScheduledAt(e.target.value)}
                     aria-label={t("scheduleTitle")}
                     className={inputClass}

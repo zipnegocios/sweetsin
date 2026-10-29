@@ -1531,4 +1531,14 @@ describe("createOrder con motor de capacidad", () => {
     await createOrder({ products: products(), orders, capacity: capacity(true, 10) }, input({ scheduledFor }));
     expect(orders.created[0]?.scheduledFor).toEqual(scheduledFor);
   });
+
+  it("motor apagado o sin repositorio: no guarda scheduledFor", async () => {
+    const scheduledFor = new Date(Date.now() + 3_600_000);
+    const off = fakeOrderRepo();
+    await createOrder({ products: products(), orders: off, capacity: capacity(false) }, input({ scheduledFor }));
+    expect(off.created[0]?.scheduledFor).toBeNull();
+    const none = fakeOrderRepo();
+    await createOrder({ products: products(), orders: none }, input({ scheduledFor }));
+    expect(none.created[0]?.scheduledFor).toBeNull();
+  });
 });

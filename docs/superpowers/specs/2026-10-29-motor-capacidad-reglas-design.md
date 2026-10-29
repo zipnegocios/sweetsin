@@ -43,7 +43,7 @@ Anti-objetivos (sería un fracaso aunque "funcione"):
 8. **Resultado de la evaluación:** `{ ok, razones[], estimación }`. Una razón tiene código (`not_sold_online`, `over_delivery_cap`, `lead_time`, `over_vehicle_trips`) y los datos para mostrarla. El pedido se rechaza si hay al menos una razón con efecto de bloqueo.
 9. **Tope de viajes:** ajuste `maxDeliveryTrips` (vacío = sin tope). Si el pedido necesita más viajes, se rechaza con `over_vehicle_trips`.
 10. **Salida del cliente cuando se rechaza:** el mensaje explica qué producto o cantidad es el problema, cuánto sí se puede pedir y ofrece contactar al negocio por WhatsApp para negociarlo. No se pierde el carrito.
-11. **Motor apagado (`capacityEngineEnabled = false`):** no se aplica ninguna regla ni se muestra ninguna estimación. Es el valor por defecto.
+11. **Motor apagado (`capacityEngineEnabled = false`):** no se aplica ninguna regla, no se muestra ninguna estimación y no se guarda `scheduled_for`. Es el valor por defecto.
 12. **Los datos configurados no cambian pedidos ya creados:** la evaluación ocurre al crear el pedido; después no se reevalúa.
 
 ## 4. Datos
@@ -84,7 +84,7 @@ Puertos nuevos: `CapacityRulesRepository` (leer/guardar reglas, pasos y ajustes 
 13. Cambiar la configuración mientras hay un carrito abierto: la evaluación final ocurre al enviar el pedido; el servidor es la autoridad, la interfaz solo anticipa.
 14. Producto desactivado (`available = false`): lo sigue rechazando `createOrder` (proyecto 3), antes que el motor.
 15. Pedido mixto con café y dulces: se evalúa por producto, no por categoría.
-16. Estimación mostrada al cliente solo si `show_estimate_to_customer` está activo; siempre como "aproximado".
+16. `show_estimate_to_customer` se conserva como ajuste pero **aún no tiene efecto**: el cliente no ve ninguna estimación hasta que exista una real (la antelación mínima no es un tiempo de preparación).
 17. Dos admins editando reglas a la vez: gana el último guardado; se muestra la hora de la última modificación.
 18. Calibración sin datos medidos: se muestra "sin datos" y no se sugiere nada.
 19. Muestra pequeña (menos de 10 pedidos medidos): se muestra el valor con aviso, igual que el reporte del proyecto 3.
@@ -94,7 +94,7 @@ Puertos nuevos: `CapacityRulesRepository` (leer/guardar reglas, pasos y ajustes 
 - **`/admin/capacity`** (nueva, en el menú): interruptor general, valores del área de trabajo y del vehículo, y una tabla de productos con las cinco reglas editables por fila y sus pasos. Cada campo explica qué hace. Junto al tiempo configurado de cada producto se muestra la mediana medida del proyecto 3 y cuántos pedidos la respaldan.
 - **Simulador** en la misma página: el admin elige productos y cantidades y ve el resultado de `evaluateDeliveryOrder` (razones y tiempos) sin crear un pedido.
 - **Checkout:** si la entrega a domicilio se rechaza, mensaje con la razón y botón de WhatsApp; si un producto exige antelación, aparece un selector de fecha y hora (Australia/Adelaide). Menú: etiqueta "Solo en el trailer" y topes visibles cuando aplican.
-- **Detalle de pedido (admin):** muestra `scheduled_for` y la estimación calculada al crearlo.
+- **Detalle de pedido (admin):** muestra la hora pedida (`scheduled_for`, en Adelaida). Guardar la estimación calculada en el pedido queda para después (no se persiste).
 - Textos en inglés y español (tuteo).
 
 ## 8. API admin (para la futura APK admin)

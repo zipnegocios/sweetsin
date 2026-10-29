@@ -1520,6 +1520,9 @@ Sin intentos fallidos en la tarea de cierre. Se anotó que el seguimiento de ped
 ### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
 Sin intentos fallidos en la tarea de cierre. Rondas de corrección durante la ejecución (ver el ledger): T1 una ronda (`updated_at` al editar una regla), T2 una ronda (cantidad <= 0 y `productNames`), T4 una ronda (4 hallazgos: `lastModifiedAt`, simulación con el motor apagado, acotar `itemsByOrder`), T6 una ronda (estimación engañosa, rechazo obsoleto al navegar, fecha acotada a 60 días). Ninguna requirió rehacer una tarea.
 
+### Proyecto 4: ola de corrección tras la revisión final (2026-10-29)
+- Corregido: `evaluateDeliveryOrder` comparaba el tope por línea (5+5+5 con tope 5 pasaba); ahora suma por producto. `lead_time` tolera 5 minutos y `MAX_SCHEDULE_DAYS`/`LEAD_TIME_MARGIN_MINUTES` se exportan del dominio. Con el motor apagado `scheduledFor` ya no se guarda. `showEstimateToCustomer` se quitó de la acción pública (no tiene efecto). `itemsByOrder` quedó en el puerto `OrderTimingRepository`; en `CLAUDE.md` la calibración vive en `apps/web/src/lib/capacity-calibration.ts` (`buildCalibration`), no en el dominio. Spec §3, §6.16 y §7 enmendados: el detalle muestra la hora pedida y guardar la estimación queda para después.
+
 ## Próximos pasos
 
 - **Costo de Google Routes (tráfico por tramo = SKU Enterprise):** configurar en Google Cloud una cuota diaria de la Routes API y una alerta de presupuesto. Enterprise: 1.000 llamadas gratis/mes y USD 15,00 por 1.000 (consultado el 2026-10-26); la app refresca la ruta cada 120 s con el mapa visible y no recalcula al volver a primer plano si la ruta tiene menos de 60 s.

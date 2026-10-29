@@ -4,7 +4,7 @@ import {
   type PrepStep,
   type ProductCapacityRule,
 } from "@workspace/domain/capacity";
-import { percentile, segmentDurations, type TimingOrderRow } from "@workspace/domain/order-timing";
+import { percentile, segmentDurations, type OrderTimingRepository, type TimingOrderRow } from "@workspace/domain/order-timing";
 import { DrizzleCapacityRepository, DrizzleOrderTimingRepository } from "@workspace/db/repositories";
 
 const MIN_SAMPLE = 10;
@@ -63,8 +63,8 @@ export function buildCalibration(input: {
 export async function loadCalibration(
   now = new Date(),
   capacity: CapacityRepository = new DrizzleCapacityRepository(),
+  timing: OrderTimingRepository = new DrizzleOrderTimingRepository(),
 ): Promise<CalibrationRow[]> {
-  const timing = new DrizzleOrderTimingRepository();
   const range = { from: new Date(now.getTime() - WINDOW_DAYS * 86_400_000), to: now };
   const rows = await timing.listForReport(range);
   const [items, rules, steps, settings] = await Promise.all([

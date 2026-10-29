@@ -48,8 +48,10 @@ export async function createOrder(
     discountCents += lineDiscountCents;
   }
 
+  // La hora pedida solo se guarda si el motor la evaluó (encendido); si no, no tiene significado.
+  let scheduledFor: Date | null = null;
   if (input.fulfillmentType === "self_delivery" && deps.capacity) {
-    await assertDeliveryCapacity(deps.capacity, input);
+    if (await assertDeliveryCapacity(deps.capacity, input)) scheduledFor = input.scheduledFor ?? null;
   }
 
   const totalCents = subtotalCents - discountCents + input.deliveryFeeCents;
@@ -72,15 +74,16 @@ export async function createOrder(
     channel: input.channel,
     stripePaymentIntentId: null,
     assignedDeliveryUserId: null,
-    scheduledFor: input.scheduledFor ?? null,
+    scheduledFor,
     items,
   });
 }
 
 // El servidor es la autoridad: con el motor apagado no se evalúa nada.
-async function assertDeliveryCapacity(capacity: CapacityRepository, input: NewOrderInput): Promise<void> {
+/** Devuelve si el motor evaluó (true) o estaba apagado (false). */
+async function assertDeliveryCapacity(capacity: CapacityRepository, input: NewOrderInput): Promise<boolean> {
   const settings = await capacity.getSettings();
-  if (!settings.capacityEngineEnabled) return;
+  if (!settings.capacityEngineEnabled) return false;
   const [rules, steps] = await Promise.all([capacity.listRules(), capacity.listSteps()]);
   const stepsByProduct = new Map<string, typeof steps>();
   for (const step of steps) stepsByProduct.set(step.productId, [...(stepsByProduct.get(step.productId) ?? []), step]);
@@ -93,6 +96,7 @@ async function assertDeliveryCapacity(capacity: CapacityRepository, input: NewOr
     scheduledFor: input.scheduledFor ?? null,
   });
   if (!result.ok) throw new CapacityRejectedError(result.reasons);
+  return true;
 }
 
 // Valida un pedido de retiro contra la parada elegida: tipo, estado, vigencia, fila de stock y (si se exige) cantidad.

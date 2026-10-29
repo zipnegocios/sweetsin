@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CapacitySettings, ProductCapacityRule } from "./entities";
-import { evaluateDeliveryOrder } from "./evaluate";
+import { evaluateDeliveryOrder, LEAD_TIME_MARGIN_MINUTES } from "./evaluate";
 
 const now = new Date("2026-10-29T10:00:00Z");
 const rule = (o: Partial<ProductCapacityRule> = {}): ProductCapacityRule => ({
@@ -115,4 +115,25 @@ describe("evaluateDeliveryOrder", () => {
     expect(run(1, rule({ leadTimeMinutes: 60 }), settings(), inMin(-5)).reasons).toEqual([
       { code: "scheduled_for_invalid" },
     ]));
+
+  it("suma líneas repetidas del mismo producto antes de comprobar el tope", () => {
+    const r = evaluateDeliveryOrder({
+      lines: [
+        { productId: "p", quantity: 5 },
+        { productId: "p", quantity: 5 },
+      ],
+      rules: new Map([["p", rule({ deliveryMaxQty: 5 })]]),
+      steps: new Map(),
+      settings: settings(),
+      now,
+      scheduledFor: null,
+    });
+    expect(r.reasons).toEqual([{ code: "over_delivery_cap", productId: "p", allowedQty: 5 }]);
+  });
+
+  it("da un margen a lead_time: justo dentro del margen pasa, fuera no", () => {
+    const base = rule({ leadTimeMinutes: 120 });
+    expect(run(1, base, settings(), inMin(120 - LEAD_TIME_MARGIN_MINUTES)).ok).toBe(true);
+    expect(run(1, base, settings(), inMin(120 - LEAD_TIME_MARGIN_MINUTES - 1)).reasons[0]?.code).toBe("lead_time");
+  });
 });

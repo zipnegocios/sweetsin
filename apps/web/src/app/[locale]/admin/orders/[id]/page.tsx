@@ -2,6 +2,7 @@ import { hasAttentionActions } from "@/lib/order-attention";
 import { notFound } from "next/navigation";
 import type { Locale } from "next-intl";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { formatAdelaide } from "@/lib/adelaide-time";
 import { Link } from "@/i18n/navigation";
 import { DrizzleOrderRepository } from "@workspace/db/repositories";
 import { OrderStatusForm } from "@/components/admin/order-status-form";
@@ -31,6 +32,9 @@ export default async function AdminOrderDetailPage({
         <p className="text-sm">{order.customerName} — {order.customerEmail} — {order.customerPhone}</p>
         {order.deliveryAddress && (
           <p className="text-sm mt-1">{t("detailAddress")}: {order.deliveryAddress}</p>
+        )}
+        {order.scheduledFor && (
+          <p className="text-sm mt-1">{t("detailScheduledFor")}: {formatAdelaide(order.scheduledFor, locale)}</p>
         )}
         {order.deliveryNotes?.trim() && (
           <p className="text-sm mt-1">{t("detailDeliveryNotes")}: {order.deliveryNotes}</p>

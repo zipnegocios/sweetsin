@@ -27,7 +27,7 @@ const checkoutSchema = z
     phone: z.string().trim().min(1),
     email: z.string().trim().email(),
     channel: z.enum(["web", "whatsapp"]),
-    items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1),
+    items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(10_000) })).min(1),
     locale: z.enum(["en", "es"]),
     /** Hora pedida (ISO); solo para entrega a domicilio. */
     scheduledFor: z.string().datetime().optional(),
