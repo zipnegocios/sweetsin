@@ -39,7 +39,8 @@ describe("DrizzleTrailerStopRepository", () => {
   });
 
   it("separa las jornadas de delivery de las paradas del trailer en los listados", async () => {
-    const created = await repo.create({ ...base("delivery", 0, DAY, "active"), kind: "delivery" });
+    // "scheduled" para no chocar con el índice de una sola jornada abierta (DB compartida).
+    const created = await repo.create({ ...base("delivery", 0, DAY, "scheduled"), kind: "delivery" });
     expect(created.kind).toBe("delivery");
     const ids = (list: { id: string }[]) => list.map((s) => s.id);
     expect(ids(await repo.listAll())).not.toContain(created.id);
@@ -48,6 +49,16 @@ describe("DrizzleTrailerStopRepository", () => {
     expect((await repo.findById(created.id))?.kind).toBe("delivery");
     const plain = await repo.create(base("trailer", 0, DAY, "scheduled"));
     expect(plain.kind).toBe("trailer");
+  });
+
+  it("una segunda jornada activa se rechaza con 'A jornada is already open' (índice único parcial)", async () => {
+    const jornada = () => repo.create({ ...base("jornada", 0, DAY, "active"), kind: "delivery" });
+    // Si ya hay una jornada real abierta en la DB compartida, la primera también choca: ambas deben rechazarse igual.
+    const hasOpen = (await repo.listAll("delivery")).some((s) => s.status === "active");
+    if (!hasOpen) await jornada();
+    await expect(jornada()).rejects.toThrow("A jornada is already open");
+    // Una parada del trailer activa no está limitada por el índice.
+    await expect(repo.create({ ...base("trailer-active", 0, DAY, "active") })).resolves.toMatchObject({ kind: "trailer" });
   });
 
   it("listVisible includes future scheduled and cancelled; excludes completed and ended cancelled", async () => {

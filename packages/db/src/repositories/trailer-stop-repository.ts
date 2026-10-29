@@ -1,7 +1,7 @@
 import { and, asc, count, eq, gte, inArray, ne } from "drizzle-orm";
 import type { NewTrailerStop, TrailerStop, TrailerStopKind, TrailerStopRepository } from "@workspace/domain/trailer-stops";
 import { db } from "../index";
-import { ordersTable, stockEventsTable, stopProductStockTable, trailerStopsTable } from "../schema";
+import { ONE_OPEN_JORNADA_INDEX, ordersTable, stockEventsTable, stopProductStockTable, trailerStopsTable } from "../schema";
 
 const stopColumns = {
   id: trailerStopsTable.id,
@@ -42,8 +42,15 @@ export class DrizzleTrailerStopRepository implements TrailerStopRepository {
   }
 
   async create(stop: NewTrailerStop): Promise<TrailerStop> {
-    const [inserted] = await db.insert(trailerStopsTable).values(stop).returning(stopColumns);
-    return inserted;
+    try {
+      const [inserted] = await db.insert(trailerStopsTable).values(stop).returning(stopColumns);
+      return inserted;
+    } catch (error) {
+      // Dos aperturas concurrentes: el índice único parcial rechaza la segunda (drizzle envuelve el error en .cause).
+      const pg = ((error as { cause?: unknown })?.cause ?? error) as { code?: string; constraint?: string };
+      if (pg?.code === "23505" && pg.constraint === ONE_OPEN_JORNADA_INDEX) throw new Error("A jornada is already open");
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<TrailerStop | null> {

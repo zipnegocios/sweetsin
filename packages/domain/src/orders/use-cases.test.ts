@@ -1321,6 +1321,15 @@ describe("createOrder con parada", () => {
     );
   });
 
+  it("suma las líneas repetidas de un producto: 3 + 3 contra stock 5 se rechaza", async () => {
+    const repeated = input({ items: [{ productId: "p1", quantity: 3 }, { productId: "p1", quantity: 3 }] });
+    await expect(createOrder(deps(fakeStop(), stockRows(5, 5)), repeated)).rejects.toThrow("Quantity exceeds availability");
+    await expect(createOrder(deps(fakeStop(), stockRows(6, 5)), repeated)).resolves.toMatchObject({ stopId: "stop-1" });
+    await expect(
+      createOrder(deps(fakeStop(), stockRows(5, 5)), repeated, { enforceAvailability: false }),
+    ).resolves.toMatchObject({ stopId: "stop-1" });
+  });
+
   it("sin parada no valida parada ni stock", async () => {
     await expect(createOrder({ products: products(), orders: fakeOrderRepo() }, input({ stopId: null }))).resolves.toMatchObject({
       stopId: null,
@@ -1679,6 +1688,15 @@ describe("createOrder con control de stock a domicilio (jornadas)", () => {
     await expect(
       createOrder(deps(), input({ items: [{ productId: "p1", quantity: 3 }] }), { enforceAvailability: false }),
     ).resolves.toMatchObject({ stopId: "jornada-1" });
+  });
+
+  it("(c) suma las líneas repetidas de un producto contra el stock de la jornada", async () => {
+    await expect(
+      createOrder(
+        { products: products(), orders: fakeOrderRepo(), stops: fakeStopRepo([jornada()]), stock: fakeStockRepo(jornadaRows(5, 5)), settings: appSettings() },
+        input({ items: [{ productId: "p1", quantity: 3 }, { productId: "p1", quantity: 3 }] }),
+      ),
+    ).rejects.toThrow("Quantity exceeds availability");
   });
 
   it("(d) producto sin fila de stock en la jornada: rechazo", async () => {

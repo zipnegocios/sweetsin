@@ -145,10 +145,13 @@ async function assertStockLines(
   input: NewOrderInput,
   enforceAvailability: boolean,
 ): Promise<void> {
-  for (const line of input.items) {
-    const row = await stock.findByStopAndProduct(stopId, line.productId);
+  // Las líneas repetidas de un producto se suman antes de comparar (igual que el motor de capacidad).
+  const totals = new Map<string, number>();
+  for (const line of input.items) totals.set(line.productId, (totals.get(line.productId) ?? 0) + line.quantity);
+  for (const [productId, quantity] of totals) {
+    const row = await stock.findByStopAndProduct(stopId, productId);
     if (!row) throw new Error("Product not available at this stop");
-    if (enforceAvailability && line.quantity > row.currentStock) throw new Error("Quantity exceeds availability");
+    if (enforceAvailability && quantity > row.currentStock) throw new Error("Quantity exceeds availability");
   }
 }
 
@@ -161,6 +164,8 @@ async function deliveryStockControlMode(settings: SettingsRepository): Promise<A
 // `separate`: la jornada (parada `delivery`) activa; `shared`: la parada del trailer activa.
 // Devuelve su id para ligar el pedido y valida las líneas contra su stock (revalidación; el
 // descuento todo o nada ocurre al confirmar el pago, igual que el retiro).
+// Decisión provisional: en `shared` con varias paradas activas (allowMultipleActiveStops) se usa la
+// más antigua, es decir la primera de listAll, que el repositorio ordena por startTime ascendente.
 async function resolveDeliveryStop(
   deps: { stops?: TrailerStopRepository; stock?: StockRepository },
   mode: AppSettings["deliveryStockMode"],
