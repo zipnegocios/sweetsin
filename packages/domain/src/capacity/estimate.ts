@@ -31,13 +31,17 @@ export function estimatePreparation(
   const perProduct = lines.map(({ productId, quantity }) => {
     const rule = rules.get(productId);
     const productSteps = steps.get(productId) ?? [];
-    const batches = Math.ceil(
-      quantity / unitsPerBatch(quantity, workAreaUnits, rule?.batchUnits ?? null),
-    );
+    const qty = Math.max(0, quantity);
+    const batches =
+      qty === 0
+        ? 0
+        : Math.ceil(
+            qty / unitsPerBatch(qty, workAreaUnits, rule?.batchUnits ?? null),
+          );
     const hasBatchTime = rule?.batchSeconds != null;
     let seconds = hasBatchTime ? batches * (rule?.batchSeconds ?? 0) : 0;
     for (const step of productSteps) {
-      seconds += step.seconds * (step.mode === "per_batch" ? batches : quantity);
+      seconds += step.seconds * (step.mode === "per_batch" ? batches : qty);
     }
     return {
       productId,

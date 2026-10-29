@@ -76,4 +76,43 @@ describe("evaluateDeliveryOrder", () => {
     expect(
       run(99, rule({ soldOnline: false }), settings({ capacityEngineEnabled: false })),
     ).toMatchObject({ ok: true, reasons: [] }));
+  it("dos productos: solo el que tiene tope bloquea", () => {
+    const r = evaluateDeliveryOrder({
+      lines: [{ productId: "a", quantity: 99 }, { productId: "b", quantity: 6 }],
+      rules: new Map([
+        ["a", rule({ productId: "a" })],
+        ["b", rule({ productId: "b", deliveryMaxQty: 5 })],
+      ]),
+      steps: new Map(),
+      settings: settings(),
+      now,
+      scheduledFor: null,
+    });
+    expect(r.reasons).toEqual([{ code: "over_delivery_cap", productId: "b", allowedQty: 5 }]);
+  });
+  it("producto sin regla: sin limite", () =>
+    expect(
+      evaluateDeliveryOrder({
+        lines: [{ productId: "x", quantity: 99 }],
+        rules: new Map(),
+        steps: new Map(),
+        settings: settings(),
+        now,
+        scheduledFor: null,
+      }).ok,
+    ).toBe(true));
+  it("60 dias exactos pasa, +1 s rechaza", () => {
+    expect(run(1, rule(), settings(), inMin(60 * 1440)).ok).toBe(true);
+    expect(
+      run(1, rule(), settings(), new Date(inMin(60 * 1440).getTime() + 1000)).reasons[0].code,
+    ).toBe("scheduled_for_invalid");
+  });
+  it("lead_time informa productId", () =>
+    expect(run(1, rule({ leadTimeMinutes: 60 })).reasons[0]).toMatchObject({
+      productId: "p",
+    }));
+  it("scheduled_for_invalid tiene prioridad sobre lead_time", () =>
+    expect(run(1, rule({ leadTimeMinutes: 60 }), settings(), inMin(-5)).reasons).toEqual([
+      { code: "scheduled_for_invalid" },
+    ]));
 });

@@ -28,7 +28,6 @@ export interface DeliveryEvaluationInput {
   settings: CapacitySettings;
   now: Date;
   scheduledFor: Date | null;
-  productNames?: Map<string, string>;
 }
 
 export interface DeliveryEvaluation {
@@ -56,6 +55,7 @@ export function evaluateDeliveryOrder(
     trips: transport.trips,
     transportMinutes: transport.minutes,
   };
+  // Con el motor apagado igual se devuelve `estimate`; quien consume debe ignorarlo.
   if (!settings.capacityEngineEnabled) return { ok: true, reasons: [], estimate };
 
   const reasons: CapacityReason[] = [];

@@ -50,6 +50,32 @@ describe("estimatePreparation", () => {
     }));
 });
 
+describe("estimatePreparation casos limite", () => {
+  it("cantidad 0 o negativa = 0 s", () => {
+    expect(prep(0, rule()).seconds).toBe(0);
+    expect(prep(0, rule({ batchUnits: null }), [step("per_batch", 5)]).seconds).toBe(0);
+    expect(prep(-3, rule()).seconds).toBe(0);
+  });
+  it("solo area nula / solo lote nulo", () => {
+    expect(prep(100, rule({ batchUnits: 25 })).seconds).toBe(360);
+    expect(prep(100, rule({ batchUnits: null }), [], 20).seconds).toBe(450);
+  });
+  it("batchSeconds nulo con pasos", () =>
+    expect(prep(10, rule({ batchSeconds: null }), [step("per_unit", 2)])).toMatchObject({
+      seconds: 20,
+      perProduct: [{ hasData: true }],
+    }));
+  it("suma varios productos", () => {
+    const r = estimatePreparation(
+      [{ productId: "a", quantity: 50 }, { productId: "b", quantity: 100 }],
+      new Map([["a", rule({ productId: "a" })], ["b", rule({ productId: "b" })]]),
+      new Map(),
+      null,
+    );
+    expect(r.seconds).toBe(90 + 180);
+  });
+});
+
 describe("estimateTransport", () => {
   it("250 uds, vehiculo 100 = 3 viajes", () =>
     expect(estimateTransport(250, 100, 20)).toEqual({ trips: 3, minutes: 60 }));
