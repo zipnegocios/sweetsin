@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-_Proyecto 3 (operación del trailer y medición) cerrado: ver las subsecciones del 2026-10-28 en cada sección._
+_Proyectos 3 y 4 cerrados (operación del trailer y medición; motor de capacidad y reglas): ver las subsecciones del 2026-10-28 y 2026-10-29 en cada sección._
 
 Ejecutar `docs/superpowers/plan-desarrollo.md` fase por fase, sin adelantar
 trabajo de fases posteriores. Sesión 1: roadmap completo (Fases 1-8) +
@@ -66,6 +66,9 @@ Retomar en una sesión nueva: **lograr que el mapa embebido de la app del delive
 ### Sesión plantillas de stock (2026-10-28)
 - Meta: proyecto 2 de 4. Plantillas de stock reutilizables (nombre + productos con cantidad) para crear paradas del trailer con un clic, y edición del stock de una parada ya existente. Spec: `docs/superpowers/specs/2026-10-28-plantillas-stock-design.md`; plan: `docs/superpowers/plans/2026-10-28-plantillas-stock.md`; ledger: `.superpowers/sdd/2026-10-28-plantillas-stock/progress.md`.
 
+
+### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
+Meta: que la entrega a domicilio respete topes por producto (se vende en línea, cantidad máxima, antelación mínima) y límites de preparación/traslado, con estimaciones calibradas contra los tiempos medidos del proyecto 3. El retiro en la parada nunca se limita. Interruptor `capacityEngineEnabled` **apagado por defecto**. Spec: `docs/superpowers/specs/2026-10-29-motor-capacidad-reglas-design.md`; plan: `docs/superpowers/plans/2026-10-29-motor-capacidad-reglas.md`; ledger: `.superpowers/sdd/2026-10-29-motor-capacidad-reglas/progress.md`. Lo siguiente es el proyecto 5 (jornadas de delivery).
 
 ## Estado actual
 
@@ -447,6 +450,16 @@ Entregado: apertura/cierre de paradas, stock en vivo (reposición/merma), pedido
 
 **Filas de prueba sobrantes en la DB compartida (inventario solo lectura, sin borrar nada):** 99 pedidos, todos de pruebas (Test 45, Jane Doe 18, List Test A/B 9+9, Status Test 9, Customer History Test 9); 106 productos "Test Product" de 122 (16 reales); usuarios de prueba: Test Customer 45, Customer History Test 45, Auth Test Customer 44, Locale Test User 30, Delivery Test 10, Test Staff 10 (`@sweetsin.test`), Qa test2 1. Limpias: plantillas de stock (0), `stop_product_stock` (0), `stock_events` (0), `order_status_events` (0), sin huérfanos. Las 3 paradas son reales. Ambiguo: 31 `event_bookings` (no se inspeccionó su origen), usuarios Gustavo Amarista (customer y delivery `gus1@zipnegocios.com`), Charles Dispatcher y Steve Prep (parecen cuentas de trabajo reales). Pendiente decisión del owner sobre limpieza.
 
+
+### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
+Tareas 1-6 hechas y en `main` (commits `df6d3a9` a `f423681`, base `93179f5`); la Tarea 7 es esta documentación.
+- **Hecho:** esquema y repositorio (T1), dominio puro `packages/domain/src/capacity` (T2), integración en `createOrder` con `CapacityRejectedError` (T3), API admin `/api/admin/capacity/**` con simulador y calibración (T4), página `/admin/capacity` (T5), sitio público y checkout con rechazo + WhatsApp, selector de hora y topes visibles en el menú (T6).
+- **Verificación al cierre de T6:** typecheck OK; tests web 323, domain 325, db 68, mobile 275; build OK. **No se ejercitó en un navegador** (sin DevTools MCP).
+- **Rulings:** R1, cada implementador hace `git add` solo de sus archivos, commit y push a `main` (regla permanente del owner). R2, el simulador evalúa con el motor forzado a encendido (el admin prueba reglas antes de activarlo); costo: no refleja el estado real del interruptor.
+- **Decisiones de calibración (T4):** "preparación" = tramo `prep` del proyecto 3; solo cuentan pedidos de una línea con cantidad 1 en los últimos 90 días (un pedido con varios productos no permite repartir el tiempo con honestidad); mediana; menos de 10 muestras = aviso; sin datos = null y no se sugiere nada.
+- **Pública (T6):** la acción pública expone solo 4 campos (`soldOnline`, `deliveryMaxQty`, `leadTimeMinutes`, `showEstimateToCustomer`); por eso la "estimación aproximada" al cliente se limita a la antelación mínima y el tiempo de preparación real no se expone. El número de WhatsApp vive en `apps/web/src/lib/business-contact.ts`.
+- **Limitaciones aceptadas (spec §9):** cada pedido se evalúa aislado (no sabe cuántos pedidos grandes hay en cola; la carga conjunta queda para cuando haya datos de medición); la estimación suma productos en secuencia (conservadora, saldrá alta si el negocio trabaja en paralelo); sin horario de atención (`scheduled_for` solo valida antelación mínima y un máximo de 60 días).
+- **Limpieza de datos de prueba ejecutada el 2026-10-29:** 143 pedidos, 65 productos y 209 usuarios de prueba borrados de la DB compartida, con respaldo fuera del repo (`backup-pre-limpieza.json` en el scratchpad de la sesión). Esto resuelve el pendiente de limpieza anotado en el proyecto 3.
 
 ## Archivos y cambios
 
@@ -861,6 +874,12 @@ Detalle por tarea en `.superpowers/sdd/2026-10-20-apk-fundacion-delivery-offline
 ### Proyecto 3: operación del trailer y medición (2026-10-28)
 Commits `git log --oneline fab1603..HEAD`. Esquema (aplicado con `db push`): tabla `order_status_events`, `stock_events.order_id`, enum `sale_reversal`, `orders.attention_reason`, seis columnas en `settings`. Dominio en `packages/domain` (stock, órdenes, reporte), repositorios en `packages/db`, Route Handlers/Server Actions y páginas `/admin/reports/fulfillment`, `/admin/settings` en `apps/web`. Detalle por tarea en `.superpowers/sdd/2026-10-28-operacion-trailer-medicion/task-N-report.md`. Este cierre solo tocó `CLAUDE.md` y `handoff.md`.
 
+
+### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
+- Esquema (aplicado con `db push`, solo aditivo): tablas `product_capacity_rules` y `product_prep_steps` (único `(product_id, position)`), enum `prep_step_mode`, seis columnas nuevas en `settings` y `orders.scheduled_for`. `DrizzleCapacityRepository` (validación Zod, enteros > 0) y `DrizzleOrderTimingRepository.itemsByOrder(orderIds)` (lectura, para calibrar).
+- Dominio: `packages/domain/src/capacity/**` (export `./capacity`); `createOrder` recibe `capacity` opcional; `AppSettings` ampliado.
+- Web: `apps/web/src/app/api/admin/capacity/**` (`settings`, `products/[id]`, `simulate`, `calibration`) con esquemas en `api/admin/_lib/capacity-body.ts`; `lib/capacity-simulate.ts`, `lib/capacity-calibration.ts`, `lib/capacity-public.ts` y `lib/business-contact.ts`; acciones `admin-capacity.ts` y `capacity-public.ts`; página `/admin/capacity`; `checkout.ts` (`toRejectionReasons`), `checkout-modal.tsx`, `menu-grid.tsx`, `cart-store.tsx`, `footer.tsx`, `events.tsx`; claves `cart.*` y de capacidad en `packages/i18n` (en/es con paridad).
+- `CLAUDE.md`: bullet del proyecto 4 en Architecture decisions.
 
 ## Intentos fallidos
 
@@ -1498,6 +1517,9 @@ Commits `git log --oneline fab1603..HEAD`. Esquema (aplicado con `db push`): tab
 Sin intentos fallidos en la tarea de cierre. Se anotó que el seguimiento de pedidos de prueba acumulados en la DB compartida es un problema recurrente (los tests de `packages/db` no limpian todo lo que crean).
 
 
+### Proyecto 4: motor de capacidad y reglas por producto (2026-10-29)
+Sin intentos fallidos en la tarea de cierre. Rondas de corrección durante la ejecución (ver el ledger): T1 una ronda (`updated_at` al editar una regla), T2 una ronda (cantidad <= 0 y `productNames`), T4 una ronda (4 hallazgos: `lastModifiedAt`, simulación con el motor apagado, acotar `itemsByOrder`), T6 una ronda (estimación engañosa, rechazo obsoleto al navegar, fecha acotada a 60 días). Ninguna requirió rehacer una tarea.
+
 ## Próximos pasos
 
 - **Costo de Google Routes (tráfico por tramo = SKU Enterprise):** configurar en Google Cloud una cuota diaria de la Routes API y una alerta de presupuesto. Enterprise: 1.000 llamadas gratis/mes y USD 15,00 por 1.000 (consultado el 2026-10-26); la app refresca la ruta cada 120 s con el mapa visible y no recalcula al volver a primer plano si la ruta tiene menos de 60 s.
@@ -1820,3 +1842,25 @@ Sin intentos fallidos en la tarea de cierre. Se anotó que el seguimiento de ped
 **Menores diferidos (ledger `progress.md`):** sin índice en `stock_events.order_id`; tests de concurrencia/restock débiles; `resolveAttention` sin guarda SQL de estado (TOCTOU) y `markAsPaid` pisa `attentionReason`; `decrementForOrder` tras reversa vuelve a descontar; TOCTOU parked en `cancelTrailerStop` (ventana de ms, solo admin); reporte: tamaños ordenados como string, suma por staff excede el total, sin tope de rango ni zona en datetimes; UI: id de 8 chars, contraste 11px, N+1 en `AttentionBadge`, nombre solo en inglés, `cancelArmed` sin reinicio; carrito: ids duplicados no se suman, errores por string exacto, sin refresco de disponibilidad, `listAll()` crece, textos con voseo, `zod` en vez de `zod/v4` en assign/route.
 
 **Siguientes proyectos:** proyecto 4 (motor de capacidad/reglas calibrado con tiempos medidos); proyecto 5 (jornadas de delivery); rama 404 del despachador en la APK mobile (hoy se muestra como conflicto); ejercitar todo lo anterior en un navegador; decidir con el owner la limpieza de filas de prueba.
+
+
+### Próximos pasos: proyecto 4 (2026-10-29)
+**Guía de prueba manual en navegador (spec §10):**
+1. En `/admin/capacity`, encender el motor y configurar un producto con tope de entrega 5 (con "Se vende en línea" activo). Completar de paso área de trabajo, vehículo y minutos por viaje.
+2. En el sitio público, agregar 6 unidades de ese producto, elegir entrega a domicilio y enviar: debe rechazar con la razón (tope 5, puedes pedir hasta 5) y el botón de WhatsApp, sin vaciar el carrito.
+3. Con el mismo carrito de 6, elegir **retiro**: debe pasar (el retiro no lo limita el motor; solo el stock).
+4. Antelación: poner 120 min a un producto, pedir entrega sin hora (debe pedir una) y con una hora a 30 min (rechazo `lead_time` con la hora mínima); luego una hora válida.
+5. Simulador: elegir productos y cantidades y revisar razones y tiempos; confirmar que no crea pedido y que funciona con el motor apagado (se fuerza a encendido).
+6. Calibración: revisar la lista de productos con mediana medida vs configurada y el tamaño de muestra; sin datos debe mostrar "sin datos". Hace falta haber recorrido pedidos de una línea con cantidad 1 por `in_prep` y `ready_for_pickup`.
+7. Apagar el motor y repetir el paso 2: el pedido debe pasar sin ninguna regla.
+
+**Menores diferidos (ledger `progress.md` del proyecto 4):**
+- T1: test `getSettings` frágil en DB compartida; los rechazos no verifican que no se escribió nada; `lastModifiedAt` no refleja el borrado total de pasos (documentado).
+- T3: `toRejectionReasons` hacía `findById` por razón (N+1; ya deduplicado por `productId` y tolerante a fallos en T6); datetime sin offset (resuelto con `toISOString` en T6); duplicación literal de WhatsApp (resuelta con `business-contact.ts`); mensaje genérico en la UI (resuelto en T6).
+- T4: `simulateAction` devuelve error genérico ante cualquier fallo; patrón `isInvalid` indirecto; `itemsByOrder` sin test de integración contra DB.
+- T5: la tabla solo lista productos disponibles (la regla persiste al reactivar); el simulador ignora líneas inválidas sin aviso; el error `invalid` es genérico y sin `aria-invalid`; faltan tests de las claves `capReason_*`/`Help` del diccionario.
+- T6: `catch` silencioso en la acción pública sin log; el cart drawer no muestra avisos (solo el paso de dirección); el `min` del input de fecha lee `new Date()` en cada render.
+- Pendiente de confirmar con el dueño (spec §11): las decisiones marcadas "(mi decisión)", si el cliente debe ver la estimación (`showEstimateToCustomer`, apagado) y el número de WhatsApp al que se redirige.
+- Spec §7 pedía mostrar `scheduled_for` y la estimación en el detalle de pedido admin: ninguna página admin lo muestra hoy (solo se guarda en `orders.scheduled_for`); queda pendiente.
+
+**Siguiente proyecto:** proyecto 5 (jornadas de delivery + stock compartido/separado); después, auth por token para la APK admin y ejercitar todo en un navegador.
