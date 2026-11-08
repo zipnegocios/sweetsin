@@ -1,14 +1,22 @@
-# [Project name]
+# CLAUDE.md
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# Sweet Sin
+
+Sitio bilingüe (EN/ES) de un trailer de postres en Adelaide con carrito y checkout de invitado, panel admin (pedidos, paradas, jornadas de delivery, stock, capacidad) y una APK Android de staff para despacho y delivery.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/web run dev` — run the Next.js 15 app (sitio público + panel admin). Scaffold vacío hasta Fase 2.
+- `pnpm --filter @workspace/web run dev` — run the Next.js 15 app (sitio público + panel admin).
 - `pnpm --filter @workspace/web-legacy run dev` — run the discarded Vite prototype (reference only, not deployed).
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm run test` — Vitest suite across `packages/domain` and `packages/db` (the latter needs `packages/db/.env` with `DATABASE_URL` — hits the real Postgres instance)
+- `pnpm run test` — Vitest en todos los paquetes que tienen `test` (`packages/domain`, `db`, `i18n`, `notifications`, `apps/web`, `apps/mobile`); `packages/db` necesita `packages/db/.env` con `DATABASE_URL` y pega contra la Postgres real (compartida con producción).
+- Un solo paquete / un solo archivo / un solo test: `pnpm --filter @workspace/domain run test`, `pnpm --filter @workspace/domain exec vitest run src/orders/use-cases.test.ts`, agregar `-t "nombre del test"`. El paquete mobile se llama `mobile` (no `@workspace/mobile`): `pnpm --filter mobile run test`.
+- `pnpm --filter @workspace/web run lint` — ESLint (solo `apps/web` tiene lint).
+- `pnpm --filter mobile run start` — Expo (ver bullets de build de desarrollo más abajo).
+- `packages/db` también expone `push-force`: **no usarlo** (DB compartida con producción, ver Gotchas).
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/db run seed` — carga/actualiza el contenido real de `products` y `trailer_stops` (idempotente; no crea duplicados)
 - `pnpm run deploy:migrate` — frozen install + DB schema push (run on deploy)
@@ -43,7 +51,7 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-- `apps/web` — **Next.js 15**: sitio público + panel admin. Actúa como adaptador de entrada/salida del núcleo hexagonal (Server Actions / Route Handlers inyectando repositorios de `packages/db` en los casos de uso de `packages/domain`). Scaffold vacío hasta Fase 2.
+- `apps/web` — **Next.js 15**: sitio público + panel admin. Actúa como adaptador de entrada/salida del núcleo hexagonal (Server Actions / Route Handlers inyectando repositorios de `packages/db` en los casos de uso de `packages/domain`).
 - `apps/web-legacy` — prototipo Vite + React descartado, mantenido solo como referencia visual/de copy durante la migración. No se deploya más. Se elimina en Fase 8.
 - `apps/mobile` — Expo, solo Android: APK de staff enfocada en el delivery (login por PIN, cola offline, evidencia, ruta/ETA, turno con seguimiento). Código por carpetas en `src/`: `offline/` (SQLite + cola de comandos), `evidence/`, `maps/`, `contact/` (WhatsApp: `toWhatsAppNumber`/`whatsappUrl`), `format/` (`formatCents`, montos AUD `$x.xx`; también lo usa el despachador), `tracking/`, `dispatch/` (lógica pura de la pantalla del despachador: `nextAction`, `classifyDispatchResponse`, `interpretLoad`, tipos), `design-system/` (atómico: atoms/molecules/organisms/templates + `themes/`), `i18n/`, `api/`. La pantalla del despachador (`screens/DespachadorQueueScreen.tsx`) ya existe; mapa de flota, admin, TV y pedidos presenciales quedan diferidos (spec: `docs/superpowers/specs/2026-10-20-apk-multirol-design.md`).
 - `packages/domain` — núcleo hexagonal: entidades, puertos (interfaces) y casos de uso en TypeScript puro. Cero imports de Next.js, Drizzle, Stripe, Expo, etc.
@@ -161,9 +169,9 @@ Sitio público bilingüe de Sweet Sin (inglés en la raíz `/`, español en `/es
 
 > ⚠️ Topología provisoria post-Fase 1, a rediseñar en Fase 8: `apps/api` ya no existe (su servicio en EasyPanel debe pausarse/eliminarse manualmente — el build va a seguir fallando con "open Dockerfile: no such file or directory" hasta que se haga). `apps/web-legacy` (el viejo prototipo Vite) conserva su `Dockerfile` pero ya no se deploya.
 
-- `apps/web/Dockerfile` → Next.js. Build context = repo root. Runtime temporal con `next start` (reutiliza el stage de build) en vez de `output: "standalone"` — se optimiza cuando se revise la topología completa en Fase 8. Sirve el scaffold vacío hasta Fase 2.
+- `apps/web/Dockerfile` → Next.js. Build context = repo root. Runtime temporal con `next start` (reutiliza el stage de build) en vez de `output: "standalone"` — se optimiza cuando se revise la topología completa en Fase 8.
 - Postgres: managed by EasyPanel (separate service in the same project).
-- No CI/tests configured yet — verify with `pnpm run typecheck`, `pnpm run test` and `pnpm run build` before deploying.
+- No hay CI para la web: verificar con `pnpm run typecheck`, `pnpm run test` y `pnpm run build` antes de deployar. Los únicos workflows de GitHub son los manuales de la APK (`build-apk.yml`, `build-dev-apk.yml`).
 
 ## Pointers
 
